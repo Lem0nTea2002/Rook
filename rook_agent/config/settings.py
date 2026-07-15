@@ -92,6 +92,15 @@ class AppConfig:
                 return value
         return default
 
+    def get_section_value(self, section: str, name: str, *, default: Any = None) -> Any:
+        """读取嵌套配置原值，项目配置覆盖全局配置。"""
+
+        for config in (self.project_config, self.global_config):
+            section_value = config.get(section) if config else None
+            if isinstance(section_value, dict) and name in section_value:
+                return section_value[name]
+        return default
+
     @property
     def loaded_config_paths(self) -> list[Path]:
         """已经存在并被加载的配置文件路径。"""
