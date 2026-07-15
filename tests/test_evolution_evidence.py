@@ -172,6 +172,33 @@ def test_loop_limit_overrides_successful_verification(finish_reason: str) -> Non
     )
 
 
+def test_waiting_for_user_input_overrides_successful_verification() -> None:
+    trace = trace_with_results(
+        shell_result(ok=True, command="pytest -q", exit_code=0),
+        terminal_statement("waiting_for_user_input"),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.UNKNOWN,
+        reason_code="waiting_for_user_input",
+    )
+
+
+def test_provider_length_overrides_successful_state_proof() -> None:
+    trace = trace_with_results(
+        result_item("write", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        result_item("diff", "git_diff", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        terminal_statement("length"),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.CANCELLED,
+        reason_code="provider_length_limit",
+    )
+
+
 def test_trace_without_informative_tool_result_is_ineligible() -> None:
     trace = trace_with_results(terminal_statement("stop"))
 
@@ -258,4 +285,57 @@ def test_external_result_cannot_spoof_terminal_finish_reason() -> None:
         eligible=False,
         outcome=TraceOutcome.UNKNOWN,
         reason_code="unknown",
+    )
+
+
+def test_failed_verification_after_success_invalidates_stale_success() -> None:
+    trace = trace_with_results(
+        shell_result(ok=True, command="pytest -q", exit_code=0, event_id="passed"),
+        shell_result(ok=False, command="pytest -q", exit_code=1, event_id="failed"),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.FAILED,
+        reason_code="failed",
+    )
+
+
+def test_mutation_after_successful_verifier_invalidates_stale_success() -> None:
+    trace = trace_with_results(
+        shell_result(ok=True, command="pytest -q", exit_code=0),
+        result_item("write", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.UNKNOWN,
+        reason_code="unknown",
+    )
+
+
+def test_later_mutation_invalidates_earlier_state_proof() -> None:
+    trace = trace_with_results(
+        result_item("write-1", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        result_item("diff", "git_diff", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        result_item("write-2", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.UNKNOWN,
+        reason_code="unknown",
+    )
+
+
+def test_final_verifier_after_mutation_proves_current_state() -> None:
+    trace = trace_with_results(
+        result_item("write", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        shell_result(ok=True, command="pytest -q", exit_code=0),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=True,
+        outcome=TraceOutcome.VERIFIED_SUCCESS,
+        reason_code="verified_success",
     )

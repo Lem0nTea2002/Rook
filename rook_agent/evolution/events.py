@@ -74,10 +74,12 @@ _EVENT_REASON_CODES = {
             "control_only",
             "failed",
             "no_informative_result",
+            "provider_length_limit",
             "soft_completion_disabled",
             "tool_limit_reached",
             "unfinished_todo",
             "unknown",
+            "waiting_for_user_input",
         }
     ),
     "skill_delta_proposed": frozenset({"accepted"}),

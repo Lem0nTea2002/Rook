@@ -122,3 +122,21 @@ def test_append_forge_event_keeps_valid_created_skill_audit_fields(tmp_path) -> 
         "skill_path": ".rook/skills/cmd-directory-switching/SKILL.md",
         "version": 1,
     }
+
+
+@pytest.mark.parametrize("reason_code", ["waiting_for_user_input", "provider_length_limit"])
+def test_append_forge_event_keeps_terminal_skip_reason_codes(tmp_path, reason_code: str) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_forge")
+
+    append_forge_event(
+        writer,
+        "forge_trace_skipped",
+        segment_id=SEGMENT_ID,
+        reason_code=reason_code,
+        evidence_count=2,
+        outcome=TraceOutcome.UNKNOWN,
+        is_closed=False,
+    )
+
+    assert store.list_events("sess_forge")[0].payload["reason_code"] == reason_code

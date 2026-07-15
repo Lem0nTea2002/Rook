@@ -61,6 +61,19 @@ def test_is_verification_command_rejects_compound_shell_commands() -> None:
     assert not is_verification_command('pytest "unterminated')
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "pytest $(malicious)",
+        "pytest `malicious`",
+        "pytest <(malicious)",
+        "npm run build $(malicious)",
+    ],
+)
+def test_is_verification_command_rejects_shell_and_process_substitution(command: str) -> None:
+    assert not is_verification_command(command)
+
+
 def test_successful_shell_verification_result() -> None:
     result = ToolResult(
         name="shell",

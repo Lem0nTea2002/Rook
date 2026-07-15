@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from rook_agent.agent.verification import is_successful_verification_result
+from rook_agent.agent.verification import (
+    is_successful_verification_result,
+    is_verification_command,
+)
 from rook_agent.evolution.models import (
     EligibilityDecision,
     EvidenceItem,
@@ -20,6 +23,8 @@ _DETERMINISTIC_STATE_READ_TOOLS = frozenset(
 )
 _CANCELLED_FINISH_REASONS = frozenset({"cancelled", "interrupted"})
 _LIMIT_FINISH_REASONS = frozenset({"tool_round_limit", "provider_call_limit", "turn_timeout"})
+_WAITING_FINISH_REASONS = frozenset({"waiting_for_user_input"})
+_PROVIDER_LENGTH_FINISH_REASONS = frozenset({"length"})
 
 
 class EvidenceClassifier:
@@ -36,6 +41,10 @@ class EvidenceClassifier:
             return _decision(False, TraceOutcome.CANCELLED, "cancelled")
         if terminal_reason in _LIMIT_FINISH_REASONS:
             return _decision(False, TraceOutcome.CANCELLED, "tool_limit_reached")
+        if terminal_reason in _WAITING_FINISH_REASONS:
+            return _decision(False, TraceOutcome.UNKNOWN, "waiting_for_user_input")
+        if terminal_reason in _PROVIDER_LENGTH_FINISH_REASONS:
+            return _decision(False, TraceOutcome.CANCELLED, "provider_length_limit")
 
         latest_todos = _latest_successful_todos(trace.evidence)
         if latest_todos is not None and any(
@@ -50,7 +59,12 @@ class EvidenceClassifier:
             return _decision(False, TraceOutcome.UNKNOWN, reason_code)
 
         verifier_index = _last_successful_verifier_index(trace.evidence)
-        if verifier_index is not None:
+        failed_verifier_index = _last_failed_verifier_index(trace.evidence)
+        mutation_index = _last_successful_mutation_index(trace.evidence)
+        if (
+            verifier_index is not None
+            and verifier_index > max(failed_verifier_index, mutation_index)
+        ):
             recovered = any(
                 item.ok is False and item.tool_name not in CONTROL_TOOLS
                 for item in trace.evidence[:verifier_index]
@@ -59,8 +73,15 @@ class EvidenceClassifier:
                 return _decision(True, TraceOutcome.RECOVERED_FAILURE, "recovered_and_verified")
             return _decision(True, TraceOutcome.VERIFIED_SUCCESS, "verified_success")
 
-        if _has_post_mutation_state_proof(trace.evidence):
+        state_proof_index = _post_mutation_state_proof_index(
+            trace.evidence,
+            mutation_index=mutation_index,
+        )
+        if state_proof_index is not None and state_proof_index > failed_verifier_index:
             return _decision(True, TraceOutcome.STATE_VERIFIED_SUCCESS, "state_verified_success")
+
+        if failed_verifier_index > mutation_index:
+            return _decision(False, TraceOutcome.FAILED, "failed")
 
         has_successful_result = any(item.ok is True for item in informative_items)
         soft_completion = trace.is_closed and bool(trace.final_answer.strip()) and has_successful_result
@@ -120,17 +141,55 @@ def _last_successful_verifier_index(evidence: tuple[EvidenceItem, ...]) -> int |
     return latest
 
 
-def _has_post_mutation_state_proof(evidence: tuple[EvidenceItem, ...]) -> bool:
-    mutation_seen = False
-    for item in evidence:
-        if item.source != EvidenceSource.WORKSPACE_STATE or item.ok is not True:
+def _last_failed_verifier_index(evidence: tuple[EvidenceItem, ...]) -> int:
+    latest = -1
+    for index, item in enumerate(evidence):
+        if not _is_verification_evidence(item):
             continue
-        if item.tool_name in _MUTATION_TOOLS:
-            mutation_seen = True
-            continue
-        if mutation_seen and item.tool_name in _DETERMINISTIC_STATE_READ_TOOLS:
-            return True
-    return False
+        exit_code = item.data.get("exit_code")
+        if item.ok is False or (isinstance(exit_code, int) and exit_code != 0):
+            latest = index
+    return latest
+
+
+def _is_verification_evidence(item: EvidenceItem) -> bool:
+    if (
+        item.source != EvidenceSource.LOCAL_EXECUTION
+        or item.tool_name not in {"shell", "diagnostics"}
+    ):
+        return False
+    command = item.data.get("command")
+    return isinstance(command, str) and is_verification_command(command)
+
+
+def _last_successful_mutation_index(evidence: tuple[EvidenceItem, ...]) -> int:
+    latest = -1
+    for index, item in enumerate(evidence):
+        if (
+            item.source == EvidenceSource.WORKSPACE_STATE
+            and item.ok is True
+            and item.tool_name in _MUTATION_TOOLS
+        ):
+            latest = index
+    return latest
+
+
+def _post_mutation_state_proof_index(
+    evidence: tuple[EvidenceItem, ...],
+    *,
+    mutation_index: int,
+) -> int | None:
+    if mutation_index < 0:
+        return None
+    latest: int | None = None
+    for index, item in enumerate(evidence[mutation_index + 1 :], start=mutation_index + 1):
+        if (
+            item.source == EvidenceSource.WORKSPACE_STATE
+            and item.ok is True
+            and item.tool_name in _DETERMINISTIC_STATE_READ_TOOLS
+        ):
+            latest = index
+    return latest
 
 
 def _decision(eligible: bool, outcome: TraceOutcome, reason_code: str) -> EligibilityDecision:
