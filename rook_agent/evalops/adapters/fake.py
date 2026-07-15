@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+import ctypes
+from ctypes import wintypes
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
+import errno
+import os
 from pathlib import Path
+import stat
+import tempfile
 import threading
 from types import MappingProxyType
 
@@ -44,8 +50,13 @@ class FakeAgentScript:
     latency_ms: int = 0
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "writes", MappingProxyType(dict(self.writes)))
-        copied_events = tuple(MappingProxyType(dict(event)) for event in self.raw_events)
+        writes: dict[str, str] = {}
+        for path, content in self.writes.items():
+            if not isinstance(path, str) or not isinstance(content, str):
+                raise TypeError("fake writes require string paths and content")
+            writes[path] = content
+        object.__setattr__(self, "writes", MappingProxyType(writes))
+        copied_events = tuple(_deep_freeze(event) for event in self.raw_events)
         object.__setattr__(self, "raw_events", copied_events)
         if self.latency_ms < 0:
             raise ValueError("fake latency_ms cannot be negative")
@@ -165,20 +176,28 @@ class FakeAgentAdapter:
                 error_message=f"no fake script declared for case {prepared.spec.case.id}",
             )
 
+        trace = _validate_outcome_terminal(trace, script.outcome)
+
         try:
-            targets = _validate_write_targets(prepared.workspace, script.writes)
-        except ValueError as exc:
+            _write_workspace_files(prepared.workspace, script.writes)
+        except ValueError:
             return self._result(
                 prepared,
                 status=RunStatus.INFRA_ERROR,
                 trace=trace,
                 raw_ref=artifact.relative_path,
                 error_code="fake_workspace_escape",
-                error_message=str(exc),
+                error_message="fake write path escaped the workspace",
             )
-        for target, content in targets:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
+        except Exception as exc:
+            return self._result(
+                prepared,
+                status=RunStatus.INFRA_ERROR,
+                trace=trace,
+                raw_ref=artifact.relative_path,
+                error_code="fake_workspace_write_error",
+                error_message=f"fake workspace write failed: {type(exc).__name__}",
+            )
 
         status = {
             FakeAgentOutcome.SUCCESS: RunStatus.PASSED,
@@ -202,7 +221,6 @@ class FakeAgentAdapter:
             status=status,
             trace=trace,
             raw_ref=artifact.relative_path,
-            final_answer=script.final_answer,
             latency_ms=script.latency_ms,
             error_code=error_code,
             error_message=error_message,
@@ -223,11 +241,18 @@ class FakeAgentAdapter:
         status: RunStatus,
         trace: NormalizedTrace,
         raw_ref: str,
-        final_answer: str | None = None,
         latency_ms: int = 0,
         error_code: str | None = None,
         error_message: str | None = None,
     ) -> AgentRun:
+        try:
+            workspace_result_hash = hash_workspace(prepared.workspace)
+        except Exception as exc:
+            workspace_result_hash = None
+            if status is not RunStatus.INFRA_ERROR:
+                status = RunStatus.INFRA_ERROR
+                error_code = "fake_workspace_hash_error"
+                error_message = f"fake workspace hash failed: {type(exc).__name__}"
         return AgentRun(
             run_id=prepared.run_id,
             experiment_id=prepared.spec.experiment_id,
@@ -238,8 +263,8 @@ class FakeAgentAdapter:
             status=status,
             trace=trace,
             raw_event_refs=(raw_ref,),
-            workspace_result_hash=hash_workspace(prepared.workspace),
-            final_answer=final_answer,
+            workspace_result_hash=workspace_result_hash,
+            final_answer=trace.final_answer,
             latency_ms=latency_ms,
             trace_complete=trace.trace_complete,
             error_code=error_code,
@@ -266,6 +291,24 @@ def _events_for(script: FakeAgentScript) -> tuple[Mapping[str, object], ...]:
         {"type": "run_started", "sequence": 1},
         terminal,
     )
+
+
+def _validate_outcome_terminal(
+    trace: NormalizedTrace,
+    outcome: FakeAgentOutcome,
+) -> NormalizedTrace:
+    terminal_types = tuple(
+        event.type for event in trace.events if event.type in {"run_completed", "run_failed"}
+    )
+    expected_terminal = (
+        "run_completed" if outcome is FakeAgentOutcome.SUCCESS else "run_failed"
+    )
+    if terminal_types == (expected_terminal,):
+        return trace
+    diagnostics = tuple(
+        dict.fromkeys((*trace.diagnostics, "fake_outcome_terminal_mismatch"))
+    )
+    return replace(trace, trace_complete=False, diagnostics=diagnostics)
 
 
 def _normalize_fake_events(
@@ -323,20 +366,208 @@ def _normalize_fake_events(
     )
 
 
-def _validate_write_targets(
+def _write_workspace_files(
     workspace: Path,
     writes: Mapping[str, str],
-) -> tuple[tuple[Path, str], ...]:
-    targets: list[tuple[Path, str]] = []
+) -> None:
     for relative_path, content in writes.items():
-        requested = Path(relative_path)
-        if requested.is_absolute():
-            raise ValueError("fake write path must be relative")
-        target = (workspace / requested).resolve()
-        if not _is_strictly_within(target, workspace):
-            raise ValueError("fake write path escapes the workspace")
-        targets.append((target, content))
-    return tuple(targets)
+        components = _safe_relative_components(relative_path)
+        if os.name == "nt":
+            _write_windows_workspace_file(workspace, components, content)
+        else:
+            _write_posix_workspace_file(workspace, components, content)
+
+
+def _safe_relative_components(relative_path: str) -> tuple[str, ...]:
+    if not relative_path or "\\" in relative_path or ":" in relative_path:
+        raise ValueError("fake write path is not a portable relative path")
+    requested = Path(relative_path)
+    if requested.is_absolute():
+        raise ValueError("fake write path must be relative")
+    parts = requested.parts
+    if not parts or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("fake write path contains an unsafe component")
+    return tuple(parts)
+
+
+def _write_posix_workspace_file(
+    workspace: Path,
+    components: tuple[str, ...],
+    content: str,
+) -> None:
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        directory_fd = os.open(workspace, directory_flags)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+            raise ValueError("workspace root is a redirect") from None
+        raise
+    try:
+        for component in components[:-1]:
+            try:
+                _create_workspace_directory(workspace / component, directory_fd, component)
+            except FileExistsError:
+                pass
+            try:
+                next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            except OSError as exc:
+                if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+                    raise ValueError("workspace parent is a redirect") from None
+                raise
+            os.close(directory_fd)
+            directory_fd = next_fd
+            workspace = workspace / component
+        _atomic_write_at(directory_fd, components[-1], content.encode("utf-8"))
+    finally:
+        os.close(directory_fd)
+
+
+def _atomic_write_at(directory_fd: int, name: str, content: bytes) -> None:
+    temporary_name = f".rook-evalops-{os.getpid()}-{threading.get_ident()}.tmp"
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            temporary_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        _write_all(descriptor, content)
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        os.replace(
+            temporary_name,
+            name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        try:
+            os.unlink(temporary_name, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
+
+
+def _write_windows_workspace_file(
+    workspace: Path,
+    components: tuple[str, ...],
+    content: str,
+) -> None:
+    handles: list[tuple[object, int]] = []
+    current = workspace
+    try:
+        handles.append(_open_locked_windows_directory(current))
+        for component in components[:-1]:
+            current = current / component
+            try:
+                _create_workspace_directory(current, None, component)
+            except FileExistsError:
+                pass
+            handles.append(_open_locked_windows_directory(current))
+        _atomic_write_path(current, components[-1], content.encode("utf-8"))
+    finally:
+        for kernel32, handle in reversed(handles):
+            try:
+                kernel32.CloseHandle(wintypes.HANDLE(handle))  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+
+def _open_locked_windows_directory(path: Path) -> tuple[object, int]:
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.GetFileInformationByHandleEx.restype = wintypes.BOOL
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    file_read_attributes = 0x0080
+    share_read_write = 0x00000001 | 0x00000002
+    open_existing = 3
+    backup_semantics = 0x02000000
+    open_reparse_point = 0x00200000
+    file_attribute_directory = 0x00000010
+    file_attribute_reparse_point = 0x00000400
+    file_attribute_tag_info = 9
+
+    class _FileAttributeTagInfo(ctypes.Structure):
+        _fields_ = [
+            ("FileAttributes", wintypes.DWORD),
+            ("ReparseTag", wintypes.DWORD),
+        ]
+
+    handle = kernel32.CreateFileW(
+        str(path),
+        file_read_attributes,
+        share_read_write,
+        None,
+        open_existing,
+        backup_semantics | open_reparse_point,
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if not handle or int(handle) == invalid_handle:
+        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+    info = _FileAttributeTagInfo()
+    if not kernel32.GetFileInformationByHandleEx(
+        wintypes.HANDLE(handle),
+        file_attribute_tag_info,
+        ctypes.byref(info),
+        ctypes.sizeof(info),
+    ):
+        kernel32.CloseHandle(wintypes.HANDLE(handle))
+        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+    if info.FileAttributes & file_attribute_reparse_point:
+        kernel32.CloseHandle(wintypes.HANDLE(handle))
+        raise ValueError("workspace parent is a reparse point")
+    if not info.FileAttributes & file_attribute_directory:
+        kernel32.CloseHandle(wintypes.HANDLE(handle))
+        raise ValueError("workspace parent is not a directory")
+    return kernel32, int(handle)
+
+
+def _atomic_write_path(parent: Path, name: str, content: bytes) -> None:
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=".rook-evalops-",
+        suffix=".tmp",
+        dir=parent,
+    )
+    temporary = Path(temporary_name)
+    descriptor_open = True
+    try:
+        _write_all(descriptor, content)
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor_open = False
+        os.replace(temporary, parent / name)
+    finally:
+        if descriptor_open:
+            os.close(descriptor)
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _write_all(descriptor: int, content: bytes) -> None:
+    view = memoryview(content)
+    while view:
+        written = os.write(descriptor, view)
+        if written <= 0:
+            raise OSError("short workspace write")
+        view = view[written:]
+
+
+def _create_workspace_directory(
+    path: Path,
+    parent_fd: int | None,
+    name: str,
+) -> None:
+    if parent_fd is None:
+        path.mkdir()
+    else:
+        os.mkdir(name, mode=0o700, dir_fd=parent_fd)
 
 
 def _sanitize_event(event: Mapping[str, object]) -> dict[str, object]:
@@ -354,6 +585,16 @@ def _contains_redaction(value: object) -> bool:
     if isinstance(value, tuple | list):
         return any(_contains_redaction(item) for item in value)
     return False
+
+
+def _deep_freeze(value: object) -> object:
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(key): _deep_freeze(item) for key, item in value.items()})
+    if isinstance(value, list | tuple):
+        return tuple(_deep_freeze(item) for item in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(_deep_freeze(item) for item in value)
+    return value
 
 
 def _is_strictly_within(path: Path, root: Path) -> bool:

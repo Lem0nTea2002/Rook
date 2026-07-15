@@ -4,6 +4,7 @@ import ctypes
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -11,6 +12,7 @@ import time
 import pytest
 
 from rook_agent.agent.cancellation import CancellationToken
+import rook_agent.evalops.process as process_module
 from rook_agent.evalops.process import (
     ProcessRequest,
     ProcessRunner,
@@ -115,6 +117,54 @@ def test_process_runner_reports_timeout(tmp_path: Path) -> None:
     assert time.monotonic() - started < 5
 
 
+def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
+    tmp_path: Path,
+) -> None:
+    child_pid_file = tmp_path / "lingering-child.pid"
+    child_code = "import time; time.sleep(2)"
+    parent_code = (
+        "import pathlib, subprocess, sys; "
+        f"child = subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        f"pathlib.Path({str(child_pid_file)!r}).write_text(str(child.pid))"
+    )
+
+    result = ProcessRunner().run(
+        _request(tmp_path, parent_code, timeout_seconds=0.2)
+    )
+
+    assert result.status is ProcessStatus.TIMEOUT
+    assert result.duration_ms < 1_500
+    assert child_pid_file.exists()
+    assert not _process_is_running(int(child_pid_file.read_text()))
+
+
+def test_process_runner_keeps_cancellation_active_after_direct_parent_exits(
+    tmp_path: Path,
+) -> None:
+    child_pid_file = tmp_path / "cancelled-child.pid"
+    child_code = "import time; time.sleep(2)"
+    parent_code = (
+        "import pathlib, subprocess, sys; "
+        f"child = subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        f"pathlib.Path({str(child_pid_file)!r}).write_text(str(child.pid))"
+    )
+    token = CancellationToken()
+    timer = threading.Timer(0.2, token.cancel)
+    timer.start()
+    try:
+        result = ProcessRunner().run(
+            _request(tmp_path, parent_code, timeout_seconds=5),
+            cancellation_token=token,
+        )
+    finally:
+        timer.cancel()
+
+    assert result.status is ProcessStatus.CANCELLED
+    assert result.duration_ms < 1_500
+    assert child_pid_file.exists()
+    assert not _process_is_running(int(child_pid_file.read_text()))
+
+
 def test_process_runner_reports_pre_cancelled_request_without_spawning(tmp_path: Path) -> None:
     token = CancellationToken()
     token.cancel()
@@ -139,6 +189,119 @@ def test_process_runner_reports_spawn_error(tmp_path: Path) -> None:
     assert result.status is ProcessStatus.SPAWN_ERROR
     assert result.exit_code is None
     assert result.error_message
+
+
+def test_process_runner_surfaces_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_cleanup = process_module._terminate_process_tree
+
+    def cleanup_with_diagnostic(*args: object, **kwargs: object) -> str:
+        original_cleanup(args[0])  # type: ignore[arg-type]
+        return "forced_cleanup_failure"
+
+    monkeypatch.setattr(process_module, "_terminate_process_tree", cleanup_with_diagnostic)
+    result = ProcessRunner().run(
+        _request(tmp_path, "import time; time.sleep(30)", timeout_seconds=0.1)
+    )
+
+    assert result.status is ProcessStatus.TIMEOUT
+    assert result.cleanup_error == "forced_cleanup_failure"
+
+
+class _FakeProcess:
+    def __init__(self, *, repeated_wait_timeout: bool = False) -> None:
+        self.pid = 424242
+        self.returncode: int | None = None
+        self.kill_calls = 0
+        self.wait_calls = 0
+        self.repeated_wait_timeout = repeated_wait_timeout
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def kill(self) -> None:
+        self.kill_calls += 1
+        if not self.repeated_wait_timeout:
+            self.returncode = -9
+
+    def wait(self, timeout: float | None = None) -> int:
+        self.wait_calls += 1
+        if self.repeated_wait_timeout or self.returncode is None:
+            raise subprocess.TimeoutExpired(("fake",), timeout)
+        return self.returncode
+
+
+def test_windows_cleanup_checks_taskkill_nonzero_and_direct_kill_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _FakeProcess()
+    monkeypatch.setattr(
+        process_module.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 5),
+    )
+
+    cleanup_error = process_module._terminate_windows_process_tree(process, None)
+
+    assert "taskkill_exit_5" in cleanup_error
+    assert process.kill_calls == 1
+
+
+def test_posix_cleanup_catches_killpg_oserror_and_direct_kill_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _FakeProcess()
+
+    def deny_killpg(pid: int, requested_signal: int) -> None:
+        raise PermissionError("denied for test")
+
+    monkeypatch.setattr(process_module.os, "killpg", deny_killpg, raising=False)
+
+    cleanup_error = process_module._terminate_posix_process_tree(process)
+
+    assert "killpg" in cleanup_error
+    assert "denied for test" not in cleanup_error
+    assert process.kill_calls == 1
+
+
+def test_cleanup_contains_repeated_wait_timeout_instead_of_raising(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _FakeProcess(repeated_wait_timeout=True)
+    monkeypatch.setattr(
+        process_module.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0),
+    )
+
+    cleanup_error = process_module._terminate_windows_process_tree(process, None)
+
+    assert "process_wait_timeout" in cleanup_error
+    assert process.wait_calls <= 2
+    assert process.kill_calls == 1
+
+
+def test_process_runner_drains_high_volume_stdout_and_stderr_without_deadlock(
+    tmp_path: Path,
+) -> None:
+    size = 2 * 1024 * 1024
+    result = ProcessRunner().run(
+        _request(
+            tmp_path,
+            (
+                "import os; "
+                f"os.write(1, b'o' * {size}); "
+                f"os.write(2, b'e' * {size})"
+            ),
+            timeout_seconds=5,
+        )
+    )
+
+    assert result.status is ProcessStatus.SUCCEEDED
+    assert len(result.stdout) == size
+    assert len(result.stderr) == size
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows process-tree regression")
@@ -236,3 +399,9 @@ def _posix_process_is_running(pid: int) -> bool:
     except ProcessLookupError:
         return False
     return True
+
+
+def _process_is_running(pid: int) -> bool:
+    if os.name == "nt":
+        return _windows_process_is_running(pid)
+    return _posix_process_is_running(pid)

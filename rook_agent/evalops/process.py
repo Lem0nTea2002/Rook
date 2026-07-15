@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import ctypes
+from ctypes import wintypes
 from dataclasses import dataclass, field
 from enum import StrEnum
 import os
@@ -12,7 +14,7 @@ import subprocess
 import threading
 import time
 from types import MappingProxyType
-from typing import BinaryIO
+from typing import BinaryIO, Protocol
 
 from rook_agent.agent.cancellation import CancellationToken
 
@@ -64,12 +66,25 @@ class ProcessResult:
     stderr: str
     duration_ms: int
     error_message: str | None = None
+    cleanup_error: str | None = None
+
+
+class _ProcessLike(Protocol):
+    pid: int
+    returncode: int | None
+
+    def poll(self) -> int | None: ...
+
+    def kill(self) -> None: ...
+
+    def wait(self, timeout: float | None = None) -> int: ...
 
 
 class ProcessRunner:
     """Run a subprocess with bounded lifetime and process-tree cleanup."""
 
     _POLL_SECONDS = 0.01
+    _DRAIN_GRACE_SECONDS = 0.75
 
     def run(
         self,
@@ -112,20 +127,46 @@ class ProcessRunner:
                 stdout="",
                 stderr="",
                 duration_ms=_elapsed_ms(started),
-                error_message=f"process spawn failed: {exc}",
+                error_message=f"process spawn failed: {type(exc).__name__}",
             )
+
+        windows_job: _WindowsJob | None = None
+        if os.name == "nt":
+            try:
+                windows_job = _WindowsJob.attach(process)
+            except OSError as exc:
+                cleanup_error = _terminate_process_tree(process, None)
+                return ProcessResult(
+                    status=ProcessStatus.SPAWN_ERROR,
+                    exit_code=process.returncode,
+                    stdout="",
+                    stderr="",
+                    duration_ms=_elapsed_ms(started),
+                    error_message=f"process job setup failed: {type(exc).__name__}",
+                    cleanup_error=cleanup_error,
+                )
 
         stdout_parts: list[bytes] = []
         stderr_parts: list[bytes] = []
+        io_errors: list[str] = []
         readers = (
-            _start_reader(process.stdout, stdout_parts, "evalops-stdout"),
-            _start_reader(process.stderr, stderr_parts, "evalops-stderr"),
+            _start_reader(process.stdout, stdout_parts, io_errors, "evalops-stdout"),
+            _start_reader(process.stderr, stderr_parts, io_errors, "evalops-stderr"),
         )
-        writer = _start_writer(process.stdin, request.stdin_text.encode("utf-8"))
+        writer = _start_writer(
+            process.stdin,
+            request.stdin_text.encode("utf-8"),
+            io_errors,
+        )
+        io_threads = (writer, *readers)
         deadline = started + request.timeout_seconds
         terminal_status: ProcessStatus | None = None
 
-        while process.poll() is None:
+        while True:
+            direct_done = process.poll() is not None
+            io_done = all(not thread.is_alive() for thread in io_threads)
+            if direct_done and io_done:
+                break
             if cancellation_token is not None and cancellation_token.is_cancelled:
                 terminal_status = ProcessStatus.CANCELLED
                 break
@@ -134,23 +175,40 @@ class ProcessRunner:
                 break
             time.sleep(self._POLL_SECONDS)
 
+        cleanup_errors: list[str] = []
         if terminal_status is not None:
-            _terminate_process_tree(process)
+            _extend_error(cleanup_errors, _terminate_process_tree(process, windows_job))
+            windows_job = None
 
-        process.wait()
-        writer.join()
-        for reader in readers:
-            reader.join()
+        drain_deadline = time.monotonic() + self._DRAIN_GRACE_SECONDS
+        for thread in io_threads:
+            remaining = max(0.0, drain_deadline - time.monotonic())
+            thread.join(timeout=remaining)
+        if any(thread.is_alive() for thread in io_threads):
+            cleanup_errors.append("io_threads_timeout")
 
+        if process.poll() is None:
+            cleanup_errors.extend(_finish_direct_process(process))
+
+        if windows_job is not None:
+            _extend_error(cleanup_errors, windows_job.close())
+
+        cleanup_errors.extend(io_errors)
+        cleanup_error = _join_errors(cleanup_errors)
         if terminal_status is None:
             terminal_status = (
                 ProcessStatus.SUCCEEDED if process.returncode == 0 else ProcessStatus.FAILED
             )
+            if cleanup_error is not None and terminal_status is ProcessStatus.SUCCEEDED:
+                terminal_status = ProcessStatus.FAILED
+
         error_message = None
         if terminal_status is ProcessStatus.TIMEOUT:
             error_message = "process timed out"
         elif terminal_status is ProcessStatus.CANCELLED:
             error_message = "process cancelled"
+        elif cleanup_error is not None:
+            error_message = "process cleanup failed"
 
         return ProcessResult(
             status=terminal_status,
@@ -159,12 +217,119 @@ class ProcessRunner:
             stderr=_decode_output(stderr_parts),
             duration_ms=_elapsed_ms(started),
             error_message=error_message,
+            cleanup_error=cleanup_error,
         )
+
+
+class _WindowsJob:
+    """Kill-on-close Windows Job Object covering descendants after leader exit."""
+
+    _KILL_ON_JOB_CLOSE = 0x00002000
+    _EXTENDED_LIMIT_INFORMATION = 9
+
+    def __init__(self, kernel32: object, handle: int) -> None:
+        self._kernel32 = kernel32
+        self._handle: int | None = handle
+
+    @classmethod
+    def attach(cls, process: subprocess.Popen[bytes]) -> _WindowsJob:
+        if os.name != "nt":
+            raise OSError("Windows Job Objects are unavailable")
+
+        class _IoCounters(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_ulonglong),
+                ("WriteOperationCount", ctypes.c_ulonglong),
+                ("OtherOperationCount", ctypes.c_ulonglong),
+                ("ReadTransferCount", ctypes.c_ulonglong),
+                ("WriteTransferCount", ctypes.c_ulonglong),
+                ("OtherTransferCount", ctypes.c_ulonglong),
+            ]
+
+        class _BasicLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_longlong),
+                ("PerJobUserTimeLimit", ctypes.c_longlong),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+
+        class _ExtendedLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", _BasicLimitInformation),
+                ("IoInfo", _IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+        kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel32.TerminateJobObject.restype = wintypes.BOOL
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        handle = kernel32.CreateJobObjectW(None, None)
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+        job = cls(kernel32, int(handle))
+        information = _ExtendedLimitInformation()
+        information.BasicLimitInformation.LimitFlags = cls._KILL_ON_JOB_CLOSE
+        if not kernel32.SetInformationJobObject(
+            wintypes.HANDLE(job._handle),
+            cls._EXTENDED_LIMIT_INFORMATION,
+            ctypes.byref(information),
+            ctypes.sizeof(information),
+        ):
+            job.close()
+            raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+        process_handle = wintypes.HANDLE(int(process._handle))  # type: ignore[attr-defined]
+        if not kernel32.AssignProcessToJobObject(wintypes.HANDLE(job._handle), process_handle):
+            job.close()
+            raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+        return job
+
+    def terminate(self) -> str | None:
+        if self._handle is None:
+            return None
+        try:
+            succeeded = self._kernel32.TerminateJobObject(  # type: ignore[attr-defined]
+                wintypes.HANDLE(self._handle), 1
+            )
+        except Exception as exc:
+            return f"job_terminate_{type(exc).__name__}"
+        if not succeeded:
+            return "job_terminate_failed"
+        return None
+
+    def close(self) -> str | None:
+        if self._handle is None:
+            return None
+        handle = self._handle
+        self._handle = None
+        try:
+            succeeded = self._kernel32.CloseHandle(  # type: ignore[attr-defined]
+                wintypes.HANDLE(handle)
+            )
+        except Exception as exc:
+            return f"job_close_{type(exc).__name__}"
+        if not succeeded:
+            return "job_close_failed"
+        return None
 
 
 def _start_reader(
     stream: BinaryIO | None,
     destination: list[bytes],
+    errors: list[str],
     name: str,
 ) -> threading.Thread:
     def read_stream() -> None:
@@ -173,15 +338,24 @@ def _start_reader(
         try:
             while chunk := stream.read(64 * 1024):
                 destination.append(chunk)
+        except Exception as exc:
+            errors.append(f"{name}_{type(exc).__name__}")
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except Exception as exc:
+                errors.append(f"{name}_close_{type(exc).__name__}")
 
     thread = threading.Thread(target=read_stream, name=name, daemon=True)
     thread.start()
     return thread
 
 
-def _start_writer(stream: BinaryIO | None, content: bytes) -> threading.Thread:
+def _start_writer(
+    stream: BinaryIO | None,
+    content: bytes,
+    errors: list[str],
+) -> threading.Thread:
     def write_stdin() -> None:
         if stream is None:
             return
@@ -191,50 +365,126 @@ def _start_writer(stream: BinaryIO | None, content: bytes) -> threading.Thread:
                 stream.flush()
         except BrokenPipeError:
             pass
+        except Exception as exc:
+            errors.append(f"evalops-stdin_{type(exc).__name__}")
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except Exception as exc:
+                errors.append(f"evalops-stdin_close_{type(exc).__name__}")
 
     thread = threading.Thread(target=write_stdin, name="evalops-stdin", daemon=True)
     thread.start()
     return thread
 
 
-def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
+def _terminate_process_tree(
+    process: _ProcessLike,
+    windows_job: _WindowsJob | None = None,
+) -> str | None:
     if os.name == "nt":
-        system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-        taskkill = system_root / "System32" / "taskkill.exe"
-        try:
-            subprocess.run(
-                (str(taskkill), "/PID", str(process.pid), "/T", "/F"),
-                shell=False,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=False,
-                timeout=5,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            process.kill()
-    else:
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return
-        # Keep the direct child unreaped during the grace period so its process
-        # group id cannot be reused, then kill any descendant that ignored TERM.
-        time.sleep(0.2)
+        return _terminate_windows_process_tree(process, windows_job)
+    return _terminate_posix_process_tree(process)
+
+
+def _terminate_windows_process_tree(
+    process: _ProcessLike,
+    windows_job: _WindowsJob | None,
+) -> str | None:
+    errors: list[str] = []
+    system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    taskkill = system_root / "System32" / "taskkill.exe"
+    try:
+        completed = subprocess.run(
+            (str(taskkill), "/PID", str(process.pid), "/T", "/F"),
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=1,
+        )
+        if completed.returncode != 0:
+            errors.append(f"taskkill_exit_{completed.returncode}")
+    except subprocess.TimeoutExpired:
+        errors.append("taskkill_timeout")
+    except Exception as exc:
+        errors.append(f"taskkill_{type(exc).__name__}")
+
+    if windows_job is not None:
+        _extend_error(errors, windows_job.terminate())
+        _extend_error(errors, windows_job.close())
+
+    if process.poll() is None and errors:
+        _direct_kill(process, errors)
+    errors.extend(_finish_direct_process(process))
+    return _join_errors(errors)
+
+
+def _terminate_posix_process_tree(process: _ProcessLike) -> str | None:
+    errors: list[str] = []
+    group_signal_sent = False
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+        group_signal_sent = True
+    except ProcessLookupError:
+        pass
+    except Exception as exc:
+        errors.append(f"killpg_term_{type(exc).__name__}")
+
+    if group_signal_sent:
+        time.sleep(0.1)
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except Exception as exc:
+            errors.append(f"killpg_kill_{type(exc).__name__}")
 
+    if process.poll() is None and (errors or not group_signal_sent):
+        _direct_kill(process, errors)
+    errors.extend(_finish_direct_process(process))
+    return _join_errors(errors)
+
+
+def _finish_direct_process(process: _ProcessLike) -> list[str]:
+    errors: list[str] = []
+    if process.poll() is not None:
+        return errors
     try:
-        process.wait(timeout=5)
+        process.wait(timeout=0.25)
     except subprocess.TimeoutExpired:
+        errors.append("process_wait_timeout")
+        _direct_kill(process, errors)
+        try:
+            process.wait(timeout=0.25)
+        except subprocess.TimeoutExpired:
+            errors.append("process_wait_timeout_after_kill")
+        except Exception as exc:
+            errors.append(f"process_wait_after_kill_{type(exc).__name__}")
+    except Exception as exc:
+        errors.append(f"process_wait_{type(exc).__name__}")
+        _direct_kill(process, errors)
+    return errors
+
+
+def _direct_kill(process: _ProcessLike, errors: list[str]) -> None:
+    try:
         process.kill()
-        process.wait(timeout=5)
+    except ProcessLookupError:
+        pass
+    except Exception as exc:
+        errors.append(f"direct_kill_{type(exc).__name__}")
+
+
+def _extend_error(errors: list[str], error: str | None) -> None:
+    if error:
+        errors.extend(part for part in error.split(";") if part)
+
+
+def _join_errors(errors: list[str]) -> str | None:
+    unique = tuple(dict.fromkeys(errors))
+    return ";".join(unique) if unique else None
 
 
 def _elapsed_ms(started: float) -> int:
