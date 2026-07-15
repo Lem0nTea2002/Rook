@@ -175,6 +175,9 @@ _WRAPPED_COMMAND_PATTERN = re.compile(r"(?i)\b(?:run|execute|invoke|use)\s+(.+?)
 _COMMAND_PURPOSE_PATTERN = re.compile(
     r"(?i)\s+to\s+(?:check|confirm|inspect|validate|verify)\b.*$"
 )
+_EXECUTABLE_INLINE_PREFIX_PATTERN = re.compile(
+    r"(?i)\b(?:run|execute|invoke|use|validate\s+with|check\s+with|运行|执行)\s*$"
+)
 _FIX_CLAIM_PATTERN = re.compile(
     r"(?ix)(?:(?:^\s*(?:[-*]\s*|\d+[.)]\s*)?|[,;]\s*|\bthen\s+)(?:"
     + "|".join(sorted(_FIX_CLAIM_VERBS))
@@ -190,7 +193,9 @@ _TEXT_TARGET_PATTERN = re.compile(
     r")"
 )
 _DIFF_TARGET_PATTERN = re.compile(r"(?m)^diff --git a/(.+?) b/(.+?)$")
-_DIFF_FILE_TARGET_PATTERN = re.compile(r"(?m)^(?:---\s+a/|\+\+\+\s+b/)(.+?)$")
+_DIFF_FILE_PAIR_PATTERN = re.compile(
+    r"(?m)^---\s+a/(.+?)\r?\n\+\+\+\s+b/(.+?)$"
+)
 _STATUS_TARGET_PATTERN = re.compile(r"(?m)^[ MADRCU?!]{2}\s+(.+?)$")
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
@@ -425,11 +430,10 @@ def _entry_command_candidates(step: str, *, mutation_step: bool) -> tuple[str, .
     plain_step = _INLINE_CODE_PATTERN.sub(" ", step)
     wrapper = _wrapper_command_candidates(plain_step)
     if mutation_step:
-        targets = _text_targets(step)
         executable_inline = tuple(
-            candidate
-            for candidate in inline
-            if _normalize_target(candidate) not in targets
+            match.group(1).strip()
+            for match in inline_matches
+            if _inline_code_is_executable(step, match)
         )
         return tuple(dict.fromkeys((*executable_inline, *wrapper)))
     bare = plain_step.strip().rstrip(".")
@@ -448,6 +452,10 @@ def _wrapper_command_candidates(step: str) -> tuple[str, ...]:
         return ()
     candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
     return (candidate,) if candidate and candidate not in {".", "`"} else ()
+
+
+def _inline_code_is_executable(step: str, match: re.Match[str]) -> bool:
+    return _EXECUTABLE_INLINE_PREFIX_PATTERN.search(step[: match.start()]) is not None
 
 
 def _normalize_command(value: str) -> str:
@@ -500,9 +508,18 @@ def _mutation_entry_is_grounded(
     *,
     command_candidates: tuple[str, ...],
 ) -> bool:
-    target_text = entry
+    executable_inline = frozenset(
+        match.group(1).strip()
+        for match in _INLINE_CODE_PATTERN.finditer(entry)
+        if _inline_code_is_executable(entry, match)
+    )
+    target_text = _INLINE_CODE_PATTERN.sub(
+        lambda match: " " if _inline_code_is_executable(entry, match) else match.group(0),
+        entry,
+    )
     for command in command_candidates:
-        target_text = target_text.replace(command, " ")
+        if command not in executable_inline:
+            target_text = target_text.replace(command, " ", 1)
     targets = _text_targets(target_text)
     if not targets:
         return False
@@ -552,7 +569,11 @@ def _evidence_targets(item: EvidenceItem) -> frozenset[str]:
             for match in _DIFF_TARGET_PATTERN.finditer(item.content)
             for path in match.groups()
         )
-        values.extend(match.group(1) for match in _DIFF_FILE_TARGET_PATTERN.finditer(item.content))
+        values.extend(
+            path
+            for match in _DIFF_FILE_PAIR_PATTERN.finditer(item.content)
+            for path in match.groups()
+        )
     if item.tool_name == "git_status":
         for match in _STATUS_TARGET_PATTERN.finditer(item.content):
             status_path = match.group(1)
@@ -673,10 +694,12 @@ def _requested_scope(
 
 def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bool:
     content = "\n".join(_delta_text_fields(delta))
+    prose_content = _TEXT_TARGET_PATTERN.sub(" ", content)
+    prose_content = _PROJECT_RELATIVE_PATH_PATTERN.sub(" ", prose_content)
     project_name = project_root.name.strip()
     if project_name and re.search(
         rf"(?i)(?<![A-Z0-9_]){re.escape(project_name)}(?![A-Z0-9_])",
-        content,
+        prose_content,
     ):
         return True
     if any(

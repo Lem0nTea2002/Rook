@@ -747,6 +747,80 @@ def test_mutation_entry_accepts_when_inline_command_and_target_are_grounded() ->
     assert decision.reason_code == ACCEPTED
 
 
+def test_path_shaped_inline_command_requires_execution_for_same_mutation_target() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-script", part_id="part-edit-script")
+    proof_ref = replace(LOCAL_REF, event_id="event-view-script", part_id="part-view-script")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited script",
+        command=None,
+        data={"path": "scripts/check.py"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="view",
+        content="updated script",
+        command=None,
+        data={"path": "scripts/check.py"},
+    )
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref),
+        procedure=(
+            "Edit `scripts/check.py`, then run `scripts/check.py`.",
+            "Update `scripts/check.py` with the verified behavior.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof))
+
+    assert decision.status is GateStatus.REJECT
+    assert decision.reason_code == EXECUTABLE_STEP_UNGROUNDED
+
+
+def test_path_shaped_inline_command_accepts_matching_local_execution() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-script", part_id="part-edit-script")
+    proof_ref = replace(LOCAL_REF, event_id="event-view-script", part_id="part-view-script")
+    command_ref = replace(LOCAL_REF, event_id="event-run-script", part_id="part-run-script")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited script",
+        command=None,
+        data={"path": "scripts/check.py"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="view",
+        content="updated script",
+        command=None,
+        data={"path": "scripts/check.py"},
+    )
+    execution = evidence_item(
+        command_ref,
+        content="script passed",
+        command="scripts/check.py",
+    )
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref, command_ref),
+        procedure=(
+            "Edit `scripts/check.py`, then run `scripts/check.py`.",
+            "Update `scripts/check.py` with the verified behavior.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof, execution))
+
+    assert decision.status is GateStatus.ACCEPT
+    assert decision.reason_code == ACCEPTED
+
+
 def test_unknown_extensionless_command_requires_exact_local_execution() -> None:
     different = evidence_item(
         LOCAL_REF,
@@ -972,6 +1046,39 @@ def test_git_diff_machine_headers_prove_the_mutated_target(diff_content: str) ->
 
     assert decision.status is GateStatus.ACCEPT
     assert decision.reason_code == ACCEPTED
+
+
+def test_isolated_git_diff_plus_header_cannot_launder_target() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-a", part_id="part-edit-a")
+    proof_ref = replace(LOCAL_REF, event_id="event-diff-a", part_id="part-diff-a")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited A",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="git_diff",
+        content="@@ -1 +1 @@\n+++ b/config/a.toml\n+timeout=30",
+        command=None,
+    )
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref),
+        procedure=(
+            "Edit `config/a.toml` to set timeout 30.",
+            "Update `config/a.toml` with the verified timeout.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof))
+
+    assert decision.status is GateStatus.REJECT
+    assert decision.reason_code == EXECUTABLE_STEP_UNGROUNDED
 
 
 def test_arbitrary_listing_is_not_deterministic_target_proof() -> None:
@@ -1652,6 +1759,44 @@ def test_existing_absolute_path_outside_project_does_not_downgrade_scope(
     assert decision.status is GateStatus.ACCEPT
     assert decision.scope is EvolutionScope.GLOBAL
     assert decision.reason_code == ACCEPTED
+
+
+def test_external_absolute_path_with_project_name_does_not_downgrade_scope(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "Rook"
+    project_root.mkdir()
+    outside_file = tmp_path / "External" / "Rook" / "policy.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.write_text("", encoding="utf-8")
+
+    decision = evaluate(
+        valid_delta(
+            description=f"Inspect {outside_file.as_posix()} for a portable policy.",
+            proposed_scope=EvolutionScope.GLOBAL,
+        ),
+        project_root=project_root,
+    )
+
+    assert decision.status is GateStatus.ACCEPT
+    assert decision.scope is EvolutionScope.GLOBAL
+    assert decision.reason_code == ACCEPTED
+
+
+def test_project_name_in_repository_local_prose_downgrades_scope(tmp_path: Path) -> None:
+    project_root = tmp_path / "Rook"
+
+    decision = evaluate(
+        valid_delta(
+            description="Apply this only to the Rook repository-local workflow.",
+            proposed_scope=EvolutionScope.GLOBAL,
+        ),
+        project_root=project_root,
+    )
+
+    assert decision.status is GateStatus.DOWNGRADE_TO_PROJECT
+    assert decision.scope is EvolutionScope.PROJECT
+    assert decision.reason_code == PROJECT_SPECIFIC
 
 
 def test_relative_traversal_outside_project_does_not_downgrade_scope(
