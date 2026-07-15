@@ -39,8 +39,22 @@ MAX_DESCRIPTION_LENGTH = 600
 MAX_ENTRY_LENGTH = 1_000
 
 _BROAD_TRIGGER_WORDS = frozenset(
-    {"bug", "code", "issue", "project", "task", "work", "代码", "问题", "项目"}
+    {
+        "bug",
+        "code",
+        "issue",
+        "project",
+        "task",
+        "work",
+        "代码",
+        "任务",
+        "工作",
+        "项目",
+        "问题",
+        "缺陷",
+    }
 )
+_BROAD_CHINESE_TRIGGER_TERMS = ("代码", "任务", "工作", "项目", "问题", "缺陷")
 _FIX_CLAIM_VERBS = frozenset(
     {
         "add",
@@ -53,6 +67,7 @@ _FIX_CLAIM_VERBS = frozenset(
         "edit",
         "enable",
         "fix",
+        "increase",
         "install",
         "modify",
         "patch",
@@ -65,27 +80,10 @@ _FIX_CLAIM_VERBS = frozenset(
         "write",
     }
 )
-_SUPPORT_STOP_WORDS = _BROAD_TRIGGER_WORDS | _FIX_CLAIM_VERBS | {
-    "and",
-    "check",
-    "complete",
-    "confirm",
-    "fix",
-    "for",
-    "from",
-    "inspect",
-    "into",
-    "result",
-    "run",
-    "step",
-    "successful",
-    "the",
-    "this",
-    "use",
-    "verify",
-    "when",
-    "with",
-}
+_WORKSPACE_MUTATION_TOOLS = frozenset({"write", "edit", "apply_patch", "delete"})
+_DETERMINISTIC_STATE_PROOF_TOOLS = frozenset(
+    {"git_diff", "git_status", "view", "grep", "glob", "tree", "read_multi", "ls"}
+)
 _EXECUTABLE_NAMES = frozenset(
     {
         "bash",
@@ -140,7 +138,8 @@ _ASSIGNED_SECRET_PATTERN = re.compile(
     r")",
 )
 _AUTHORIZATION_BEARER_PATTERN = re.compile(
-    r"(?i)\bauthorization\s*:\s*bearer\s+[^\s,;]+",
+    r"(?ix)(?:[\"']authorization[\"']|\bauthorization)\s*:\s*"
+    r"(?:[\"']bearer\s+[^\"'\r\n]+[\"']|bearer\s+[^\s,;]+)",
 )
 _BEARER_PATTERN = re.compile(
     r"(?i)\bbearer\s+(?=[A-Za-z0-9._~+/=-]{12,})"
@@ -200,9 +199,9 @@ _COMMAND_PURPOSE_PATTERN = re.compile(
     r"(?i)\s+to\s+(?:check|confirm|inspect|validate|verify)\b.*$"
 )
 _FIX_CLAIM_PATTERN = re.compile(
-    r"(?i)(?:\b(?:"
+    r"(?ix)(?:(?:^\s*(?:[-*]\s*|\d+[.)]\s*)?|[,;]\s*|\bthen\s+)(?:"
     + "|".join(sorted(_FIX_CLAIM_VERBS))
-    + r")\b|(?:设置|更改|更新|修改|修复|添加|删除|替换|启用|禁用|安装))"
+    + r")\b|(?:^|[,;]\s*|然后)(?:设置|更改|更新|修改|修复|添加|删除|替换|启用|禁用|安装))"
 )
 _PROJECT_RELATIVE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_])(?:\.\\|\./)[^\s`]+")
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
@@ -258,29 +257,15 @@ class SkillGate:
         if referenced is None:
             return _reject(EVIDENCE_REF_MISSING)
 
-        grounded_commands = {
-            _normalize_command(command)
-            for item in referenced
-            if item.source is EvidenceSource.LOCAL_EXECUTION and item.ok is True
-            for command in [_evidence_command(item)]
-            if command is not None
-        }
-        required_commands = tuple(
-            command for step in delta.procedure for command in _executable_commands(step)
-        )
-        if any(
-            _normalize_command(command) not in grounded_commands
-            for command in required_commands
-        ):
-            return _reject(EXECUTABLE_STEP_UNGROUNDED)
         has_injection_support = any(
             item.source in {EvidenceSource.EXTERNAL_CONTENT, EvidenceSource.WORKSPACE_STATE}
             and _contains_injection(item.content)
             for item in referenced
         )
-        if not has_injection_support and not any(
-            _execution_supports_delta(item, delta, required_commands) for item in referenced
-        ):
+        if has_injection_support:
+            return None
+        has_solution_claim, is_grounded = _grounded_solution(delta, referenced)
+        if has_solution_claim and not is_grounded:
             return _reject(EXECUTABLE_STEP_UNGROUNDED)
         return None
 
@@ -307,15 +292,8 @@ class SkillGate:
         )
         if not has_injection_support:
             return None
-        required_commands = tuple(
-            command for step in delta.procedure for command in _executable_commands(step)
-        )
-        has_independent_execution = any(
-            _execution_supports_delta(item, delta, required_commands)
-            and not _contains_injection(item.content)
-            for item in referenced
-        )
-        if not has_independent_execution:
+        has_solution_claim, is_grounded = _grounded_solution(delta, referenced)
+        if not has_solution_claim or not is_grounded:
             return _reject(INJECTION_ONLY_EVIDENCE)
         return None
 
@@ -405,7 +383,17 @@ def _has_disallowed_control(value: str) -> bool:
 
 def _is_only_broad_words(trigger: str) -> bool:
     words = _normalize_trigger(trigger).split()
-    return bool(words) and all(word in _BROAD_TRIGGER_WORDS for word in words)
+    if not words:
+        return True
+    for word in words:
+        if word in _BROAD_TRIGGER_WORDS:
+            continue
+        remainder = word
+        for broad_term in _BROAD_CHINESE_TRIGGER_TERMS:
+            remainder = remainder.replace(broad_term, "")
+        if remainder:
+            return False
+    return True
 
 
 def _normalize_trigger(trigger: str) -> str:
@@ -417,10 +405,10 @@ def _referenced_evidence(
     refs: tuple[EvidenceRef, ...], evidence: tuple[EvidenceItem, ...]
 ) -> tuple[EvidenceItem, ...] | None:
     by_ref = {item.ref: item for item in evidence}
-    try:
-        return tuple(by_ref[ref] for ref in refs)
-    except KeyError:
+    if any(ref not in by_ref for ref in refs):
         return None
+    selected = frozenset(refs)
+    return tuple(item for item in evidence if item.ref in selected)
 
 
 def _evidence_command(item: EvidenceItem) -> str | None:
@@ -429,16 +417,27 @@ def _evidence_command(item: EvidenceItem) -> str | None:
 
 
 def _executable_commands(step: str) -> tuple[str, ...]:
-    inline = tuple(match.group(1).strip() for match in _INLINE_CODE_PATTERN.finditer(step))
-    if inline:
-        return tuple(command for command in inline if _looks_like_command(command))
-    match = _IMPERATIVE_COMMAND_PATTERN.fullmatch(step)
+    commands: list[str] = []
+    for match in _INLINE_CODE_PATTERN.finditer(step):
+        candidate = match.group(1).strip()
+        if _looks_like_command(candidate) and candidate not in commands:
+            commands.append(candidate)
+
+    plain_step = _INLINE_CODE_PATTERN.sub(" ", step)
+    bare_candidate = plain_step.strip().rstrip(".")
+    if _looks_like_command(bare_candidate):
+        if bare_candidate not in commands:
+            commands.append(bare_candidate)
+        return tuple(commands)
+
+    match = _IMPERATIVE_COMMAND_PATTERN.fullmatch(plain_step)
     if match is None:
-        match = _WRAPPED_COMMAND_PATTERN.search(step)
-    if match is None:
-        return ()
-    candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
-    return (candidate,) if _looks_like_command(candidate) else ()
+        match = _WRAPPED_COMMAND_PATTERN.search(plain_step)
+    if match is not None:
+        candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
+        if _looks_like_command(candidate) and candidate not in commands:
+            commands.append(candidate)
+    return tuple(commands)
 
 
 def _looks_like_command(value: str) -> bool:
@@ -454,38 +453,49 @@ def _normalize_command(value: str) -> str:
     return " ".join(value.strip().split())
 
 
-def _execution_supports_delta(
-    item: EvidenceItem,
+def _grounded_solution(
     delta: SkillDelta,
-    required_commands: tuple[str, ...],
-) -> bool:
-    command = _evidence_command(item)
-    if item.source is not EvidenceSource.LOCAL_EXECUTION or item.ok is not True or command is None:
-        return False
-    normalized_command = _normalize_command(command)
-    evidence_terms = _support_terms(command) | _support_terms(item.content)
-    fix_claims = tuple(step for step in delta.procedure if _FIX_CLAIM_PATTERN.search(step))
-    if fix_claims and any(not (_support_terms(claim) & evidence_terms) for claim in fix_claims):
-        return False
-    if any(_normalize_command(required) == normalized_command for required in required_commands):
-        return True
-    if fix_claims:
-        return True
-    delta_terms = {
-        term
-        for text in _delta_text_fields(delta)
-        for term in _support_terms(text)
+    referenced: tuple[EvidenceItem, ...],
+) -> tuple[bool, bool]:
+    independent = tuple(item for item in referenced if not _contains_injection(item.content))
+    required_commands = tuple(
+        command for step in delta.procedure for command in _executable_commands(step)
+    )
+    has_mutation_claim = any(_FIX_CLAIM_PATTERN.search(step) for step in delta.procedure)
+    has_solution_claim = bool(required_commands) or has_mutation_claim
+    grounded_commands = {
+        _normalize_command(command)
+        for item in independent
+        if item.source is EvidenceSource.LOCAL_EXECUTION and item.ok is True
+        for command in [_evidence_command(item)]
+        if command is not None
     }
-    return bool(delta_terms & evidence_terms)
+    commands_grounded = all(
+        _normalize_command(command) in grounded_commands for command in required_commands
+    )
+    mutation_grounded = not has_mutation_claim or _has_ordered_workspace_mutation_proof(
+        independent
+    )
+    return has_solution_claim, commands_grounded and mutation_grounded
 
 
-def _support_terms(value: str) -> set[str]:
-    normalized = unicodedata.normalize("NFKC", value).casefold()
-    return {
-        word
-        for word in _WORD_PATTERN.findall(normalized)
-        if len(word) >= 3 and word not in _SUPPORT_STOP_WORDS and not word.isdecimal()
-    }
+def _has_ordered_workspace_mutation_proof(referenced: tuple[EvidenceItem, ...]) -> bool:
+    last_mutation_index = -1
+    for index, item in enumerate(referenced):
+        if (
+            item.source is EvidenceSource.WORKSPACE_STATE
+            and item.ok is True
+            and item.tool_name in _WORKSPACE_MUTATION_TOOLS
+        ):
+            last_mutation_index = index
+    if last_mutation_index < 0:
+        return False
+    return any(
+        item.source is EvidenceSource.WORKSPACE_STATE
+        and item.ok is True
+        and item.tool_name in _DETERMINISTIC_STATE_PROOF_TOOLS
+        for item in referenced[last_mutation_index + 1 :]
+    )
 
 
 def _delta_text_fields(delta: SkillDelta) -> Iterable[str]:
@@ -568,7 +578,8 @@ def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bo
     package_names = _project_package_names(project_root)
     return any(
         re.search(
-            rf"(?i)(?<![A-Z0-9_]){re.escape(name)}(?=[./\\])",
+            rf"(?i)(?<![A-Z0-9_]){re.escape(name)}(?=[./\\])"
+            rf"|\b(?:python|python3|py)\s+-m\s+{re.escape(name)}(?=$|[\s`'\".,;])",
             content,
         )
         is not None
