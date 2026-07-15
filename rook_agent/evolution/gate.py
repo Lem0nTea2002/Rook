@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Iterable
 import math
 from pathlib import Path
+import posixpath
 import re
 import unicodedata
 
@@ -82,38 +83,7 @@ _FIX_CLAIM_VERBS = frozenset(
 )
 _WORKSPACE_MUTATION_TOOLS = frozenset({"write", "edit", "apply_patch", "delete"})
 _DETERMINISTIC_STATE_PROOF_TOOLS = frozenset(
-    {"git_diff", "git_status", "view", "grep", "glob", "tree", "read_multi", "ls"}
-)
-_EXECUTABLE_NAMES = frozenset(
-    {
-        "bash",
-        "cargo",
-        "cmd",
-        "cmake",
-        "docker",
-        "dotnet",
-        "git",
-        "go",
-        "gradle",
-        "java",
-        "javac",
-        "kubectl",
-        "make",
-        "mvn",
-        "npm",
-        "npx",
-        "pnpm",
-        "poetry",
-        "powershell",
-        "pwsh",
-        "py",
-        "pytest",
-        "python",
-        "python3",
-        "sh",
-        "uv",
-        "yarn",
-    }
+    {"git_diff", "git_status", "view", "grep", "read_multi"}
 )
 
 _PEM_BLOCK_PATTERN = re.compile(
@@ -142,8 +112,10 @@ _AUTHORIZATION_BEARER_PATTERN = re.compile(
     r"(?:[\"']bearer\s+[^\"'\r\n]+[\"']|bearer\s+[^\s,;]+)",
 )
 _BEARER_PATTERN = re.compile(
-    r"(?i)\bbearer\s+(?=[A-Za-z0-9._~+/=-]{12,})"
-    r"(?=[A-Za-z0-9._~+/=-]*[0-9._~+/=-])[A-Za-z0-9._~+/=-]{12,}",
+    r"(?i)\bbearer\s+(?P<token>[A-Za-z0-9._~+/=-]{20,})",
+)
+_BEARER_PROSE_ALLOWLIST = frozenset(
+    {"authentication", "authorization", "credential", "credentials", "scheme"}
 )
 _PROVIDER_KEY_PATTERN = re.compile(
     r"(?i)\bsk-[A-Za-z0-9_-]{16,}\b",
@@ -168,10 +140,18 @@ _TIMESTAMP_PATTERN = re.compile(
     r"\b\d{4}-\d{2}-\d{2}(?:T|\s+)\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?\b"
 )
 _RUNTIME_ID_PATTERN = re.compile(
-    r"(?ix)\b(?:session|request)[_-]?id\s*[:=]\s*[\"']?[A-Z0-9][A-Z0-9_-]{5,}"
+    r"(?ix)\b(?:session|request)[_-]?id\s*[:=]\s*[\"']?"
+    r"(?:"
+    r"(?=[A-Z0-9_-]{6,}\b)(?=[A-Z0-9_-]*\d)[A-Z0-9_-]+"
+    r"|[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
+    r")"
 )
 _PREFIXED_RUNTIME_ID_PATTERN = re.compile(
-    r"(?i)\b(?:sess(?:ion)?|req(?:uest)?)[_-][A-Za-z0-9][A-Za-z0-9_-]{7,}\b"
+    r"(?ix)\b(?:sess(?:ion)?|req(?:uest)?)[_-]"
+    r"(?:"
+    r"(?=[A-Z0-9_-]{8,}\b)(?=[A-Z0-9_-]*\d)[A-Z0-9_-]+"
+    r"|[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"
+    r")\b"
 )
 _NUMERIC_TIMESTAMP_PATTERN = re.compile(
     r"(?i)\b(?:timestamp|time)\s*[:=]\s*\d{10,13}\b"
@@ -204,6 +184,16 @@ _FIX_CLAIM_PATTERN = re.compile(
     + r")\b|(?:^|[,;]\s*|然后)(?:设置|更改|更新|修改|修复|添加|删除|替换|启用|禁用|安装))"
 )
 _PROJECT_RELATIVE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_])(?:\.\\|\./)[^\s`]+")
+_TEXT_TARGET_PATTERN = re.compile(
+    r"(?ix)(?<![A-Z0-9_.-])"
+    r"(?:"
+    r"[A-Z]:[\\/](?:[A-Z0-9_.-]+[\\/])*[A-Z0-9_.-]+"
+    r"|(?:[A-Z0-9_.-]+[\\/])+[A-Z0-9_.-]+"
+    r"|[A-Z0-9_-]+\.[A-Z0-9_.-]+"
+    r")"
+)
+_DIFF_TARGET_PATTERN = re.compile(r"(?m)^diff --git a/(.+?) b/(.+?)$")
+_STATUS_TARGET_PATTERN = re.compile(r"(?m)^..\s+(.+?)$")
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
@@ -324,10 +314,17 @@ def redact_sensitive_text(value: str) -> str:
     redacted = _TRUNCATED_PEM_PATTERN.sub("[REDACTED]", redacted)
     redacted = _ASSIGNED_SECRET_PATTERN.sub(r"\g<prefix>[REDACTED]", redacted)
     redacted = _AUTHORIZATION_BEARER_PATTERN.sub("[REDACTED]", redacted)
-    redacted = _BEARER_PATTERN.sub("[REDACTED]", redacted)
+    redacted = _BEARER_PATTERN.sub(_redact_general_bearer, redacted)
     redacted = _PROVIDER_KEY_PATTERN.sub("[REDACTED]", redacted)
     redacted = _redact_contextual_high_entropy(redacted)
     return redacted
+
+
+def _redact_general_bearer(match: re.Match[str]) -> str:
+    token = match.group("token")
+    if token.casefold() in _BEARER_PROSE_ALLOWLIST:
+        return match.group(0)
+    return "[REDACTED]"
 
 
 def _has_valid_schema(delta: SkillDelta) -> bool:
@@ -416,37 +413,33 @@ def _evidence_command(item: EvidenceItem) -> str | None:
     return command if isinstance(command, str) and command.strip() else None
 
 
-def _executable_commands(step: str) -> tuple[str, ...]:
-    commands: list[str] = []
-    for match in _INLINE_CODE_PATTERN.finditer(step):
-        candidate = match.group(1).strip()
-        if _looks_like_command(candidate) and candidate not in commands:
-            commands.append(candidate)
-
+def _entry_command_candidates(step: str, *, mutation_step: bool) -> tuple[str, ...]:
+    inline_matches = tuple(_INLINE_CODE_PATTERN.finditer(step))
+    inline = tuple(match.group(1).strip() for match in inline_matches if match.group(1).strip())
     plain_step = _INLINE_CODE_PATTERN.sub(" ", step)
-    bare_candidate = plain_step.strip().rstrip(".")
-    if _looks_like_command(bare_candidate):
-        if bare_candidate not in commands:
-            commands.append(bare_candidate)
-        return tuple(commands)
+    wrapper = _wrapper_command_candidates(plain_step)
+    if mutation_step:
+        contextual_inline = tuple(
+            match.group(1).strip()
+            for match in inline_matches
+            if re.search(
+                r"(?i)\b(?:run|execute|invoke|use|运行|执行)\s*$",
+                step[max(0, match.start() - 24) : match.start()],
+            )
+        )
+        return tuple(dict.fromkeys((*contextual_inline, *wrapper)))
+    bare = plain_step.strip().rstrip(".")
+    return tuple(dict.fromkeys((*inline, *wrapper, bare)))
 
-    match = _IMPERATIVE_COMMAND_PATTERN.fullmatch(plain_step)
+
+def _wrapper_command_candidates(step: str) -> tuple[str, ...]:
+    match = _IMPERATIVE_COMMAND_PATTERN.fullmatch(step)
     if match is None:
-        match = _WRAPPED_COMMAND_PATTERN.search(plain_step)
-    if match is not None:
-        candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
-        if _looks_like_command(candidate) and candidate not in commands:
-            commands.append(candidate)
-    return tuple(commands)
-
-
-def _looks_like_command(value: str) -> bool:
-    candidate = value.lstrip("&").strip()
-    if candidate.startswith(("./", ".\\")):
-        return True
-    first = re.split(r"\s+", candidate, maxsplit=1)[0].casefold()
-    executable = Path(first.strip("\"'")).name.casefold()
-    return executable in _EXECUTABLE_NAMES or executable.endswith((".exe", ".cmd", ".bat", ".ps1"))
+        match = _WRAPPED_COMMAND_PATTERN.search(step)
+    if match is None:
+        return ()
+    candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
+    return (candidate,) if candidate and candidate not in {".", "`"} else ()
 
 
 def _normalize_command(value: str) -> str:
@@ -458,11 +451,6 @@ def _grounded_solution(
     referenced: tuple[EvidenceItem, ...],
 ) -> tuple[bool, bool]:
     independent = tuple(item for item in referenced if not _contains_injection(item.content))
-    required_commands = tuple(
-        command for step in delta.procedure for command in _executable_commands(step)
-    )
-    has_mutation_claim = any(_FIX_CLAIM_PATTERN.search(step) for step in delta.procedure)
-    has_solution_claim = bool(required_commands) or has_mutation_claim
     grounded_commands = {
         _normalize_command(command)
         for item in independent
@@ -470,32 +458,141 @@ def _grounded_solution(
         for command in [_evidence_command(item)]
         if command is not None
     }
-    commands_grounded = all(
-        _normalize_command(command) in grounded_commands for command in required_commands
+    entries = (*delta.procedure, *delta.verification)
+    return bool(entries), all(
+        _entry_is_grounded(entry, independent, grounded_commands) for entry in entries
     )
-    mutation_grounded = not has_mutation_claim or _has_ordered_workspace_mutation_proof(
-        independent
-    )
-    return has_solution_claim, commands_grounded and mutation_grounded
 
 
-def _has_ordered_workspace_mutation_proof(referenced: tuple[EvidenceItem, ...]) -> bool:
-    last_mutation_index = -1
-    for index, item in enumerate(referenced):
-        if (
-            item.source is EvidenceSource.WORKSPACE_STATE
+def _entry_is_grounded(
+    entry: str,
+    referenced: tuple[EvidenceItem, ...],
+    grounded_commands: set[str],
+) -> bool:
+    mutation_step = _FIX_CLAIM_PATTERN.search(entry) is not None
+    command_candidates = _entry_command_candidates(entry, mutation_step=mutation_step)
+    if mutation_step:
+        commands_grounded = all(
+            _normalize_command(candidate) in grounded_commands
+            for candidate in command_candidates
+        )
+        return commands_grounded and _mutation_entry_is_grounded(
+            entry,
+            referenced,
+            command_candidates=command_candidates,
+        )
+    return any(
+        _normalize_command(candidate) in grounded_commands for candidate in command_candidates
+    )
+
+
+def _mutation_entry_is_grounded(
+    entry: str,
+    referenced: tuple[EvidenceItem, ...],
+    *,
+    command_candidates: tuple[str, ...],
+) -> bool:
+    target_text = entry
+    for command in command_candidates:
+        target_text = target_text.replace(command, " ")
+    targets = _text_targets(target_text)
+    if not targets:
+        return False
+    return all(_target_has_mutation_and_later_proof(target, referenced) for target in targets)
+
+
+def _target_has_mutation_and_later_proof(
+    target: str,
+    referenced: tuple[EvidenceItem, ...],
+) -> bool:
+    last_mutation_index = max(
+        (
+            index
+            for index, item in enumerate(referenced)
+            if item.source is EvidenceSource.WORKSPACE_STATE
             and item.ok is True
             and item.tool_name in _WORKSPACE_MUTATION_TOOLS
-        ):
-            last_mutation_index = index
+            and target in _evidence_targets(item)
+        ),
+        default=-1,
+    )
     if last_mutation_index < 0:
         return False
     return any(
         item.source is EvidenceSource.WORKSPACE_STATE
         and item.ok is True
         and item.tool_name in _DETERMINISTIC_STATE_PROOF_TOOLS
+        and target in _evidence_targets(item)
         for item in referenced[last_mutation_index + 1 :]
     )
+
+
+def _text_targets(value: str) -> frozenset[str]:
+    return frozenset(
+        normalized
+        for match in _TEXT_TARGET_PATTERN.finditer(value)
+        for normalized in [_normalize_target(match.group(0))]
+        if normalized is not None
+    )
+
+
+def _evidence_targets(item: EvidenceItem) -> frozenset[str]:
+    values: list[str] = []
+    path = item.data.get("path")
+    if isinstance(path, str) and path != ".":
+        values.append(path)
+    for key in ("changed_files", "created_files", "deleted_files"):
+        raw_paths = item.data.get(key)
+        if isinstance(raw_paths, list):
+            values.extend(path for path in raw_paths if isinstance(path, str))
+    moved_files = item.data.get("moved_files")
+    if isinstance(moved_files, list):
+        for moved in moved_files:
+            if not isinstance(moved, dict):
+                continue
+            values.extend(
+                path
+                for key in ("source", "destination")
+                for path in [moved.get(key)]
+                if isinstance(path, str)
+            )
+    for key in ("files", "results"):
+        records = item.data.get(key)
+        if isinstance(records, list):
+            values.extend(
+                path
+                for record in records
+                if isinstance(record, dict)
+                for path in [record.get("path")]
+                if isinstance(path, str)
+            )
+    if item.tool_name == "git_diff":
+        values.extend(
+            path
+            for match in _DIFF_TARGET_PATTERN.finditer(item.content)
+            for path in match.groups()
+        )
+    if item.tool_name == "git_status":
+        for match in _STATUS_TARGET_PATTERN.finditer(item.content):
+            status_path = match.group(1)
+            values.extend(part.strip() for part in status_path.split(" -> "))
+    normalized_values = {
+        normalized
+        for value in values
+        for normalized in [_normalize_target(value)]
+        if normalized is not None
+    }
+    return frozenset((*normalized_values, *_text_targets(item.content)))
+
+
+def _normalize_target(value: str) -> str | None:
+    candidate = value.strip().strip("`\"'.,:;()[]{}<>").replace("\\", "/")
+    while candidate.startswith("./"):
+        candidate = candidate[2:]
+    normalized = posixpath.normpath(candidate).casefold()
+    if normalized in {"", ".", ".."} or normalized.startswith("../"):
+        return None
+    return normalized
 
 
 def _delta_text_fields(delta: SkillDelta) -> Iterable[str]:
@@ -575,6 +672,8 @@ def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bo
     normalized_root = project_root.as_posix().rstrip("/").casefold()
     if normalized_root and normalized_root in normalized_content:
         return True
+    if any((project_root / Path(target)).exists() for target in _text_targets(content)):
+        return True
     package_names = _project_package_names(project_root)
     return any(
         re.search(
@@ -593,8 +692,13 @@ def _project_package_names(project_root: Path) -> tuple[str, ...]:
     try:
         return tuple(
             child.name
-            for child in project_root.iterdir()
-            if child.is_dir() and child.name.isidentifier() and not child.name.startswith("_")
+            for package_root in (project_root, project_root / "src")
+            if package_root.is_dir()
+            for child in package_root.iterdir()
+            if child.is_dir()
+            and child.name.isidentifier()
+            and not child.name.startswith("_")
+            and (child / "__init__.py").is_file()
         )
     except OSError:
         return ()
