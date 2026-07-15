@@ -16,6 +16,7 @@ from rook_agent.evalops.models import (
 )
 from rook_agent.evalops.skills import SkillMaterializer, render_skill
 from rook_agent.evolution.models import EvidenceRef
+from rook_agent.skills.discovery import discover_project_skills
 
 
 def sample_bundle() -> SkillBundle:
@@ -154,6 +155,25 @@ def test_materializer_is_idempotent_for_identical_existing_content(tmp_path: Pat
 
     assert second == first
     assert second.stat().st_mtime_ns == before
+
+
+def test_materialized_description_round_trips_through_real_skill_discovery(
+    tmp_path: Path,
+) -> None:
+    description = 'first\u2028second\u2029third\ncolon: value and "quotes"'
+    bundle = replace(sample_bundle(), description=description)
+    candidate = replace(sample_candidate(), bundle=bundle)
+
+    destination = SkillMaterializer().materialize(
+        candidate, AgentType.ROOK, tmp_path
+    )
+    catalog = discover_project_skills(tmp_path)
+
+    assert "\\u2028" in destination.read_text(encoding="utf-8")
+    assert "\\u2029" in destination.read_text(encoding="utf-8")
+    assert len(catalog.skills) == 1
+    assert catalog.skills[0].name == bundle.name
+    assert catalog.skills[0].description == description
 
 
 def test_materializer_rejects_non_identical_existing_content(tmp_path: Path) -> None:

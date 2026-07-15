@@ -5,6 +5,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
+import threading
 
 import pytest
 
@@ -97,6 +100,22 @@ def test_candidate_store_round_trips_bundle_origin_evidence_and_fingerprint(
     assert loaded.origin is CandidateOrigin.FORGE
 
 
+def test_candidate_store_rejects_version_copied_under_another_valid_slug(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    store = CandidateStore(registry)
+    store.create(sample_bundle())
+    copied_slug = "copied-skill"
+    copied_version = registry / copied_slug / "candidates" / "1"
+    shutil.copytree(_version_root(registry), copied_version)
+
+    with pytest.raises(ValueError, match="slug"):
+        store.get(copied_slug, 1)
+    with pytest.raises(ValueError, match="slug"):
+        store.list_versions(copied_slug)
+
+
 def test_candidate_store_only_repeats_evidence_ids_in_skill_json(
     tmp_path: Path,
 ) -> None:
@@ -163,7 +182,7 @@ def test_candidate_store_builds_a_sibling_temp_then_atomically_renames(
     assert observed is not None
     temporary, final, files = observed
     assert temporary.parent == final.parent == registry / "windows-cmd-switching/candidates"
-    assert temporary.name.startswith(".1.") and temporary.name.endswith(".tmp")
+    assert re.fullmatch(r"\.tmp-[0-9a-f]{32}-v1", temporary.name)
     assert final.name == "1"
     assert files == {"skill.json", "SKILL.md", "meta.json"}
     assert not temporary.exists()
@@ -234,8 +253,105 @@ def test_candidate_store_publish_race_does_not_replace_claimed_version(
     assert claimed.is_dir()
     assert list(claimed.iterdir()) == []
     assert not any(
-        path.name.endswith(".tmp") for path in claimed.parent.iterdir()
+        path.name.startswith(".tmp-") for path in claimed.parent.iterdir()
     )
+
+
+def test_candidate_store_reader_ignores_exact_active_temp_directory(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    candidates_root = registry / "windows-cmd-switching" / "candidates"
+    candidates_root.mkdir(parents=True)
+    active_temp = candidates_root / f".tmp-{'a' * 32}-v1"
+    active_temp.mkdir()
+
+    versions = CandidateStore(registry).list_versions("windows-cmd-switching")
+
+    assert versions == ()
+    assert active_temp.is_dir()
+
+
+@pytest.mark.parametrize(
+    ("entry_name", "as_directory"),
+    [
+        (".tmp-not-hex-v1", True),
+        (f".tmp-{'b' * 32}-v01", True),
+        (f".tmp-{'c' * 32}-v1", False),
+    ],
+)
+def test_candidate_store_rejects_malformed_or_non_directory_temp_entries(
+    tmp_path: Path, entry_name: str, as_directory: bool
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    candidates_root = registry / "windows-cmd-switching" / "candidates"
+    candidates_root.mkdir(parents=True)
+    entry = candidates_root / entry_name
+    if as_directory:
+        entry.mkdir()
+    else:
+        entry.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="candidate version entry"):
+        CandidateStore(registry).list_versions("windows-cmd-switching")
+
+
+def test_competing_candidate_writers_publish_once_then_loser_can_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    store = CandidateStore(registry)
+    real_publish = candidates_module._rename_directory_noreplace
+    first_ready = threading.Event()
+    release_first = threading.Event()
+    first_results = []
+    first_errors: list[BaseException] = []
+    first_writer: threading.Thread | None = None
+
+    def coordinated_publish(
+        source: str | os.PathLike[str], destination: str | os.PathLike[str]
+    ) -> None:
+        if threading.current_thread() is first_writer:
+            first_ready.set()
+            if not release_first.wait(timeout=5):
+                raise TimeoutError("second writer did not publish")
+        real_publish(Path(source), Path(destination))
+
+    def create_first() -> None:
+        try:
+            first_results.append(store.create(sample_bundle()))
+        except BaseException as exc:
+            first_errors.append(exc)
+
+    monkeypatch.setattr(
+        candidates_module, "_rename_directory_noreplace", coordinated_publish
+    )
+    first_writer = threading.Thread(target=create_first)
+    first_writer.start()
+    assert first_ready.wait(timeout=5)
+    try:
+        winner = store.create(sample_bundle())
+    finally:
+        release_first.set()
+        first_writer.join(timeout=5)
+
+    assert not first_writer.is_alive()
+    assert winner.version == 1
+    assert first_results == []
+    assert len(first_errors) == 1
+    assert isinstance(first_errors[0], FileExistsError)
+    candidates_root = registry / "windows-cmd-switching" / "candidates"
+    assert not any(
+        path.name.startswith(".tmp-") for path in candidates_root.iterdir()
+    )
+
+    retried = store.create(sample_bundle())
+
+    assert retried.version == 2
+    assert [item.version for item in store.list_versions(sample_bundle().name)] == [
+        1,
+        2,
+    ]
 
 
 def test_candidate_store_rejects_invalid_bundle_before_committing_version(

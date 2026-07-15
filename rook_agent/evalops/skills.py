@@ -29,7 +29,7 @@ def render_skill(bundle: SkillBundle) -> str:
         "---",
         f"name: {slug}",
         "description: "
-        + json.dumps(bundle.description, ensure_ascii=False, allow_nan=False),
+        + json.dumps(bundle.description, ensure_ascii=True, allow_nan=False),
         "---",
         "",
         f"# {slug}",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Mapping
@@ -164,8 +165,20 @@ def _frontmatter_metadata(content: str) -> dict[str, str]:
             break
         key, separator, value = line.partition(":")
         if separator:
-            metadata[key.strip()] = value.strip()
+            decoded = _decode_frontmatter_value(value.strip())
+            if decoded is not None:
+                metadata[key.strip()] = decoded
     return metadata
+
+
+def _decode_frontmatter_value(value: str) -> str | None:
+    if not value.startswith('"'):
+        return value
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return decoded if isinstance(decoded, str) else None
 
 
 def _parse_triggers(value: str) -> tuple[str, ...]:

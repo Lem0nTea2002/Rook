@@ -42,6 +42,21 @@ def test_discovers_project_agent_skill_frontmatter(tmp_path: Path) -> None:
     assert skill.source == SkillSource.PROJECT_AGENT_SKILL
 
 
+def test_invalid_json_quoted_frontmatter_value_fails_closed(tmp_path: Path) -> None:
+    skill_dir = tmp_path / ".agents" / "skills" / "safe-fallback"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        '---\nname: safe-fallback\ndescription: "unterminated\n---\n\n'
+        "# Safe Fallback\n",
+        encoding="utf-8",
+    )
+
+    catalog = discover_project_skills(tmp_path)
+
+    assert catalog.skills[0].name == "safe-fallback"
+    assert catalog.skills[0].description == "Safe Fallback"
+
+
 def test_discovers_frontmatter_triggers(tmp_path: Path) -> None:
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir()

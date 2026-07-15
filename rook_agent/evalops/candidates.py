@@ -10,9 +10,10 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sys
-import tempfile
 from typing import Any
+import uuid
 
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.models import (
@@ -26,6 +27,7 @@ from rook_agent.evolution.models import EvidenceRef
 
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_INFLIGHT_TEMP = re.compile(r"\.tmp-[0-9a-f]{32}-v(?:[1-9][0-9]*)\Z")
 _SKILL_KEYS = frozenset(
     {
         "name",
@@ -57,6 +59,8 @@ class CandidateStore:
         *,
         origin: CandidateOrigin = CandidateOrigin.MANUAL,
     ) -> SkillCandidate:
+        """Publish the next version; a concurrent loser may retry after FileExistsError."""
+
         if not isinstance(origin, CandidateOrigin):
             raise ValueError(f"unknown candidate origin: {origin!r}")
 
@@ -77,11 +81,7 @@ class CandidateStore:
         if final.exists():
             raise FileExistsError(f"candidate version already exists: {slug}@{version}")
 
-        temporary = Path(
-            tempfile.mkdtemp(
-                prefix=f".{version}.", suffix=".tmp", dir=candidates_root
-            )
-        )
+        temporary = _create_inflight_temp(candidates_root, version)
         try:
             artifacts = ArtifactStore(temporary)
             artifacts.write_json("skill.json", skill_payload)
@@ -140,7 +140,9 @@ class CandidateStore:
             )
         if not version_root.is_dir():
             raise ValueError("candidate version must be a directory")
-        return _load_candidate(version_root, expected_version=version)
+        return _load_candidate(
+            version_root, expected_slug=slug, expected_version=version
+        )
 
     def list_versions(self, slug: str) -> tuple[SkillCandidate, ...]:
         _validate_skill_slug(slug)
@@ -152,6 +154,8 @@ class CandidateStore:
 
         versions: list[int] = []
         for entry in candidates_root.iterdir():
+            if _INFLIGHT_TEMP.fullmatch(entry.name) and _is_real_directory(entry):
+                continue
             if (
                 entry.is_symlink()
                 or not entry.is_dir()
@@ -172,7 +176,26 @@ class CandidateStore:
         return candidates_root
 
 
-def _load_candidate(version_root: Path, *, expected_version: int) -> SkillCandidate:
+def _create_inflight_temp(candidates_root: Path, version: int) -> Path:
+    while True:
+        temporary = candidates_root / f".tmp-{uuid.uuid4().hex}-v{version}"
+        try:
+            temporary.mkdir()
+        except FileExistsError:
+            continue
+        return temporary
+
+
+def _is_real_directory(path: Path) -> bool:
+    try:
+        return stat.S_ISDIR(path.lstat().st_mode) and not path.is_symlink()
+    except OSError:
+        return False
+
+
+def _load_candidate(
+    version_root: Path, *, expected_slug: str, expected_version: int
+) -> SkillCandidate:
     try:
         names = {entry.name for entry in version_root.iterdir()}
     except OSError as exc:
@@ -187,6 +210,8 @@ def _load_candidate(version_root: Path, *, expected_version: int) -> SkillCandid
         _artifact_path(version_root, "meta.json"), "candidate metadata"
     )
     bundle = _parse_bundle(skill_payload)
+    if bundle.name != expected_slug:
+        raise ValueError("candidate version slug does not match its directory")
     version, content_hash, origin, status, evidence_hashes = _parse_meta(meta)
     if version != expected_version:
         raise ValueError("candidate metadata version does not match its directory")
