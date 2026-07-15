@@ -747,7 +747,36 @@ def test_mutation_entry_accepts_when_inline_command_and_target_are_grounded() ->
     assert decision.reason_code == ACCEPTED
 
 
-def test_path_shaped_inline_command_requires_execution_for_same_mutation_target() -> None:
+@pytest.mark.parametrize(
+    "execution_context",
+    [
+        "run",
+        "running via",
+        "execute",
+        "executing by",
+        "invoke",
+        "invoking with",
+        "use",
+        "using",
+        "launch via",
+        "call",
+        "validate with",
+        "verify using",
+        "check via",
+        "test by",
+        "confirm with",
+        "运行",
+        "执行",
+        "调用",
+        "验证",
+        "检查",
+        "测试",
+        "使用",
+    ],
+)
+def test_path_shaped_inline_command_requires_execution_for_same_mutation_target(
+    execution_context: str,
+) -> None:
     mutation_ref = replace(LOCAL_REF, event_id="event-edit-script", part_id="part-edit-script")
     proof_ref = replace(LOCAL_REF, event_id="event-view-script", part_id="part-view-script")
     mutation = evidence_item(
@@ -769,7 +798,7 @@ def test_path_shaped_inline_command_requires_execution_for_same_mutation_target(
     delta = valid_delta(
         evidence_refs=(mutation_ref, proof_ref),
         procedure=(
-            "Edit `scripts/check.py`, then run `scripts/check.py`.",
+            f"Edit `scripts/check.py`, then {execution_context} `scripts/check.py`.",
             "Update `scripts/check.py` with the verified behavior.",
         ),
         verification=(),
@@ -811,6 +840,76 @@ def test_path_shaped_inline_command_accepts_matching_local_execution() -> None:
         procedure=(
             "Edit `scripts/check.py`, then run `scripts/check.py`.",
             "Update `scripts/check.py` with the verified behavior.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof, execution))
+
+    assert decision.status is GateStatus.ACCEPT
+    assert decision.reason_code == ACCEPTED
+
+
+def test_mutation_verify_with_inline_command_requires_execution() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-a", part_id="part-edit-a")
+    proof_ref = replace(LOCAL_REF, event_id="event-view-a", part_id="part-view-a")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited A",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="view",
+        content="timeout=30",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref),
+        procedure=(
+            "Edit `config/a.toml`, then verify with `pytest -q`.",
+            "Update `config/a.toml` with the verified timeout.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof))
+
+    assert decision.status is GateStatus.REJECT
+    assert decision.reason_code == EXECUTABLE_STEP_UNGROUNDED
+
+
+def test_mutation_verify_with_inline_command_accepts_matching_execution() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-a", part_id="part-edit-a")
+    proof_ref = replace(LOCAL_REF, event_id="event-view-a", part_id="part-view-a")
+    command_ref = replace(LOCAL_REF, event_id="event-pytest", part_id="part-pytest")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited A",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="view",
+        content="timeout=30",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    execution = evidence_item(command_ref, content="3 passed", command="pytest -q")
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref, command_ref),
+        procedure=(
+            "Edit `config/a.toml`, then verify with `pytest -q`.",
+            "Update `config/a.toml` with the verified timeout.",
         ),
         verification=(),
     )
@@ -1064,6 +1163,39 @@ def test_isolated_git_diff_plus_header_cannot_launder_target() -> None:
         source=EvidenceSource.WORKSPACE_STATE,
         tool_name="git_diff",
         content="@@ -1 +1 @@\n+++ b/config/a.toml\n+timeout=30",
+        command=None,
+    )
+    delta = valid_delta(
+        evidence_refs=(mutation_ref, proof_ref),
+        procedure=(
+            "Edit `config/a.toml` to set timeout 30.",
+            "Update `config/a.toml` with the verified timeout.",
+        ),
+        verification=(),
+    )
+
+    decision = evaluate(delta, verified_trace(mutation, proof))
+
+    assert decision.status is GateStatus.REJECT
+    assert decision.reason_code == EXECUTABLE_STEP_UNGROUNDED
+
+
+def test_git_diff_hunk_header_pair_cannot_launder_target() -> None:
+    mutation_ref = replace(LOCAL_REF, event_id="event-edit-a", part_id="part-edit-a")
+    proof_ref = replace(LOCAL_REF, event_id="event-diff-a", part_id="part-diff-a")
+    mutation = evidence_item(
+        mutation_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="edit",
+        content="edited A",
+        command=None,
+        data={"path": "config/a.toml"},
+    )
+    proof = evidence_item(
+        proof_ref,
+        source=EvidenceSource.WORKSPACE_STATE,
+        tool_name="git_diff",
+        content="@@ -1 +1 @@\n--- a/config/a.toml\n+++ b/config/a.toml",
         command=None,
     )
     delta = valid_delta(

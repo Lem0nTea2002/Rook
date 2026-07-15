@@ -176,7 +176,12 @@ _COMMAND_PURPOSE_PATTERN = re.compile(
     r"(?i)\s+to\s+(?:check|confirm|inspect|validate|verify)\b.*$"
 )
 _EXECUTABLE_INLINE_PREFIX_PATTERN = re.compile(
-    r"(?i)\b(?:run|execute|invoke|use|validate\s+with|check\s+with|运行|执行)\s*$"
+    r"(?ix)(?:"
+    r"\b(?:run(?:ning)?|execut(?:e|ing)|invok(?:e|ing)|us(?:e|ing)|"
+    r"launch|call|validate|verify|check|test|confirm)"
+    r"(?:\s+(?:with|using|via|by))?"
+    r"|(?:运行|执行|调用|验证|检查|测试|使用)"
+    r")\s*$"
 )
 _FIX_CLAIM_PATTERN = re.compile(
     r"(?ix)(?:(?:^\s*(?:[-*]\s*|\d+[.)]\s*)?|[,;]\s*|\bthen\s+)(?:"
@@ -192,10 +197,9 @@ _TEXT_TARGET_PATTERN = re.compile(
     r"|[A-Z0-9_-]+\.[A-Z0-9_.-]+"
     r")"
 )
-_DIFF_TARGET_PATTERN = re.compile(r"(?m)^diff --git a/(.+?) b/(.+?)$")
-_DIFF_FILE_PAIR_PATTERN = re.compile(
-    r"(?m)^---\s+a/(.+?)\r?\n\+\+\+\s+b/(.+?)$"
-)
+_DIFF_RECORD_PATTERN = re.compile(r"diff --git a/(.+?) b/(.+?)")
+_DIFF_OLD_FILE_PATTERN = re.compile(r"---\s+a/(.+?)")
+_DIFF_NEW_FILE_PATTERN = re.compile(r"\+\+\+\s+b/(.+?)")
 _STATUS_TARGET_PATTERN = re.compile(r"(?m)^[ MADRCU?!]{2}\s+(.+?)$")
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
@@ -455,6 +459,9 @@ def _wrapper_command_candidates(step: str) -> tuple[str, ...]:
 
 
 def _inline_code_is_executable(step: str, match: re.Match[str]) -> bool:
+    candidate = match.group(1).strip()
+    if _TEXT_TARGET_PATTERN.fullmatch(candidate) is None:
+        return True
     return _EXECUTABLE_INLINE_PREFIX_PATTERN.search(step[: match.start()]) is not None
 
 
@@ -563,21 +570,63 @@ def _text_targets(value: str) -> frozenset[str]:
 
 def _evidence_targets(item: EvidenceItem) -> frozenset[str]:
     values = list(_structured_evidence_target_values(item))
-    if item.tool_name == "git_diff":
-        values.extend(
-            path
-            for match in _DIFF_TARGET_PATTERN.finditer(item.content)
-            for path in match.groups()
-        )
-        values.extend(
-            path
-            for match in _DIFF_FILE_PAIR_PATTERN.finditer(item.content)
-            for path in match.groups()
-        )
     if item.tool_name == "git_status":
         for match in _STATUS_TARGET_PATTERN.finditer(item.content):
             status_path = match.group(1)
             values.extend(part.strip() for part in status_path.split(" -> "))
+    structured = frozenset(
+        normalized
+        for value in values
+        for normalized in [_normalize_target(value)]
+        if normalized is not None
+    )
+    if item.tool_name == "git_diff":
+        return structured | _git_diff_machine_targets(item.content)
+    return structured
+
+
+def _git_diff_machine_targets(content: str) -> frozenset[str]:
+    lines = content.splitlines()
+    values: list[str] = []
+    current_record: tuple[str, str] | None = None
+    pending_old: tuple[int, str] | None = None
+    in_hunk = False
+
+    for index, line in enumerate(lines):
+        record_match = _DIFF_RECORD_PATTERN.fullmatch(line)
+        if record_match is not None:
+            current_record = (record_match.group(1), record_match.group(2))
+            values.extend(current_record)
+            pending_old = None
+            in_hunk = False
+            continue
+        if line.startswith("@@"):
+            pending_old = None
+            in_hunk = True
+            continue
+        if in_hunk:
+            continue
+
+        old_match = _DIFF_OLD_FILE_PATTERN.fullmatch(line)
+        if old_match is not None:
+            pending_old = (index, old_match.group(1))
+            continue
+        new_match = _DIFF_NEW_FILE_PATTERN.fullmatch(line)
+        if new_match is not None and pending_old is not None:
+            old_index, old_path = pending_old
+            new_path = new_match.group(1)
+            standalone_pair = (
+                old_index == 0
+                and index == 1
+                and len(lines) > 2
+                and lines[2].startswith("@@")
+            )
+            if standalone_pair or current_record == (old_path, new_path):
+                values.extend((old_path, new_path))
+            pending_old = None
+            continue
+        pending_old = None
+
     return frozenset(
         normalized
         for value in values
