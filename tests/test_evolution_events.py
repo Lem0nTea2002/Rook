@@ -4,8 +4,12 @@ import pytest
 
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.context.writer import SessionEventWriter
-from rook_agent.evolution import EvolutionScope
+from rook_agent.evolution import EvolutionScope, TraceOutcome
 from rook_agent.evolution.events import append_forge_event
+
+
+SEGMENT_ID = "0123456789abcdef0123456789abcdef"
+CONTENT_HASH = "abcdef0123456789"
 
 
 def test_append_forge_event_rejects_unsupported_event_type(tmp_path) -> None:
@@ -25,12 +29,11 @@ def test_append_forge_event_round_trips_only_audit_safe_payload(tmp_path) -> Non
     event_id = append_forge_event(
         writer,
         "forge_trace_eligible",
-        segment_id="segment_1",
+        segment_id=SEGMENT_ID,
         reason_code="verified_success",
         evidence_count=3,
-        accepted=True,
-        content_hash="sha256:abc123",
-        scope=EvolutionScope.PROJECT,
+        outcome=TraceOutcome.VERIFIED_SUCCESS,
+        is_closed=True,
         secret_text="sk-do-not-persist",
         details={"matched": "sk-do-not-persist"},
         summary="free-form model output",
@@ -43,10 +46,79 @@ def test_append_forge_event_round_trips_only_audit_safe_payload(tmp_path) -> Non
     assert events[0].session_id == "sess_forge"
     assert events[0].type == "forge_trace_eligible"
     assert events[0].payload == {
-        "accepted": True,
-        "content_hash": "sha256:abc123",
         "evidence_count": 3,
+        "is_closed": True,
+        "outcome": "verified_success",
         "reason_code": "verified_success",
+        "segment_id": SEGMENT_ID,
+    }
+
+
+def test_append_forge_event_drops_unapproved_audit_shaped_fields(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_forge")
+
+    append_forge_event(
+        writer,
+        "forge_trace_eligible",
+        segment_id=SEGMENT_ID,
+        reason_code="verified_success",
+        evidence_count=2,
+        matched_secret_id="sk_live_secret",
+        matched_secret_hash="github_pat_secret",
+        matched_secret_status="github_pat_secret",
+        arbitrary_integer=8675309,
+        skill_path=["sk_live_secret"],
+    )
+
+    assert store.list_events("sess_forge")[0].payload == {
+        "evidence_count": 2,
+        "reason_code": "verified_success",
+        "segment_id": SEGMENT_ID,
+    }
+
+
+def test_append_forge_event_drops_malicious_values_in_approved_fields(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_forge")
+
+    append_forge_event(
+        writer,
+        "skill_created",
+        segment_id="sk_live_secret",
+        reason_code="github_pat_secret",
+        skill_name="sk-live-secret",
+        skill_path=".rook/skills/sk-live-secret/SKILL.md",
+        version=-1,
+        content_hash="github_pat_secret",
+        scope="secret",
+    )
+
+    assert store.list_events("sess_forge")[0].payload == {}
+
+
+def test_append_forge_event_keeps_valid_created_skill_audit_fields(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_forge")
+
+    append_forge_event(
+        writer,
+        "skill_created",
+        segment_id=SEGMENT_ID,
+        reason_code="accept_create",
+        skill_name="cmd-directory-switching",
+        skill_path=".rook/skills/cmd-directory-switching/SKILL.md",
+        version=1,
+        content_hash=CONTENT_HASH,
+        scope=EvolutionScope.PROJECT,
+    )
+
+    assert store.list_events("sess_forge")[0].payload == {
+        "content_hash": CONTENT_HASH,
+        "reason_code": "accept_create",
         "scope": "project",
-        "segment_id": "segment_1",
+        "segment_id": SEGMENT_ID,
+        "skill_name": "cmd-directory-switching",
+        "skill_path": ".rook/skills/cmd-directory-switching/SKILL.md",
+        "version": 1,
     }
