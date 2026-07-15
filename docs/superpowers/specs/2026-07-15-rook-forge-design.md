@@ -1,6 +1,6 @@
-# Rook Forge：执行证据驱动的 Skill 演化设计
+# Rook Forge：执行证据驱动的 Skill 演化设计（已被取代）
 
-- 状态：已批准，待实现计划
+- 状态：已被 `2026-07-15-rook-agent-evalops-design.md` 取代；仅保留为历史设计依据
 - 日期：2026-07-15
 - 范围：Rook 的跨任务程序性记忆与 Markdown Skill 自动演化
 - 不包含：模型权重训练、Agent 自修改源码、自动改写系统提示词

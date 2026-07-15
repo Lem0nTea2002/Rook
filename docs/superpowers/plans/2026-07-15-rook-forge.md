@@ -1,5 +1,7 @@
 # Rook Forge Implementation Plan
 
+> **Superseded on 2026-07-15:** Do not continue Task 4 or later from this plan. The approved product direction is now [Rook Agent EvalOps](../specs/2026-07-15-rook-agent-evalops-design.md). Tasks 1-3 remain historical implementation context; a replacement plan must be written from the new design.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement Rook Forge, an opt-in, execution-grounded Skill evolution pipeline that converts verified session trajectories into safe, versioned Markdown Skills and reuses them through Rook's deterministic router.
