@@ -38,7 +38,54 @@ MAX_TITLE_LENGTH = 120
 MAX_DESCRIPTION_LENGTH = 600
 MAX_ENTRY_LENGTH = 1_000
 
-_BROAD_TRIGGER_WORDS = ("project", "issue", "code", "项目", "问题", "代码")
+_BROAD_TRIGGER_WORDS = frozenset(
+    {"bug", "code", "issue", "project", "task", "work", "代码", "问题", "项目"}
+)
+_FIX_CLAIM_VERBS = frozenset(
+    {
+        "add",
+        "apply",
+        "change",
+        "configure",
+        "create",
+        "delete",
+        "disable",
+        "edit",
+        "enable",
+        "fix",
+        "install",
+        "modify",
+        "patch",
+        "remove",
+        "rename",
+        "replace",
+        "set",
+        "uninstall",
+        "update",
+        "write",
+    }
+)
+_SUPPORT_STOP_WORDS = _BROAD_TRIGGER_WORDS | _FIX_CLAIM_VERBS | {
+    "and",
+    "check",
+    "complete",
+    "confirm",
+    "fix",
+    "for",
+    "from",
+    "inspect",
+    "into",
+    "result",
+    "run",
+    "step",
+    "successful",
+    "the",
+    "this",
+    "use",
+    "verify",
+    "when",
+    "with",
+}
 _EXECUTABLE_NAMES = frozenset(
     {
         "bash",
@@ -75,9 +122,9 @@ _PEM_BLOCK_PATTERN = re.compile(
     r"-----BEGIN [^-\r\n]*PRIVATE KEY-----.*?-----END [^-\r\n]*PRIVATE KEY-----",
     re.IGNORECASE | re.DOTALL,
 )
-_PEM_HEADER_PATTERN = re.compile(
-    r"-----BEGIN [^-\r\n]*PRIVATE KEY-----",
-    re.IGNORECASE,
+_TRUNCATED_PEM_PATTERN = re.compile(
+    r"-----BEGIN [^-\r\n]*PRIVATE KEY-----.*\Z",
+    re.IGNORECASE | re.DOTALL,
 )
 _ASSIGNED_SECRET_PATTERN = re.compile(
     r"(?ix)"
@@ -92,8 +139,12 @@ _ASSIGNED_SECRET_PATTERN = re.compile(
     r"|(?P<value>[^\s,;\"']+)"
     r")",
 )
+_AUTHORIZATION_BEARER_PATTERN = re.compile(
+    r"(?i)\bauthorization\s*:\s*bearer\s+[^\s,;]+",
+)
 _BEARER_PATTERN = re.compile(
-    r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{12,}",
+    r"(?i)\bbearer\s+(?=[A-Za-z0-9._~+/=-]{12,})"
+    r"(?=[A-Za-z0-9._~+/=-]*[0-9._~+/=-])[A-Za-z0-9._~+/=-]{12,}",
 )
 _PROVIDER_KEY_PATTERN = re.compile(
     r"(?i)\bsk-[A-Za-z0-9_-]{16,}\b",
@@ -129,16 +180,32 @@ _NUMERIC_TIMESTAMP_PATTERN = re.compile(
 
 _INJECTION_PATTERNS = (
     re.compile(r"(?i)\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b"),
-    re.compile(r"(?i)\b(?:save|store|write|persist)\b.{0,80}\b(?:long[- ]term\s+)?(?:memory|instructions?|skill)\b"),
-    re.compile(r"(?:忽略|无视|覆盖).{0,16}(?:之前|先前|系统).{0,8}(?:指令|提示)"),
-    re.compile(r"(?:保存|写入|存入).{0,32}(?:长期记忆|记忆|技能)"),
+    re.compile(
+        r"(?i)\b(?:save|store|write|persist)\b[\s\S]{0,80}"
+        r"\b(?:long[- ]term\s+)?(?:memory|instructions?|skill)\b"
+    ),
+    re.compile(
+        r"(?:忽略|无视|覆盖).{0,16}(?:之前|先前|系统).{0,8}(?:指令|提示)",
+        re.DOTALL,
+    ),
+    re.compile(r"(?:保存|写入|存入).{0,32}(?:长期记忆|记忆|技能)", re.DOTALL),
 )
 
 _INLINE_CODE_PATTERN = re.compile(r"`([^`\r\n]+)`")
 _IMPERATIVE_COMMAND_PATTERN = re.compile(
     r"(?i)^\s*(?:[-*]\s*|\d+[.)]\s*)?(?:run|execute|invoke|运行|执行)\s+(.+?)\s*$"
 )
+_WRAPPED_COMMAND_PATTERN = re.compile(r"(?i)\b(?:run|execute|invoke|use)\s+(.+?)\s*$")
+_COMMAND_PURPOSE_PATTERN = re.compile(
+    r"(?i)\s+to\s+(?:check|confirm|inspect|validate|verify)\b.*$"
+)
+_FIX_CLAIM_PATTERN = re.compile(
+    r"(?i)(?:\b(?:"
+    + "|".join(sorted(_FIX_CLAIM_VERBS))
+    + r")\b|(?:设置|更改|更新|修改|修复|添加|删除|替换|启用|禁用|安装))"
+)
 _PROJECT_RELATIVE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_])(?:\.\\|\./)[^\s`]+")
+_WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
 class SkillGate:
@@ -198,10 +265,21 @@ class SkillGate:
             for command in [_evidence_command(item)]
             if command is not None
         }
+        required_commands = tuple(
+            command for step in delta.procedure for command in _executable_commands(step)
+        )
         if any(
             _normalize_command(command) not in grounded_commands
-            for step in delta.procedure
-            for command in _executable_commands(step)
+            for command in required_commands
+        ):
+            return _reject(EXECUTABLE_STEP_UNGROUNDED)
+        has_injection_support = any(
+            item.source in {EvidenceSource.EXTERNAL_CONTENT, EvidenceSource.WORKSPACE_STATE}
+            and _contains_injection(item.content)
+            for item in referenced
+        )
+        if not has_injection_support and not any(
+            _execution_supports_delta(item, delta, required_commands) for item in referenced
         ):
             return _reject(EXECUTABLE_STEP_UNGROUNDED)
         return None
@@ -229,10 +307,11 @@ class SkillGate:
         )
         if not has_injection_support:
             return None
+        required_commands = tuple(
+            command for step in delta.procedure for command in _executable_commands(step)
+        )
         has_independent_execution = any(
-            item.source is EvidenceSource.LOCAL_EXECUTION
-            and item.ok is True
-            and _evidence_command(item) is not None
+            _execution_supports_delta(item, delta, required_commands)
             and not _contains_injection(item.content)
             for item in referenced
         )
@@ -264,8 +343,9 @@ def redact_sensitive_text(value: str) -> str:
     if not isinstance(value, str) or not value:
         return value
     redacted = _PEM_BLOCK_PATTERN.sub("[REDACTED]", value)
-    redacted = _PEM_HEADER_PATTERN.sub("[REDACTED]", redacted)
+    redacted = _TRUNCATED_PEM_PATTERN.sub("[REDACTED]", redacted)
     redacted = _ASSIGNED_SECRET_PATTERN.sub(r"\g<prefix>[REDACTED]", redacted)
+    redacted = _AUTHORIZATION_BEARER_PATTERN.sub("[REDACTED]", redacted)
     redacted = _BEARER_PATTERN.sub("[REDACTED]", redacted)
     redacted = _PROVIDER_KEY_PATTERN.sub("[REDACTED]", redacted)
     redacted = _redact_contextual_high_entropy(redacted)
@@ -286,6 +366,8 @@ def _has_valid_schema(delta: SkillDelta) -> bool:
     if not _valid_text_tuple(delta.triggers, minimum=2, maximum=8):
         return False
     if any(_is_only_broad_words(trigger) for trigger in delta.triggers):
+        return False
+    if len({_normalize_trigger(trigger) for trigger in delta.triggers}) < 2:
         return False
     if not _valid_text_tuple(delta.procedure, minimum=2, maximum=10):
         return False
@@ -322,10 +404,13 @@ def _has_disallowed_control(value: str) -> bool:
 
 
 def _is_only_broad_words(trigger: str) -> bool:
-    remainder = trigger.casefold()
-    for word in _BROAD_TRIGGER_WORDS:
-        remainder = remainder.replace(word, "")
-    return re.sub(r"[\W_]+", "", remainder, flags=re.UNICODE) == ""
+    words = _normalize_trigger(trigger).split()
+    return bool(words) and all(word in _BROAD_TRIGGER_WORDS for word in words)
+
+
+def _normalize_trigger(trigger: str) -> str:
+    normalized = unicodedata.normalize("NFKC", trigger).casefold()
+    return " ".join(_WORD_PATTERN.findall(normalized))
 
 
 def _referenced_evidence(
@@ -349,8 +434,10 @@ def _executable_commands(step: str) -> tuple[str, ...]:
         return tuple(command for command in inline if _looks_like_command(command))
     match = _IMPERATIVE_COMMAND_PATTERN.fullmatch(step)
     if match is None:
+        match = _WRAPPED_COMMAND_PATTERN.search(step)
+    if match is None:
         return ()
-    candidate = match.group(1).strip().rstrip(".")
+    candidate = _COMMAND_PURPOSE_PATTERN.sub("", match.group(1)).strip().rstrip(".")
     return (candidate,) if _looks_like_command(candidate) else ()
 
 
@@ -365,6 +452,40 @@ def _looks_like_command(value: str) -> bool:
 
 def _normalize_command(value: str) -> str:
     return " ".join(value.strip().split())
+
+
+def _execution_supports_delta(
+    item: EvidenceItem,
+    delta: SkillDelta,
+    required_commands: tuple[str, ...],
+) -> bool:
+    command = _evidence_command(item)
+    if item.source is not EvidenceSource.LOCAL_EXECUTION or item.ok is not True or command is None:
+        return False
+    normalized_command = _normalize_command(command)
+    evidence_terms = _support_terms(command) | _support_terms(item.content)
+    fix_claims = tuple(step for step in delta.procedure if _FIX_CLAIM_PATTERN.search(step))
+    if fix_claims and any(not (_support_terms(claim) & evidence_terms) for claim in fix_claims):
+        return False
+    if any(_normalize_command(required) == normalized_command for required in required_commands):
+        return True
+    if fix_claims:
+        return True
+    delta_terms = {
+        term
+        for text in _delta_text_fields(delta)
+        for term in _support_terms(text)
+    }
+    return bool(delta_terms & evidence_terms)
+
+
+def _support_terms(value: str) -> set[str]:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return {
+        word
+        for word in _WORD_PATTERN.findall(normalized)
+        if len(word) >= 3 and word not in _SUPPORT_STOP_WORDS and not word.isdecimal()
+    }
 
 
 def _delta_text_fields(delta: SkillDelta) -> Iterable[str]:
@@ -446,7 +567,10 @@ def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bo
         return True
     package_names = _project_package_names(project_root)
     return any(
-        re.search(rf"(?i)(?<![A-Z0-9_]){re.escape(name)}\._[A-Z0-9_]+", content)
+        re.search(
+            rf"(?i)(?<![A-Z0-9_]){re.escape(name)}(?=[./\\])",
+            content,
+        )
         is not None
         for name in package_names
     )
