@@ -77,7 +77,7 @@ class EvidenceClassifier:
             trace.evidence,
             mutation_index=mutation_index,
         )
-        if state_proof_index is not None and state_proof_index > failed_verifier_index:
+        if state_proof_index is not None and mutation_index > failed_verifier_index:
             return _decision(True, TraceOutcome.STATE_VERIFIED_SUCCESS, "state_verified_success")
 
         if failed_verifier_index > mutation_index:

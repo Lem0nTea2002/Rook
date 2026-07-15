@@ -74,6 +74,10 @@ def test_is_verification_command_rejects_shell_and_process_substitution(command:
     assert not is_verification_command(command)
 
 
+def test_is_verification_command_rejects_output_process_substitution() -> None:
+    assert not is_verification_command("pytest >(malicious)")
+
+
 def test_successful_shell_verification_result() -> None:
     result = ToolResult(
         name="shell",

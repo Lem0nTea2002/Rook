@@ -92,5 +92,5 @@ def _is_python_executable(value: str) -> bool:
 def _has_shell_control_operator(command: str) -> bool:
     return any(
         operator in command
-        for operator in ("&&", "||", ";", "|", "\n", "&", "$(", "`", "<(")
+        for operator in ("&&", "||", ";", "|", "\n", "&", "$(", "`", "<(", ">(")
     )

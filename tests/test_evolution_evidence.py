@@ -339,3 +339,31 @@ def test_final_verifier_after_mutation_proves_current_state() -> None:
         outcome=TraceOutcome.VERIFIED_SUCCESS,
         reason_code="verified_success",
     )
+
+
+def test_state_read_cannot_clear_failure_without_later_mutation() -> None:
+    trace = trace_with_results(
+        result_item("write", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        shell_result(ok=False, command="pytest -q", exit_code=1),
+        result_item("diff", "git_diff", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=False,
+        outcome=TraceOutcome.FAILED,
+        reason_code="failed",
+    )
+
+
+def test_later_mutation_and_state_read_can_clear_earlier_failure() -> None:
+    trace = trace_with_results(
+        shell_result(ok=False, command="pytest -q", exit_code=1),
+        result_item("write", "write", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+        result_item("diff", "git_diff", source=EvidenceSource.WORKSPACE_STATE, ok=True),
+    )
+
+    assert EvidenceClassifier().evaluate(trace) == EligibilityDecision(
+        eligible=True,
+        outcome=TraceOutcome.STATE_VERIFIED_SUCCESS,
+        reason_code="state_verified_success",
+    )
