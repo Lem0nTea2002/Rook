@@ -16,6 +16,7 @@ from rook_agent.evolution.gate import redact_sensitive_text
 
 _KEY_PARTS = re.compile(r"[^a-z0-9]+")
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_ACRONYM_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[A-Z][a-z])")
 _SENSITIVE_KEY_PARTS = frozenset(
     {"authorization", "token", "password", "passwd", "secret", "cookie", "apikey"}
 )
@@ -119,7 +120,8 @@ def redact_value(value: object) -> object:
 
 
 def _is_sensitive_key(key: str) -> bool:
-    separated = _CAMEL_BOUNDARY.sub("_", key).casefold()
+    separated = _ACRONYM_BOUNDARY.sub("_", key)
+    separated = _CAMEL_BOUNDARY.sub("_", separated).casefold()
     parts = tuple(part for part in _KEY_PARTS.split(separated) if part)
     if any(part in _SENSITIVE_KEY_PARTS for part in parts):
         return True

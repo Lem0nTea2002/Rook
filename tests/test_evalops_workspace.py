@@ -85,6 +85,17 @@ def test_hash_workspace_is_stable_and_includes_relative_paths(tmp_path: Path) ->
     assert hash_workspace(first) != hash_workspace(second)
 
 
+def test_hash_workspace_frames_paths_and_contents_without_collisions(tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "a").write_bytes(b"bc")
+    (second / "ab").write_bytes(b"c")
+
+    assert hash_workspace(first) != hash_workspace(second)
+
+
 def test_hash_workspace_ignores_runtime_directories(tmp_path: Path) -> None:
     fixture = tmp_path / "fixture"
     _write_fixture(fixture)

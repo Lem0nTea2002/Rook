@@ -109,10 +109,23 @@ def hash_workspace(root: Path) -> str:
     _validate_workspace(workspace)
     workspace = workspace.resolve()
     digest = hashlib.sha256()
+    digest.update(b"rook-workspace-tree-v1\0")
     for path in _iter_regular_files(workspace):
-        digest.update(path.relative_to(workspace).as_posix().encode("utf-8"))
-        digest.update(path.read_bytes())
+        _update_framed_hash_field(
+            digest,
+            marker=b"P",
+            value=path.relative_to(workspace).as_posix().encode("utf-8"),
+        )
+        _update_framed_hash_field(digest, marker=b"C", value=path.read_bytes())
     return digest.hexdigest()
+
+
+def _update_framed_hash_field(
+    digest: Any, *, marker: bytes, value: bytes
+) -> None:
+    digest.update(marker)
+    digest.update(len(value).to_bytes(8, byteorder="big", signed=False))
+    digest.update(value)
 
 
 def _copy_workspace(source: Path, destination: Path) -> Path:

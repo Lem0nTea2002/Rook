@@ -50,6 +50,27 @@ def test_artifact_store_does_not_redact_benign_bearer_prose(tmp_path: Path) -> N
     )
 
 
+def test_artifact_store_redacts_acronym_camel_case_sensitive_keys(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path)
+
+    store.write_json(
+        "raw/acronyms.json",
+        {
+            "APIToken": "Bearer example-secret-value",
+            "XApiKey": "Bearer example-secret-value",
+            "note": "Use Bearer prose-example in docs",
+        },
+    )
+
+    target = tmp_path / "raw" / "acronyms.json"
+    persisted = target.read_text(encoding="utf-8")
+    payload = json.loads(persisted)
+    assert payload["APIToken"] == "[REDACTED]"
+    assert payload["XApiKey"] == "[REDACTED]"
+    assert "Bearer example-secret-value" not in persisted
+    assert payload["note"] == "Use Bearer prose-example in docs"
+
+
 def test_artifact_store_failed_replace_preserves_old_file_and_cleans_redacted_temp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
