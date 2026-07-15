@@ -28,6 +28,7 @@ from rook_agent.evolution.models import EvidenceRef
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _INFLIGHT_TEMP = re.compile(r"\.tmp-[0-9a-f]{32}-v(?:[1-9][0-9]*)\Z")
+_REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 _SKILL_KEYS = frozenset(
     {
         "name",
@@ -154,7 +155,9 @@ class CandidateStore:
 
         versions: list[int] = []
         for entry in candidates_root.iterdir():
-            if _INFLIGHT_TEMP.fullmatch(entry.name) and _is_real_directory(entry):
+            if _INFLIGHT_TEMP.fullmatch(
+                entry.name
+            ) and _is_ignorable_inflight_temp(entry):
                 continue
             if (
                 entry.is_symlink()
@@ -186,11 +189,19 @@ def _create_inflight_temp(candidates_root: Path, version: int) -> Path:
         return temporary
 
 
-def _is_real_directory(path: Path) -> bool:
+def _is_ignorable_inflight_temp(path: Path) -> bool:
     try:
-        return stat.S_ISDIR(path.lstat().st_mode) and not path.is_symlink()
+        status = path.lstat()
+    except FileNotFoundError:
+        return True
     except OSError:
         return False
+    attributes = getattr(status, "st_file_attributes", 0)
+    return (
+        stat.S_ISDIR(status.st_mode)
+        and not stat.S_ISLNK(status.st_mode)
+        and not attributes & _REPARSE_POINT_ATTRIBUTE
+    )
 
 
 def _load_candidate(

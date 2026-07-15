@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -270,6 +272,60 @@ def test_candidate_store_reader_ignores_exact_active_temp_directory(
 
     assert versions == ()
     assert active_temp.is_dir()
+
+
+def test_candidate_store_reader_tolerates_temp_published_before_lstat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    store = CandidateStore(registry)
+    created = store.create(sample_bundle())
+    candidates_root = registry / "windows-cmd-switching" / "candidates"
+    final = candidates_root / "1"
+    active_temp = candidates_root / f".tmp-{'d' * 32}-v1"
+    final.rename(active_temp)
+    original_lstat = Path.lstat
+    published = False
+
+    def publish_then_lstat(path: Path) -> object:
+        nonlocal published
+        if path == active_temp and not published:
+            active_temp.rename(final)
+            published = True
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", publish_then_lstat)
+
+    observed_during_publish = store.list_versions("windows-cmd-switching")
+
+    assert published is True
+    assert observed_during_publish == ()
+    assert store.get("windows-cmd-switching", 1) == created
+    assert store.list_versions("windows-cmd-switching") == (created,)
+
+
+def test_candidate_store_rejects_reparse_point_with_valid_temp_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    candidates_root = registry / "windows-cmd-switching" / "candidates"
+    candidates_root.mkdir(parents=True)
+    reparse_temp = candidates_root / f".tmp-{'e' * 32}-v1"
+    reparse_temp.mkdir()
+    original_lstat = Path.lstat
+
+    def fake_reparse_lstat(path: Path) -> object:
+        if path == reparse_temp:
+            return SimpleNamespace(
+                st_mode=stat.S_IFDIR,
+                st_file_attributes=stat.FILE_ATTRIBUTE_REPARSE_POINT,
+            )
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_reparse_lstat)
+
+    with pytest.raises(ValueError, match="candidate version entry"):
+        CandidateStore(registry).list_versions("windows-cmd-switching")
 
 
 @pytest.mark.parametrize(
