@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import io
 import os
 from pathlib import Path
 import signal
@@ -41,6 +42,7 @@ def test_process_runner_captures_normal_exit_and_separate_streams(tmp_path: Path
     assert result.stdout == "normal-out\n"
     assert result.stderr == "normal-err\n"
     assert result.error_message is None
+    assert result.cleanup_error is None
 
 
 def test_process_runner_reports_nonzero_exit_as_failed(tmp_path: Path) -> None:
@@ -134,6 +136,7 @@ def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
 
     assert result.status is ProcessStatus.TIMEOUT
     assert result.duration_ms < 1_500
+    assert result.cleanup_error is None
     assert child_pid_file.exists()
     assert not _process_is_running(int(child_pid_file.read_text()))
 
@@ -161,6 +164,7 @@ def test_process_runner_keeps_cancellation_active_after_direct_parent_exits(
 
     assert result.status is ProcessStatus.CANCELLED
     assert result.duration_ms < 1_500
+    assert result.cleanup_error is None
     assert child_pid_file.exists()
     assert not _process_is_running(int(child_pid_file.read_text()))
 
@@ -281,6 +285,170 @@ def test_cleanup_contains_repeated_wait_timeout_instead_of_raising(
     assert "process_wait_timeout" in cleanup_error
     assert process.wait_calls <= 2
     assert process.kill_calls == 1
+
+
+class _SuccessfulFakeJob:
+    def terminate(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
+def test_windows_job_success_covers_expected_taskkill_missing_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _FakeProcess()
+    process.returncode = 0
+    monkeypatch.setattr(
+        process_module.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 128),
+    )
+
+    cleanup_error = process_module._terminate_windows_process_tree(
+        process,
+        _SuccessfulFakeJob(),  # type: ignore[arg-type]
+    )
+
+    assert cleanup_error is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows suspended-spawn contract")
+def test_windows_spawn_is_suspended_and_attaches_before_resume(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    popen_options: dict[str, object] = {}
+
+    class FakePopen:
+        pid = 1234
+        returncode = 0
+        _handle = 99
+        stdin = io.BytesIO()
+        stdout = io.BytesIO()
+        stderr = io.BytesIO()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            popen_options.update(kwargs)
+            events.append("popen")
+
+        def poll(self) -> int:
+            return 0
+
+        def kill(self) -> None:
+            events.append("kill")
+
+        def wait(self, timeout: float | None = None) -> int:
+            return 0
+
+    class FakeJob:
+        @classmethod
+        def attach(cls, process: object) -> _SuccessfulFakeJob:
+            events.append("attach")
+            return _SuccessfulFakeJob()
+
+    monkeypatch.setattr(process_module.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(process_module, "_WindowsJob", FakeJob)
+    monkeypatch.setattr(
+        process_module,
+        "_resume_windows_process",
+        lambda process: events.append("resume"),
+        raising=False,
+    )
+
+    process, job = process_module._spawn_process(
+        _request(tmp_path, "print('never executed')")
+    )
+
+    flags = int(popen_options["creationflags"])
+    assert flags & subprocess.CREATE_NEW_PROCESS_GROUP
+    assert flags & process_module._CREATE_SUSPENDED
+    assert events == ["popen", "attach", "resume"]
+    assert job is not None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows suspended-spawn contract")
+@pytest.mark.parametrize("failure_stage", ["attach", "resume"])
+def test_windows_spawn_setup_failure_performs_bounded_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
+) -> None:
+    events: list[str] = []
+
+    class FakePopen:
+        pid = 1234
+        returncode = None
+        _handle = 99
+        stdin = io.BytesIO()
+        stdout = io.BytesIO()
+        stderr = io.BytesIO()
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+        def wait(self, timeout: float | None = None) -> int:
+            if self.returncode is None:
+                raise subprocess.TimeoutExpired(("fake",), timeout)
+            return self.returncode
+
+    class FakeJob:
+        @classmethod
+        def attach(cls, process: object) -> _SuccessfulFakeJob:
+            events.append("attach")
+            if failure_stage == "attach":
+                raise OSError("attach failed")
+            return _SuccessfulFakeJob()
+
+    def resume(process: object) -> None:
+        events.append("resume")
+        if failure_stage == "resume":
+            raise OSError("resume failed")
+
+    def cleanup(process: object, job: object = None) -> None:
+        events.append("cleanup_with_job" if job is not None else "cleanup_without_job")
+        return None
+
+    monkeypatch.setattr(process_module.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(process_module, "_WindowsJob", FakeJob)
+    monkeypatch.setattr(process_module, "_resume_windows_process", resume, raising=False)
+    monkeypatch.setattr(process_module, "_terminate_process_tree", cleanup)
+
+    with pytest.raises(process_module._ProcessSetupError):
+        process_module._spawn_process(_request(tmp_path, "print('never executed')"))
+
+    expected = (
+        ["attach", "cleanup_without_job"]
+        if failure_stage == "attach"
+        else ["attach", "resume", "cleanup_with_job"]
+    )
+    assert events == expected
+
+
+@pytest.mark.parametrize(
+    "bad_request",
+    [
+        lambda tmp_path: {"command": (sys.executable, "bad\x00arg"), "cwd": tmp_path},
+        lambda tmp_path: {"command": (sys.executable,), "cwd": tmp_path, "env": {"BAD\x00KEY": "v"}},
+        lambda tmp_path: {"command": (sys.executable,), "cwd": tmp_path, "env": {"KEY": "bad\x00value"}},
+        lambda tmp_path: {"command": (sys.executable,), "cwd": Path("bad\x00cwd")},
+    ],
+)
+def test_process_request_rejects_nul_bytes(
+    tmp_path: Path,
+    bad_request: object,
+) -> None:
+    values = bad_request(tmp_path)  # type: ignore[operator]
+    with pytest.raises(ValueError, match="NUL"):
+        ProcessRequest(**values)  # type: ignore[arg-type]
 
 
 def test_process_runner_drains_high_volume_stdout_and_stderr_without_deadlock(

@@ -491,6 +491,48 @@ def test_fake_adapter_blocks_parent_redirect_exchange_race(
         assert run.status is RunStatus.INFRA_ERROR
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX dirfd namespace regression")
+def test_fake_adapter_removes_result_if_open_parent_moves_outside_workspace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    nested = workspace / "nested"
+    nested.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    moved_parent = outside / "moved-nested"
+    adapter = _adapter(
+        tmp_path,
+        FakeAgentScript(writes={"nested/result.txt": "must-not-remain-outside"}),
+    )
+    original_replace = os.replace
+    moved = False
+
+    def replace_after_parent_move(
+        source: object,
+        destination: object,
+        *args: object,
+        **kwargs: object,
+    ) -> None:
+        nonlocal moved
+        if not moved and Path(destination).name == "result.txt":
+            moved = True
+            os.rename(nested, moved_parent)
+        original_replace(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(os, "replace", replace_after_parent_move)
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert moved is True
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "fake_workspace_escape"
+    assert not (moved_parent / "result.txt").exists()
+    assert not tuple(moved_parent.glob(".rook-evalops-*.tmp"))
+
+
 def _create_directory_redirect(link: Path, target: Path) -> None:
     if os.name != "nt":
         os.symlink(target, link, target_is_directory=True)

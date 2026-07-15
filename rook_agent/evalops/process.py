@@ -19,6 +19,9 @@ from typing import BinaryIO, Protocol
 from rook_agent.agent.cancellation import CancellationToken
 
 
+_CREATE_SUSPENDED = 0x00000004
+
+
 class ProcessStatus(StrEnum):
     """Terminal state of one adapter subprocess."""
 
@@ -42,6 +45,8 @@ class ProcessRequest:
     def __post_init__(self) -> None:
         if not self.command or any(not isinstance(part, str) or not part for part in self.command):
             raise ValueError("process command must contain non-empty strings")
+        if any("\x00" in part for part in self.command):
+            raise ValueError("process command must not contain NUL bytes")
         if self.timeout_seconds <= 0:
             raise ValueError("process timeout must be positive")
         if not isinstance(self.stdin_text, str):
@@ -50,7 +55,11 @@ class ProcessRequest:
         for key, value in self.env.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 raise TypeError("process environment keys and values must be strings")
+            if "\x00" in key or "\x00" in value:
+                raise ValueError("process environment must not contain NUL bytes")
             normalized_env[key] = value
+        if "\x00" in str(self.cwd):
+            raise ValueError("process cwd must not contain NUL bytes")
         object.__setattr__(self, "command", tuple(self.command))
         object.__setattr__(self, "cwd", Path(self.cwd))
         object.__setattr__(self, "env", MappingProxyType(normalized_env))
@@ -80,6 +89,19 @@ class _ProcessLike(Protocol):
     def wait(self, timeout: float | None = None) -> int: ...
 
 
+class _ProcessSetupError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        exit_code: int | None = None,
+        cleanup_error: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.exit_code = exit_code
+        self.cleanup_error = cleanup_error
+
+
 class ProcessRunner:
     """Run a subprocess with bounded lifetime and process-tree cleanup."""
 
@@ -103,48 +125,18 @@ class ProcessRunner:
                 error_message="process cancelled before spawn",
             )
 
-        popen_options: dict[str, object] = {}
-        if os.name == "nt":
-            popen_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            popen_options["start_new_session"] = True
-
         try:
-            process = subprocess.Popen(
-                request.command,
-                cwd=request.cwd,
-                env=dict(request.env),
-                shell=False,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                **popen_options,
-            )
-        except OSError as exc:
+            process, windows_job = _spawn_process(request)
+        except _ProcessSetupError as exc:
             return ProcessResult(
                 status=ProcessStatus.SPAWN_ERROR,
-                exit_code=None,
+                exit_code=exc.exit_code,
                 stdout="",
                 stderr="",
                 duration_ms=_elapsed_ms(started),
-                error_message=f"process spawn failed: {type(exc).__name__}",
+                error_message=str(exc),
+                cleanup_error=exc.cleanup_error,
             )
-
-        windows_job: _WindowsJob | None = None
-        if os.name == "nt":
-            try:
-                windows_job = _WindowsJob.attach(process)
-            except OSError as exc:
-                cleanup_error = _terminate_process_tree(process, None)
-                return ProcessResult(
-                    status=ProcessStatus.SPAWN_ERROR,
-                    exit_code=process.returncode,
-                    stdout="",
-                    stderr="",
-                    duration_ms=_elapsed_ms(started),
-                    error_message=f"process job setup failed: {type(exc).__name__}",
-                    cleanup_error=cleanup_error,
-                )
 
         stdout_parts: list[bytes] = []
         stderr_parts: list[bytes] = []
@@ -326,6 +318,108 @@ class _WindowsJob:
         return None
 
 
+def _spawn_process(
+    request: ProcessRequest,
+) -> tuple[subprocess.Popen[bytes], _WindowsJob | None]:
+    popen_options: dict[str, object] = {}
+    if os.name == "nt":
+        popen_options["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | _CREATE_SUSPENDED
+        )
+    else:
+        popen_options["start_new_session"] = True
+    try:
+        process = subprocess.Popen(
+            request.command,
+            cwd=request.cwd,
+            env=dict(request.env),
+            shell=False,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            **popen_options,
+        )
+    except (OSError, ValueError) as exc:
+        raise _ProcessSetupError(
+            f"process spawn failed: {type(exc).__name__}"
+        ) from exc
+
+    if os.name != "nt":
+        return process, None
+
+    job: _WindowsJob | None = None
+    try:
+        job = _WindowsJob.attach(process)
+        _resume_windows_process(process)
+    except Exception as exc:
+        cleanup_error = _terminate_process_tree(process, job)
+        raise _ProcessSetupError(
+            f"process job setup failed: {type(exc).__name__}",
+            exit_code=process.returncode,
+            cleanup_error=cleanup_error,
+        ) from exc
+    return process, job
+
+
+def _resume_windows_process(process: subprocess.Popen[bytes]) -> None:
+    """Resume every initial thread of a process created with CREATE_SUSPENDED."""
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.Thread32First.restype = wintypes.BOOL
+    kernel32.Thread32Next.restype = wintypes.BOOL
+    kernel32.OpenThread.restype = wintypes.HANDLE
+    kernel32.ResumeThread.restype = wintypes.DWORD
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    th32cs_snapthread = 0x00000004
+    thread_suspend_resume = 0x0002
+    invalid_handle = ctypes.c_void_p(-1).value
+    resume_failed = 0xFFFFFFFF
+
+    class _ThreadEntry32(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", wintypes.DWORD),
+            ("cntUsage", wintypes.DWORD),
+            ("th32ThreadID", wintypes.DWORD),
+            ("th32OwnerProcessID", wintypes.DWORD),
+            ("tpBasePri", wintypes.LONG),
+            ("tpDeltaPri", wintypes.LONG),
+            ("dwFlags", wintypes.DWORD),
+        ]
+
+    snapshot = kernel32.CreateToolhelp32Snapshot(th32cs_snapthread, 0)
+    if not snapshot or int(snapshot) == invalid_handle:
+        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+    resumed = 0
+    try:
+        entry = _ThreadEntry32()
+        entry.dwSize = ctypes.sizeof(entry)
+        has_entry = bool(kernel32.Thread32First(wintypes.HANDLE(snapshot), ctypes.byref(entry)))
+        while has_entry:
+            if entry.th32OwnerProcessID == process.pid:
+                thread_handle = kernel32.OpenThread(
+                    thread_suspend_resume,
+                    False,
+                    entry.th32ThreadID,
+                )
+                if not thread_handle:
+                    raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+                try:
+                    previous_count = kernel32.ResumeThread(wintypes.HANDLE(thread_handle))
+                    if previous_count == resume_failed:
+                        raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+                    resumed += 1
+                finally:
+                    kernel32.CloseHandle(wintypes.HANDLE(thread_handle))
+            entry.dwSize = ctypes.sizeof(entry)
+            has_entry = bool(
+                kernel32.Thread32Next(wintypes.HANDLE(snapshot), ctypes.byref(entry))
+            )
+    finally:
+        kernel32.CloseHandle(wintypes.HANDLE(snapshot))
+    if resumed == 0:
+        raise OSError("suspended process had no resumable thread")
+
 def _start_reader(
     stream: BinaryIO | None,
     destination: list[bytes],
@@ -391,7 +485,8 @@ def _terminate_windows_process_tree(
     process: _ProcessLike,
     windows_job: _WindowsJob | None,
 ) -> str | None:
-    errors: list[str] = []
+    taskkill_errors: list[str] = []
+    job_errors: list[str] = []
     system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     taskkill = system_root / "System32" / "taskkill.exe"
     try:
@@ -405,16 +500,23 @@ def _terminate_windows_process_tree(
             timeout=1,
         )
         if completed.returncode != 0:
-            errors.append(f"taskkill_exit_{completed.returncode}")
+            taskkill_errors.append(f"taskkill_exit_{completed.returncode}")
     except subprocess.TimeoutExpired:
-        errors.append("taskkill_timeout")
+        taskkill_errors.append("taskkill_timeout")
     except Exception as exc:
-        errors.append(f"taskkill_{type(exc).__name__}")
+        taskkill_errors.append(f"taskkill_{type(exc).__name__}")
 
+    job_covered = False
     if windows_job is not None:
-        _extend_error(errors, windows_job.terminate())
-        _extend_error(errors, windows_job.close())
+        terminate_error = windows_job.terminate()
+        close_error = windows_job.close()
+        _extend_error(job_errors, terminate_error)
+        _extend_error(job_errors, close_error)
+        job_covered = terminate_error is None and close_error is None
 
+    errors = list(job_errors)
+    if not job_covered:
+        errors.extend(taskkill_errors)
     if process.poll() is None and errors:
         _direct_kill(process, errors)
     errors.extend(_finish_direct_process(process))

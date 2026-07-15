@@ -395,14 +395,16 @@ def _write_posix_workspace_file(
     components: tuple[str, ...],
     content: str,
 ) -> None:
+    workspace_root = workspace
     directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
     directory_flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
-        directory_fd = os.open(workspace, directory_flags)
+        root_fd = os.open(workspace_root, directory_flags)
     except OSError as exc:
         if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
             raise ValueError("workspace root is a redirect") from None
         raise
+    directory_fd = os.dup(root_fd)
     try:
         for component in components[:-1]:
             try:
@@ -418,15 +420,29 @@ def _write_posix_workspace_file(
             os.close(directory_fd)
             directory_fd = next_fd
             workspace = workspace / component
-        _atomic_write_at(directory_fd, components[-1], content.encode("utf-8"))
+        _atomic_write_at(
+            root_fd,
+            directory_fd,
+            workspace_root,
+            components[-1],
+            content.encode("utf-8"),
+        )
     finally:
         os.close(directory_fd)
+        os.close(root_fd)
 
 
-def _atomic_write_at(directory_fd: int, name: str, content: bytes) -> None:
+def _atomic_write_at(
+    root_fd: int,
+    directory_fd: int,
+    workspace_root: Path,
+    name: str,
+    content: bytes,
+) -> None:
     temporary_name = f".rook-evalops-{os.getpid()}-{threading.get_ident()}.tmp"
     descriptor: int | None = None
     try:
+        _assert_posix_namespace(root_fd, directory_fd, workspace_root)
         descriptor = os.open(
             temporary_name,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
@@ -437,12 +453,21 @@ def _atomic_write_at(directory_fd: int, name: str, content: bytes) -> None:
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = None
+        _assert_posix_namespace(root_fd, directory_fd, workspace_root)
         os.replace(
             temporary_name,
             name,
             src_dir_fd=directory_fd,
             dst_dir_fd=directory_fd,
         )
+        try:
+            _assert_posix_namespace(root_fd, directory_fd, workspace_root)
+        except ValueError:
+            try:
+                os.unlink(name, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+            raise
     finally:
         if descriptor is not None:
             os.close(descriptor)
@@ -450,6 +475,56 @@ def _atomic_write_at(directory_fd: int, name: str, content: bytes) -> None:
             os.unlink(temporary_name, dir_fd=directory_fd)
         except FileNotFoundError:
             pass
+
+
+def _assert_posix_namespace(
+    root_fd: int,
+    directory_fd: int,
+    workspace_root: Path,
+) -> None:
+    if not _posix_fd_is_within_root(root_fd, directory_fd, workspace_root):
+        raise ValueError("workspace namespace changed during write")
+
+
+def _posix_fd_is_within_root(
+    root_fd: int,
+    directory_fd: int,
+    workspace_root: Path,
+) -> bool:
+    try:
+        root_status = os.fstat(root_fd)
+        path_status = os.stat(workspace_root, follow_symlinks=False)
+    except OSError:
+        return False
+    root_identity = (root_status.st_dev, root_status.st_ino)
+    if (
+        (path_status.st_dev, path_status.st_ino) != root_identity
+        or not stat.S_ISDIR(path_status.st_mode)
+    ):
+        return False
+
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    current_fd = os.dup(directory_fd)
+    try:
+        for _ in range(1024):
+            current_status = os.fstat(current_fd)
+            current_identity = (current_status.st_dev, current_status.st_ino)
+            if current_identity == root_identity:
+                return True
+            try:
+                parent_fd = os.open("..", directory_flags, dir_fd=current_fd)
+            except OSError:
+                return False
+            parent_status = os.fstat(parent_fd)
+            parent_identity = (parent_status.st_dev, parent_status.st_ino)
+            os.close(current_fd)
+            current_fd = parent_fd
+            if parent_identity == current_identity:
+                return False
+        return False
+    finally:
+        os.close(current_fd)
 
 
 def _write_windows_workspace_file(
