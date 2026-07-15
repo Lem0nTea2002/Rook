@@ -1,0 +1,43 @@
+"""Agent EvalOps 的稳定公共协议。"""
+
+from rook_agent.evalops.models import (
+    AgentRun,
+    AgentTarget,
+    AgentType,
+    CandidateOrigin,
+    CandidateStatus,
+    CaseCategory,
+    EvalCase,
+    EvalSuite,
+    NormalizedTrace,
+    PromotionDecision,
+    PromotionStatus,
+    RunSpec,
+    RunStatus,
+    ScoreCard,
+    SkillBundle,
+    SkillCandidate,
+    Treatment,
+)
+from rook_agent.evalops.suites import load_eval_suite
+
+__all__ = [
+    "AgentRun",
+    "AgentTarget",
+    "AgentType",
+    "CandidateOrigin",
+    "CandidateStatus",
+    "CaseCategory",
+    "EvalCase",
+    "EvalSuite",
+    "NormalizedTrace",
+    "PromotionDecision",
+    "PromotionStatus",
+    "RunSpec",
+    "RunStatus",
+    "ScoreCard",
+    "SkillBundle",
+    "SkillCandidate",
+    "Treatment",
+    "load_eval_suite",
+]
