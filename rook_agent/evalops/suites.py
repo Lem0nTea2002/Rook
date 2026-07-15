@@ -22,6 +22,7 @@ from rook_agent.evalops.models import (
 
 _SUITE_FIELDS = {"id", "version", "policy", "cases"}
 _CASE_FIELDS = {"id", "category", "task", "fixture", "evaluator", "timeout_seconds", "network"}
+_COMMAND_EVALUATOR_FIELDS = {"kind", "command"}
 
 
 def load_eval_suite(path: str | Path) -> EvalSuite:
@@ -99,7 +100,7 @@ def _load_case(root: Path, value: object, *, index: int) -> tuple[EvalCase, Mapp
         raise ValueError(f"case {case_id!r} fixture does not exist or is not a directory: {fixture}")
 
     evaluator_raw = _require_mapping(raw.get("evaluator"), context=f"case {case_id!r} evaluator")
-    evaluator, evaluator_content = _load_evaluator(root, evaluator_raw, case_id=case_id)
+    evaluator, evaluator_content = _load_evaluator(root, evaluator_raw, case_id=case_id, fixture=fixture)
     fixture_content = _fixture_content(fixture)
 
     case = EvalCase(
@@ -125,33 +126,39 @@ def _load_evaluator(
     raw: Mapping[str, object],
     *,
     case_id: str,
+    fixture: Path,
 ) -> tuple[EvaluatorSpec, Mapping[str, object]]:
     kind = _require_string(raw, "kind", context=f"case {case_id!r} evaluator")
-    options = {key: value for key, value in raw.items() if key != "kind"}
+    if kind != "command":
+        raise ValueError(f"unsupported evaluator kind {kind!r}; expected: command")
+    _reject_unknown(raw, allowed=_COMMAND_EVALUATOR_FIELDS, context=f"case {case_id!r} evaluator")
+
+    options = {"command": raw.get("command")}
     referenced_files: list[Mapping[str, object]] = []
 
-    if kind == "command":
-        command = options.get("command")
-        if not isinstance(command, list) or not command or any(not isinstance(item, str) or not item for item in command):
-            raise ValueError(f"case {case_id!r} command evaluator field 'command' must be a non-empty string list")
-        for position, token in enumerate(command):
-            if not _is_command_path(token, executable=position == 0):
-                continue
-            reference = _resolve_under(
-                root,
-                token,
-                label=f"case {case_id!r} evaluator command path",
-                root_label="suite root",
-            )
-            if not reference.is_file():
-                raise ValueError(f"case {case_id!r} evaluator path does not exist or is not a file: {reference}")
-            referenced_files.append(
-                {
-                    "position": position,
-                    "reference": token,
-                    "sha256": _file_hash(reference),
-                }
-            )
+    command = options["command"]
+    if not isinstance(command, list) or not command or any(not isinstance(item, str) or not item for item in command):
+        raise ValueError(f"case {case_id!r} command evaluator field 'command' must be a non-empty string list")
+    for position, token in enumerate(command):
+        if not _is_command_path(token, executable=position == 0):
+            continue
+        reference = _resolve_under(
+            root,
+            token,
+            label=f"case {case_id!r} evaluator command path",
+            root_label="suite root",
+        )
+        if reference == fixture or reference.is_relative_to(fixture):
+            raise ValueError(f"case {case_id!r} evaluator path is inside fixture: {reference}")
+        if not reference.is_file():
+            raise ValueError(f"case {case_id!r} evaluator path does not exist or is not a file: {reference}")
+        referenced_files.append(
+            {
+                "position": position,
+                "reference": token,
+                "sha256": _file_hash(reference),
+            }
+        )
 
     evaluator = EvaluatorSpec(kind=kind, options=options)
     content = {
@@ -169,7 +176,13 @@ def _load_policy(suite_root: Path, reference: str) -> PromotionPolicyConfig:
     if evals_root is None:
         raise ValueError(f"suite root has no evals ancestor: {suite_root}")
 
-    policy_root = (evals_root / "policies").resolve()
+    unresolved_policy_root = evals_root / "policies"
+    if unresolved_policy_root.is_symlink():
+        raise ValueError(f"policy root must not be a symbolic link: {unresolved_policy_root}")
+    resolved_evals_root = evals_root.resolve()
+    policy_root = unresolved_policy_root.resolve()
+    if not policy_root.is_relative_to(resolved_evals_root):
+        raise ValueError(f"policy root escapes evals root: {unresolved_policy_root}")
     policy_path = _resolve_under(
         policy_root,
         (suite_root / reference).resolve(),

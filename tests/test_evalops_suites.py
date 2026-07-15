@@ -166,12 +166,113 @@ def test_load_eval_suite_rejects_evaluator_path_escape(tmp_path: Path) -> None:
         load_eval_suite(manifest)
 
 
+def test_load_eval_suite_rejects_evaluator_file_inside_fixture(tmp_path: Path) -> None:
+    text = SUITE_TOML.replace('"hidden_check.py"', '"fixture/hidden_check.py"')
+    manifest = write_eval_tree(tmp_path, manifest=text)
+    (manifest.parent / "fixture" / "hidden_check.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="evaluator path.*inside fixture"):
+        load_eval_suite(manifest)
+
+
+def test_load_eval_suite_rejects_evaluator_symlink_into_fixture(tmp_path: Path) -> None:
+    text = SUITE_TOML.replace('"hidden_check.py"', '"evaluators/hidden_check.py"')
+    manifest = write_eval_tree(tmp_path, manifest=text)
+    evaluators = manifest.parent / "evaluators"
+    evaluators.mkdir()
+    target = manifest.parent / "fixture" / "hidden_check.py"
+    target.write_text("raise SystemExit(0)\n", encoding="utf-8")
+    try:
+        (evaluators / "hidden_check.py").symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlink creation unavailable: {error}")
+
+    with pytest.raises(ValueError, match="evaluator path.*inside fixture"):
+        load_eval_suite(manifest)
+
+
+def test_load_eval_suite_accepts_evaluator_file_outside_fixture(tmp_path: Path) -> None:
+    text = SUITE_TOML.replace('"hidden_check.py"', '"evaluators/hidden_check.py"')
+    manifest = write_eval_tree(tmp_path, manifest=text)
+    evaluators = manifest.parent / "evaluators"
+    evaluators.mkdir()
+    (evaluators / "hidden_check.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+
+    suite = load_eval_suite(manifest)
+
+    assert suite.cases[0].evaluator.options["command"] == ("python", "evaluators/hidden_check.py")
+
+
+@pytest.mark.parametrize(
+    ("evaluator", "message"),
+    [
+        (
+            'kind = "file_state"\ncommand = ["python", "hidden_check.py"]',
+            "unsupported evaluator kind",
+        ),
+        (
+            'kind = "command"\ncommand = ["python", "hidden_check.py"]\nsurprise = true',
+            "unknown fields.*surprise",
+        ),
+        ('kind = "command"\ncommand = []', "non-empty string list"),
+        ('kind = "command"\ncommand = ["python", 1]', "non-empty string list"),
+    ],
+    ids=["unknown-kind", "unknown-field", "empty-command", "non-string-command"],
+)
+def test_load_eval_suite_rejects_invalid_evaluator_schema(
+    tmp_path: Path,
+    evaluator: str,
+    message: str,
+) -> None:
+    original = 'kind = "command"\ncommand = ["python", "hidden_check.py"]'
+    manifest = write_eval_tree(tmp_path, manifest=SUITE_TOML.replace(original, evaluator))
+
+    with pytest.raises(ValueError, match=message):
+        load_eval_suite(manifest)
+
+
 def test_load_eval_suite_rejects_policy_outside_evals_policy_root(tmp_path: Path) -> None:
     text = SUITE_TOML.replace("../../policies/default.toml", "../../../outside-policy.toml")
     manifest = write_eval_tree(tmp_path, manifest=text)
     (tmp_path / "outside-policy.toml").write_text(POLICY_TOML, encoding="utf-8")
 
     with pytest.raises(ValueError, match="escapes policy root"):
+        load_eval_suite(manifest)
+
+
+def test_load_eval_suite_rejects_symlinked_policy_root(tmp_path: Path) -> None:
+    manifest = write_eval_tree(tmp_path)
+    policy_root = tmp_path / "evals" / "policies"
+    (policy_root / "default.toml").unlink()
+    policy_root.rmdir()
+    external = tmp_path / "external-policies"
+    external.mkdir()
+    (external / "default.toml").write_text(POLICY_TOML, encoding="utf-8")
+    try:
+        policy_root.symlink_to(external, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink creation unavailable: {error}")
+
+    with pytest.raises(ValueError, match="policy root.*symbolic link"):
+        load_eval_suite(manifest)
+
+
+def test_load_eval_suite_checks_policy_root_symlink_before_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = write_eval_tree(tmp_path)
+    policy_root = (tmp_path / "evals" / "policies").absolute()
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path.absolute() == policy_root:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    with pytest.raises(ValueError, match="policy root.*symbolic link"):
         load_eval_suite(manifest)
 
 
