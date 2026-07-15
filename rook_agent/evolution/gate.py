@@ -108,14 +108,11 @@ _ASSIGNED_SECRET_PATTERN = re.compile(
     r")",
 )
 _AUTHORIZATION_BEARER_PATTERN = re.compile(
-    r"(?ix)(?:[\"']authorization[\"']|\bauthorization)\s*:\s*"
-    r"(?:[\"']bearer\s+[^\"'\r\n]+[\"']|bearer\s+[^\s,;]+)",
+    r"(?im)^\s*[\"']?authorization[\"']?\s*:\s*"
+    r"[\"']?bearer\s+[^\s,;\"']+[\"']?",
 )
 _BEARER_PATTERN = re.compile(
     r"(?i)\bbearer\s+(?P<token>[A-Za-z0-9._~+/=-]{20,})",
-)
-_BEARER_PROSE_ALLOWLIST = frozenset(
-    {"authentication", "authorization", "credential", "credentials", "scheme"}
 )
 _PROVIDER_KEY_PATTERN = re.compile(
     r"(?i)\bsk-[A-Za-z0-9_-]{16,}\b",
@@ -193,7 +190,8 @@ _TEXT_TARGET_PATTERN = re.compile(
     r")"
 )
 _DIFF_TARGET_PATTERN = re.compile(r"(?m)^diff --git a/(.+?) b/(.+?)$")
-_STATUS_TARGET_PATTERN = re.compile(r"(?m)^..\s+(.+?)$")
+_DIFF_FILE_TARGET_PATTERN = re.compile(r"(?m)^(?:---\s+a/|\+\+\+\s+b/)(.+?)$")
+_STATUS_TARGET_PATTERN = re.compile(r"(?m)^[ MADRCU?!]{2}\s+(.+?)$")
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
@@ -322,9 +320,17 @@ def redact_sensitive_text(value: str) -> str:
 
 def _redact_general_bearer(match: re.Match[str]) -> str:
     token = match.group("token")
-    if token.casefold() in _BEARER_PROSE_ALLOWLIST:
-        return match.group(0)
-    return "[REDACTED]"
+    if _looks_like_general_bearer_credential(token):
+        return "[REDACTED]"
+    return match.group(0)
+
+
+def _looks_like_general_bearer_credential(value: str) -> bool:
+    has_lower = any(character.islower() for character in value)
+    has_upper = any(character.isupper() for character in value)
+    has_digit = any(character.isdigit() for character in value)
+    has_mixed_shape = (has_lower and has_upper) or (has_digit and (has_lower or has_upper))
+    return has_mixed_shape and _shannon_entropy(value) >= 3.5
 
 
 def _has_valid_schema(delta: SkillDelta) -> bool:
@@ -419,17 +425,19 @@ def _entry_command_candidates(step: str, *, mutation_step: bool) -> tuple[str, .
     plain_step = _INLINE_CODE_PATTERN.sub(" ", step)
     wrapper = _wrapper_command_candidates(plain_step)
     if mutation_step:
-        contextual_inline = tuple(
-            match.group(1).strip()
-            for match in inline_matches
-            if re.search(
-                r"(?i)\b(?:run|execute|invoke|use|运行|执行)\s*$",
-                step[max(0, match.start() - 24) : match.start()],
-            )
+        targets = _text_targets(step)
+        executable_inline = tuple(
+            candidate
+            for candidate in inline
+            if _normalize_target(candidate) not in targets
         )
-        return tuple(dict.fromkeys((*contextual_inline, *wrapper)))
+        return tuple(dict.fromkeys((*executable_inline, *wrapper)))
     bare = plain_step.strip().rstrip(".")
-    return tuple(dict.fromkeys((*inline, *wrapper, bare)))
+    if inline:
+        return tuple(dict.fromkeys((*inline, *wrapper)))
+    if wrapper:
+        return wrapper
+    return (bare,) if bare else ()
 
 
 def _wrapper_command_candidates(step: str) -> tuple[str, ...]:
@@ -451,13 +459,13 @@ def _grounded_solution(
     referenced: tuple[EvidenceItem, ...],
 ) -> tuple[bool, bool]:
     independent = tuple(item for item in referenced if not _contains_injection(item.content))
-    grounded_commands = {
+    grounded_commands = frozenset(
         _normalize_command(command)
         for item in independent
         if item.source is EvidenceSource.LOCAL_EXECUTION and item.ok is True
         for command in [_evidence_command(item)]
         if command is not None
-    }
+    )
     entries = (*delta.procedure, *delta.verification)
     return bool(entries), all(
         _entry_is_grounded(entry, independent, grounded_commands) for entry in entries
@@ -467,23 +475,23 @@ def _grounded_solution(
 def _entry_is_grounded(
     entry: str,
     referenced: tuple[EvidenceItem, ...],
-    grounded_commands: set[str],
+    grounded_commands: frozenset[str],
 ) -> bool:
     mutation_step = _FIX_CLAIM_PATTERN.search(entry) is not None
     command_candidates = _entry_command_candidates(entry, mutation_step=mutation_step)
     if mutation_step:
-        commands_grounded = all(
-            _normalize_command(candidate) in grounded_commands
-            for candidate in command_candidates
-        )
-        return commands_grounded and _mutation_entry_is_grounded(
+        return _commands_are_grounded(command_candidates, grounded_commands) and _mutation_entry_is_grounded(
             entry,
             referenced,
             command_candidates=command_candidates,
         )
-    return any(
-        _normalize_command(candidate) in grounded_commands for candidate in command_candidates
-    )
+    return _commands_are_grounded(command_candidates, grounded_commands)
+
+
+def _commands_are_grounded(
+    candidates: tuple[str, ...], executed: frozenset[str]
+) -> bool:
+    return all(_normalize_command(candidate) in executed for candidate in candidates)
 
 
 def _mutation_entry_is_grounded(
@@ -537,6 +545,27 @@ def _text_targets(value: str) -> frozenset[str]:
 
 
 def _evidence_targets(item: EvidenceItem) -> frozenset[str]:
+    values = list(_structured_evidence_target_values(item))
+    if item.tool_name == "git_diff":
+        values.extend(
+            path
+            for match in _DIFF_TARGET_PATTERN.finditer(item.content)
+            for path in match.groups()
+        )
+        values.extend(match.group(1) for match in _DIFF_FILE_TARGET_PATTERN.finditer(item.content))
+    if item.tool_name == "git_status":
+        for match in _STATUS_TARGET_PATTERN.finditer(item.content):
+            status_path = match.group(1)
+            values.extend(part.strip() for part in status_path.split(" -> "))
+    return frozenset(
+        normalized
+        for value in values
+        for normalized in [_normalize_target(value)]
+        if normalized is not None
+    )
+
+
+def _structured_evidence_target_values(item: EvidenceItem) -> tuple[str, ...]:
     values: list[str] = []
     path = item.data.get("path")
     if isinstance(path, str) and path != ".":
@@ -566,23 +595,7 @@ def _evidence_targets(item: EvidenceItem) -> frozenset[str]:
                 for path in [record.get("path")]
                 if isinstance(path, str)
             )
-    if item.tool_name == "git_diff":
-        values.extend(
-            path
-            for match in _DIFF_TARGET_PATTERN.finditer(item.content)
-            for path in match.groups()
-        )
-    if item.tool_name == "git_status":
-        for match in _STATUS_TARGET_PATTERN.finditer(item.content):
-            status_path = match.group(1)
-            values.extend(part.strip() for part in status_path.split(" -> "))
-    normalized_values = {
-        normalized
-        for value in values
-        for normalized in [_normalize_target(value)]
-        if normalized is not None
-    }
-    return frozenset((*normalized_values, *_text_targets(item.content)))
+    return tuple(values)
 
 
 def _normalize_target(value: str) -> str | None:
@@ -666,13 +679,15 @@ def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bo
         content,
     ):
         return True
-    if _PROJECT_RELATIVE_PATH_PATTERN.search(content):
+    if any(
+        _is_project_contained(match.group(0), project_root)
+        for match in _PROJECT_RELATIVE_PATH_PATTERN.finditer(content)
+    ):
         return True
-    normalized_content = content.replace("\\", "/").casefold()
-    normalized_root = project_root.as_posix().rstrip("/").casefold()
-    if normalized_root and normalized_root in normalized_content:
-        return True
-    if any((project_root / Path(target)).exists() for target in _text_targets(content)):
+    if any(
+        _is_project_owned(match.group(0), project_root)
+        for match in _TEXT_TARGET_PATTERN.finditer(content)
+    ):
         return True
     package_names = _project_package_names(project_root)
     return any(
@@ -684,6 +699,20 @@ def _contains_project_specific_text(delta: SkillDelta, project_root: Path) -> bo
         is not None
         for name in package_names
     )
+
+
+def _is_project_contained(target: str, project_root: Path) -> bool:
+    root = project_root.resolve()
+    candidate = Path(target)
+    resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+    return resolved == root or root in resolved.parents
+
+
+def _is_project_owned(target: str, project_root: Path) -> bool:
+    root = project_root.resolve()
+    candidate = Path(target.strip().strip("`\"'.,:;()[]{}<>"))
+    resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+    return (resolved == root or root in resolved.parents) and resolved.exists()
 
 
 def _project_package_names(project_root: Path) -> tuple[str, ...]:
