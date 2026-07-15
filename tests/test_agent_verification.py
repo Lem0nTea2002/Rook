@@ -1,3 +1,5 @@
+import pytest
+
 from rook_agent.agent.verification import (
     is_successful_verification_result,
     is_verification_command,
@@ -14,6 +16,32 @@ def test_is_verification_command_accepts_common_test_commands() -> None:
     assert is_verification_command("yarn test")
     assert is_verification_command("go test ./...")
     assert is_verification_command("cargo test")
+    assert is_verification_command(r".\.venv\Scripts\python.exe -m pytest -q")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ruff check",
+        "mypy",
+        "pyright",
+        "npm run build",
+        "npm run lint",
+        "npm run typecheck",
+        "pnpm build",
+        "pnpm lint",
+        "pnpm typecheck",
+        "yarn build",
+        "yarn lint",
+        "yarn typecheck",
+        "cargo build",
+        "cargo check",
+        "cargo clippy",
+        "go build",
+    ],
+)
+def test_is_verification_command_accepts_build_lint_and_typecheck_commands(command: str) -> None:
+    assert is_verification_command(command)
 
 
 def test_is_verification_command_rejects_non_test_commands() -> None:
@@ -28,6 +56,9 @@ def test_is_verification_command_rejects_compound_shell_commands() -> None:
     assert not is_verification_command("pytest -q || true")
     assert not is_verification_command("python -m pytest -q | cat")
     assert not is_verification_command("npm test; echo done")
+    assert not is_verification_command("pytest && malicious")
+    assert not is_verification_command("npm run build; echo x")
+    assert not is_verification_command('pytest "unterminated')
 
 
 def test_successful_shell_verification_result() -> None:

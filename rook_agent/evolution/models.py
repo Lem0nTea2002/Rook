@@ -86,6 +86,12 @@ class TaskTrace:
 
 
 @dataclass(frozen=True, slots=True)
+class TraceBatch:
+    completed: tuple[TaskTrace, ...]
+    current: TaskTrace | None
+
+
+@dataclass(frozen=True, slots=True)
 class EligibilityDecision:
     eligible: bool
     outcome: TraceOutcome
