@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Callable, Protocol
 
+from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.agent.loop import AgentLoop
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.agent.session import AgentSession
@@ -50,6 +51,7 @@ class RookCodingAgentAdapter:
         provider_retry_initial_delay_seconds: float = 2.0,
         loop_factory: LoopFactory | None = None,
         provider_factory: ProviderFactory = create_provider,
+        cancellation_token: CancellationToken | None = None,
     ) -> None:
         self.model_name_or_path = model_name_or_path
         self.provider_name = provider_name
@@ -59,13 +61,18 @@ class RookCodingAgentAdapter:
         self.provider_retry_initial_delay_seconds = provider_retry_initial_delay_seconds
         self.loop_factory = loop_factory or self._create_loop
         self.provider_factory = provider_factory
+        self.cancellation_token = cancellation_token
 
     def run_task(self, task: CodingTask) -> CodingTaskResult:
         session_root = self._session_root_for_task(task)
         session_root.mkdir(parents=True, exist_ok=True)
         loop = self.loop_factory(task, session_root)
         response = loop.run_user_turn(_build_task_prompt(task))
-        transcript_path = session_root / "sessions" / f"{_session_dir_name(task.instance_id)}.jsonl"
+        session = getattr(loop, "session", None)
+        session_id = getattr(session, "session_id", None)
+        if not isinstance(session_id, str) or not session_id:
+            session_id = _session_dir_name(task.instance_id)
+        transcript_path = session_root / "sessions" / f"{session_id}.jsonl"
         return CodingTaskResult(
             instance_id=task.instance_id,
             model_name_or_path=self.model_name_or_path,
@@ -73,6 +80,8 @@ class RookCodingAgentAdapter:
             transcript_path=transcript_path,
             raw_response=response.content,
             context_metrics=collect_context_metrics(transcript_path),
+            session_id=session_id,
+            finish_reason=response.finish_reason,
         )
 
     def _session_root_for_task(self, task: CodingTask) -> Path:
@@ -114,6 +123,7 @@ class RookCodingAgentAdapter:
             provider=self._create_provider(),
             tools=tools,
             limits=self.limits or AgentLoopLimits.swe_lite(),
+            cancellation_token=self.cancellation_token,
         )
 
     def _create_provider(self) -> ChatProvider:

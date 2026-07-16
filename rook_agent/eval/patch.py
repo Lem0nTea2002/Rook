@@ -27,8 +27,11 @@ def collect_git_diff(repo_path: str | Path, *, include_untracked: bool = False) 
 
 
 def _collect_final_worktree_diff(repo: Path) -> str:
-    with tempfile.NamedTemporaryFile(prefix="rook-index-") as index:
-        env = {"GIT_INDEX_FILE": index.name}
+    with tempfile.TemporaryDirectory(prefix="rook-index-") as directory:
+        # Git needs to create and replace the index itself.  Keeping a
+        # NamedTemporaryFile open prevents that operation on Windows.
+        index = Path(directory) / "index"
+        env = {"GIT_INDEX_FILE": str(index)}
         _git(["read-tree", "HEAD"], repo, env=env)
         _git(["add", "-A"], repo, env=env)
         return _git(["diff", "--cached", "--binary"], repo, env=env).stdout
