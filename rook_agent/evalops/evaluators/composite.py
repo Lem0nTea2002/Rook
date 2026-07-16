@@ -68,7 +68,8 @@ def _composite_result(
                     "reason_code": child.reason_code,
                 }
                 for child in children
-            )
+            ),
+            "unsafe": any(child.details.get("unsafe") is True for child in children),
         },
         duration_ms=max(0, int((time.monotonic() - started) * 1000)),
     )

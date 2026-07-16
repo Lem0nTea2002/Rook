@@ -9,8 +9,12 @@ from rook_agent.evalops.models import (
     CaseCategory,
     EvalCase,
     EvalSuite,
+    EvaluatedRun,
     EvaluationResult,
     EvaluationStatus,
+    ExperimentPhase,
+    ExperimentPlan,
+    ExperimentRecord,
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
@@ -20,6 +24,7 @@ from rook_agent.evalops.models import (
     SkillBundle,
     SkillCandidate,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.suites import load_eval_suite
 
@@ -32,8 +37,12 @@ __all__ = [
     "CaseCategory",
     "EvalCase",
     "EvalSuite",
+    "EvaluatedRun",
     "EvaluationResult",
     "EvaluationStatus",
+    "ExperimentPhase",
+    "ExperimentPlan",
+    "ExperimentRecord",
     "NormalizedTrace",
     "PromotionDecision",
     "PromotionStatus",
@@ -43,5 +52,6 @@ __all__ = [
     "SkillBundle",
     "SkillCandidate",
     "Treatment",
+    "TreatmentFamily",
     "load_eval_suite",
 ]

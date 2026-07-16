@@ -220,3 +220,30 @@ def test_workspace_cleanup_failure_records_status(
         manager.cleanup(pair)
 
     assert pair.cleanup_status == "failed"
+
+
+def test_windows_workspace_cleanup_retries_transient_access_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = tmp_path / "fixture"
+    _write_fixture(fixture)
+    manager = WorkspaceManager(tmp_path / "runs")
+    pair = manager.create_pair(fixture, pair_id="pair-1")
+    original_rmtree = workspace_module.shutil.rmtree
+    attempts = 0
+
+    def transient_then_remove(path: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise PermissionError(13, "simulated transient access denied", str(path))
+        original_rmtree(path)
+
+    monkeypatch.setattr(workspace_module.os, "name", "nt")
+    monkeypatch.setattr(workspace_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(workspace_module.shutil, "rmtree", transient_then_remove)
+
+    manager.cleanup(pair)
+
+    assert attempts == 2
+    assert pair.cleanup_status == "cleaned"

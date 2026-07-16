@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+import errno
 import hashlib
+import os
 from pathlib import Path
 import shutil
 import stat
+import time
 from typing import Any
 
 
 _IGNORED_NAMES = frozenset({".rook", "__pycache__", ".pytest_cache"})
 _REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+_WINDOWS_CLEANUP_RETRY_SECONDS = 0.5
+_WINDOWS_CLEANUP_INITIAL_DELAY_SECONDS = 0.01
+_WINDOWS_CLEANUP_MAX_DELAY_SECONDS = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +85,7 @@ class WorkspaceManager:
             raise ValueError("workspace pair is not managed by this manager")
         try:
             if pair_root.exists():
-                shutil.rmtree(pair_root)
+                _remove_workspace_tree(pair_root)
         except BaseException:
             object.__setattr__(pair, "cleanup_status", "failed")
             raise
@@ -185,6 +191,32 @@ def _iter_regular_files(root: Path) -> Iterator[Path]:
 def _stat_is_reparse_point(status: Any) -> bool:
     attributes = getattr(status, "st_file_attributes", 0)
     return bool(attributes & _REPARSE_POINT_ATTRIBUTE)
+
+
+def _remove_workspace_tree(path: Path) -> None:
+    deadline = time.monotonic() + _WINDOWS_CLEANUP_RETRY_SECONDS
+    delay = _WINDOWS_CLEANUP_INITIAL_DELAY_SECONDS
+    while True:
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            if os.name != "nt" or not _is_transient_windows_cleanup_error(exc):
+                raise
+            if not path.exists():
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(delay, remaining))
+            delay = min(delay * 2, _WINDOWS_CLEANUP_MAX_DELAY_SECONDS)
+
+
+def _is_transient_windows_cleanup_error(error: PermissionError) -> bool:
+    winerror = getattr(error, "winerror", None)
+    return winerror in {5, 32} or error.errno in {errno.EACCES, errno.EPERM}
 
 
 __all__ = ["WorkspaceManager", "WorkspacePair", "hash_workspace"]

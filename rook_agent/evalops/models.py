@@ -26,6 +26,16 @@ class Treatment(StrEnum):
     ROUTED_SKILL = "routed_skill"
 
 
+class TreatmentFamily(StrEnum):
+    CONTENT = "content"
+    ROUTING = "routing"
+
+
+class ExperimentPhase(StrEnum):
+    FAST = "fast"
+    FULL = "full"
+
+
 class CaseCategory(StrEnum):
     DIRECT = "direct"
     TRANSFER = "transfer"
@@ -239,8 +249,13 @@ class RunSpec:
     budget_limit: Decimal | None
     environment_allowlist: Mapping[str, str]
     permission_profile: str
+    treatment_family: TreatmentFamily | None = None
+    repetition: int = 1
+    routing_relevant: bool | None = None
 
     def __post_init__(self) -> None:
+        if isinstance(self.repetition, bool) or not isinstance(self.repetition, int) or self.repetition <= 0:
+            raise ValueError("run repetition must be a positive integer")
         object.__setattr__(self, "environment_allowlist", _freeze_mapping(self.environment_allowlist))
 
 
@@ -329,6 +344,47 @@ class EvaluationResult:
     @property
     def passed(self) -> bool:
         return self.status is EvaluationStatus.PASSED
+
+
+@dataclass(frozen=True, slots=True)
+class ExperimentPlan:
+    experiment_id: str
+    phase: ExperimentPhase
+    suite_id: str
+    suite_fingerprint: str
+    candidate_fingerprint: str
+    runs: tuple[RunSpec, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatedRun:
+    spec: RunSpec
+    agent_run: AgentRun
+    evaluation: EvaluationResult | None
+    initial_workspace_hash: str | None
+    final_workspace_hash: str | None
+    cleanup_status: str
+    terminal_artifact_ref: str | None = None
+
+    @property
+    def status(self) -> RunStatus:
+        return self.agent_run.status
+
+    @property
+    def run_id(self) -> str:
+        return self.agent_run.run_id
+
+    @property
+    def raw_event_refs(self) -> tuple[str, ...]:
+        return self.agent_run.raw_event_refs
+
+
+@dataclass(frozen=True, slots=True)
+class ExperimentRecord:
+    plan: ExperimentPlan
+    runs: tuple[EvaluatedRun, ...]
+    cancelled: bool
+    artifact_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

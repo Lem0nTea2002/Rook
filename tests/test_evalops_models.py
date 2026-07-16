@@ -13,8 +13,12 @@ from rook_agent.evalops import (
     CaseCategory,
     EvalCase,
     EvalSuite,
+    EvaluatedRun,
     EvaluationResult,
     EvaluationStatus,
+    ExperimentPhase,
+    ExperimentPlan,
+    ExperimentRecord,
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
@@ -24,6 +28,7 @@ from rook_agent.evalops import (
     SkillBundle,
     SkillCandidate,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.models import (
     EvaluatorSpec,
@@ -42,6 +47,10 @@ def test_evalops_protocol_has_stable_status_values() -> None:
     assert Treatment.BASELINE.value == "baseline"
     assert Treatment.FORCED_SKILL.value == "forced_skill"
     assert Treatment.ROUTED_SKILL.value == "routed_skill"
+    assert TreatmentFamily.CONTENT.value == "content"
+    assert TreatmentFamily.ROUTING.value == "routing"
+    assert ExperimentPhase.FAST.value == "fast"
+    assert ExperimentPhase.FULL.value == "full"
     assert CaseCategory.DIRECT.value == "direct"
     assert CaseCategory.TRANSFER.value == "transfer"
     assert CaseCategory.REGRESSION.value == "regression"
@@ -168,6 +177,9 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "budget_limit",
             "environment_allowlist",
             "permission_profile",
+            "treatment_family",
+            "repetition",
+            "routing_relevant",
         ),
         Usage: ("input_tokens", "output_tokens", "cached_input_tokens"),
         NormalizedEvent: (
@@ -245,6 +257,24 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "details",
             "duration_ms",
         ),
+        ExperimentPlan: (
+            "experiment_id",
+            "phase",
+            "suite_id",
+            "suite_fingerprint",
+            "candidate_fingerprint",
+            "runs",
+        ),
+        EvaluatedRun: (
+            "spec",
+            "agent_run",
+            "evaluation",
+            "initial_workspace_hash",
+            "final_workspace_hash",
+            "cleanup_status",
+            "terminal_artifact_ref",
+        ),
+        ExperimentRecord: ("plan", "runs", "cancelled", "artifact_refs"),
     }
 
     for model, names in expected.items():
