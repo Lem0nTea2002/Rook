@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build an evaluation-gated Skill lifecycle that runs isolated Baseline/Skill experiments against Rook, Codex CLI, and Claude Code CLI, then produces auditable per-Agent promotion or rollback decisions.
+**Goal:** Build an evaluation-gated Skill lifecycle that runs isolated Baseline/Skill experiments against Rook and Codex CLI, then produces auditable per-target promotion or rollback decisions. Claude Code integration is explicitly deferred until after the Codex-only MVP.
 
 **Architecture:** Keep `rook_agent.evolution` responsible for execution-grounded candidate generation and pre-evaluation safety gates. Add a standalone `rook_agent.evalops` package for versioned suites, isolated workspaces, black-box CLI adapters, normalized traces, deterministic evaluators, paired scoring, target-specific promotion, reports, and explicit export. The existing benchmark adapter remains intact and is wrapped by `RookEvalAdapter`; external Agent calls are optional and never run in the default test suite.
 
@@ -18,7 +18,7 @@
 - Use `apply_patch` for source and documentation edits.
 - Use only Python standard-library additions in the MVP. Do not add a database, web framework, YAML parser, process library, or statistics dependency.
 - `.rook/` remains Git ignored. Version-controlled suite definitions live under `evals/`; runtime events, workspaces, candidates, scorecards, and reports live under `.rook/`.
-- Never silently write `~/.codex`, `~/.claude`, or another external Agent's real configuration. External installation is an explicit export operation.
+- Never silently write `~/.codex` or another external Agent's real configuration. External installation is an explicit export operation.
 - Redact secrets before raw CLI events reach disk. Never log the matched secret text.
 - Hidden evaluators and expected answers must remain outside the Agent-readable workspace.
 - Unknown external CLI events may be retained raw, but missing critical tool/result/termination semantics sets `trace_complete=False` and blocks promotion.
@@ -26,7 +26,7 @@
 - Compare each Agent against its own baseline. Cross-Agent absolute comparisons are allowed only for metrics with the same observed unit and scope.
 - `ADAPTER_UNAVAILABLE`, `AUTH_FAILED`, `VERSION_UNSUPPORTED`, `INFRA_ERROR`, `ADAPTER_ERROR`, and `USER_CANCELLED` do not enter Skill success-rate denominators.
 - `WRONG_RESULT`, `VERIFICATION_FAILED`, `TIMEOUT`, `TURN_LIMIT`, `BUDGET_EXHAUSTED`, and `UNSAFE_ACTION` are valid constrained Agent outcomes.
-- Default tests use fake processes/providers and create no paid Codex or Claude calls. Real smoke tests require `ROOK_RUN_EXTERNAL_EVALS=1`.
+- Default tests use fake processes/providers and create no paid Codex calls. Real smoke tests require `ROOK_RUN_EXTERNAL_EVALS=1`.
 - The recorded pre-EvalOps core baseline is `27 failed, 956 passed, 3 skipped` with `tests/test_evalplus_benchmark.py` excluded. All new and directly touched tests must pass, and the final suite must introduce no new failing test names beyond that baseline.
 - `tests/test_evalplus_benchmark.py` remains a separate optional gate because `evalplus` is not installed.
 - End every task with `git diff --check`, focused verification, a scoped commit, and a fresh task review before starting the next task.
@@ -794,86 +794,11 @@ git commit -m "feat: add Codex EvalOps adapter"
 
 ---
 
-### Task 8: Add the Claude Code CLI Adapter and Stream-JSON Normalizer
+### Task 8: Defer Claude Code Integration
 
-**Files:**
-- Create: `rook_agent/evalops/adapters/claude_cli.py`
-- Create: `rook_agent/evalops/normalizers/claude.py`
-- Create: `tests/fixtures/evalops/claude/success.jsonl`
-- Create: `tests/fixtures/evalops/claude/failure.jsonl`
-- Create: `tests/fixtures/evalops/claude/unknown-event.jsonl`
-- Test: `tests/test_evalops_claude_adapter.py`
-- Test: `tests/test_evalops_claude_normalizer.py`
+**MVP decision (2026-07-16):** Do not implement a Claude Code adapter, normalizer, fixture set, smoke test, CLI target, export path, or documentation claim in this plan. Keep the generic `AgentAdapter` boundary and `AgentType` extensibility seam so a later, separately reviewed plan can add Claude Code without changing Codex evaluation semantics.
 
-**Interfaces:**
-- Consumes: `ProcessRunner`, `AgentAdapter`, `RunSpec`, `ArtifactStore`, and staged `.claude/skills/<slug>/SKILL.md`.
-- Produces: `ClaudeCodeCliAdapter` and `ClaudeTraceNormalizer`.
-
-- [ ] **Step 1: Write failing Claude stream-json fixture tests**
-
-Fixtures cover `system`, `assistant`, `user`, and `result`. Assistant content covers text and `tool_use`; user content covers `tool_result`; result covers success, error subtype, usage, cost, duration, and session id.
-
-```python
-def test_claude_normalizer_maps_result_usage_without_fabrication() -> None:
-    trace = normalize_fixture("success.jsonl")
-    assert trace.usage.input_tokens == 120
-    assert trace.usage.output_tokens == 40
-    assert trace.cost_usd == Decimal("0.012")
-```
-
-When the fixture omits usage or cost, the normalized values must remain `None`.
-
-- [ ] **Step 2: Run Claude normalizer tests and observe RED**
-
-```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_claude_normalizer.py
-```
-
-Expected: Claude normalizer is missing.
-
-- [ ] **Step 3: Implement Claude event normalization**
-
-Pair `tool_use.id` with later `tool_result.tool_use_id`. A missing result for a requested tool or missing terminal `result` sets `trace_complete=False`. Preserve unknown non-critical content blocks as raw references.
-
-- [ ] **Step 4: Write failing Claude command-construction and probe tests**
-
-Assert the command contains:
-
-```text
-claude -p --output-format stream-json --verbose
---no-session-persistence --setting-sources project
---strict-mcp-config --mcp-config {} --permission-mode dontAsk --no-chrome
-```
-
-It must pass `--max-turns` and `--max-budget-usd` only when specified, constrain tools through `--allowed-tools`, set `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` and `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`, and never use `--dangerously-skip-permissions`.
-
-- [ ] **Step 5: Run Claude adapter tests and observe RED**
-
-```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_claude_adapter.py
-```
-
-Expected: adapter is missing.
-
-- [ ] **Step 6: Implement `ClaudeCodeCliAdapter`**
-
-`probe()` uses `shutil.which("claude")`, `claude --version`, and `claude --help`; it requires print mode, stream-json, no-session-persistence, setting-sources, strict-mcp-config, mcp-config, and permission-mode support. Pass `--strict-mcp-config --mcp-config "{}"` as separate argument-list entries, use project-only settings, no Chrome, and explicit allowed tools. Authentication may use the user's existing CLI login, but user settings, memory, plugins, hooks, and global Skills must not enter the evaluated context.
-
-- [ ] **Step 7: Run Claude verification without a live API call**
-
-```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_claude_normalizer.py tests/test_evalops_claude_adapter.py tests/test_evalops_adapter_contract.py
-git diff --check
-```
-
-Expected: fixtures and fake-process tests pass; no Claude task is submitted.
-
-- [ ] **Step 8: Commit Claude Code support**
-
-```powershell
-git add rook_agent/evalops/adapters/claude_cli.py rook_agent/evalops/normalizers/claude.py tests/fixtures/evalops/claude tests/test_evalops_claude_adapter.py tests/test_evalops_claude_normalizer.py
-git commit -m "feat: add Claude Code EvalOps adapter"
-```
+**Codex-only continuation:** Proceed directly to Task 9. The MVP supports Rook as the in-process control target and Codex CLI as the only external Agent target.
 
 ---
 
@@ -1224,7 +1149,6 @@ def test_registry_tracks_independent_agent_versions(tmp_path: Path) -> None:
     registry.record(promoted_decision(agent=AgentType.CODEX, version=1))
     assert registry.active_version("skill", AgentType.ROOK) == 2
     assert registry.active_version("skill", AgentType.CODEX) == 1
-    assert registry.active_version("skill", AgentType.CLAUDE_CODE) is None
 ```
 
 - [ ] **Step 2: Run registry tests and observe RED**
@@ -1325,11 +1249,11 @@ Assert these forms parse without changing legacy single-turn behavior:
 
 ```text
 rook eval doctor
-rook eval run --skill-path <candidate> --suite <suite.toml> --agents rook,codex,claude
+rook eval run --skill-path <candidate> --suite <suite.toml> --agents rook,codex
 rook eval report <experiment-id>
 rook skill status <name>
 rook skill rollback <name> --agent codex --to-version 1
-rook skill export <name> --agent claude --output <directory>
+rook skill export <name> --agent codex --output <directory>
 ```
 
 Unknown Agents, missing suite/candidate, invalid version, and export without a matching promoted decision return exit code 2.
@@ -1359,7 +1283,7 @@ Keep current top-level `--project`, message, interactive, TUI, benchmark, and co
 
 - [ ] **Step 4: Write failing Doctor tests**
 
-Inject fake adapters and assert Doctor reports executable, version, structured output capability, auth/probe status, and isolation capability. Secret values must never appear. A missing Claude CLI does not make Rook/Codex Doctor entries disappear.
+Inject fake adapters and assert Doctor reports executable, version, structured output capability, auth/probe status, and isolation capability for Rook and Codex. Secret values must never appear. A missing Codex CLI must not hide the in-process Rook Doctor entry.
 
 - [ ] **Step 5: Implement command handlers with dependency injection**
 
@@ -1367,7 +1291,7 @@ Inject fake adapters and assert Doctor reports executable, version, structured o
 
 - [ ] **Step 6: Implement explicit export boundaries**
 
-`skill export` requires a non-stale `PROMOTED` decision matching target fingerprint. It writes only beneath the user-provided `--output` directory. The MVP has no override for real global configuration: reject any resolved destination equal to or beneath `~/.codex` or `~/.claude`. Users can inspect the exported directory and copy it themselves after evaluation.
+`skill export` requires a non-stale `PROMOTED` decision matching target fingerprint. It writes only beneath the user-provided `--output` directory. The MVP has no override for real global configuration: reject any resolved destination equal to or beneath `~/.codex`. Users can inspect the exported directory and copy it themselves after evaluation.
 
 - [ ] **Step 7: Run CLI regressions**
 
@@ -1506,7 +1430,7 @@ git commit -m "feat: generate quarantined Skill candidates"
 
 **Interfaces:**
 - Consumes: full EvalOps service and CLI.
-- Produces: one deterministic four-category demo suite, opt-in live Codex/Claude probes, accurate user documentation, and resume-safe wording.
+- Produces: one deterministic four-category demo suite, an opt-in live Codex probe, accurate user documentation, and resume-safe wording.
 
 - [ ] **Step 1: Write failing demo-suite tests**
 
@@ -1572,7 +1496,7 @@ Each smoke test runs one bounded read-only case, verifies adapter probe, structu
 
 - Baseline/Forced/Routed distinction;
 - Direct/Transfer/Regression/Adversarial cases;
-- Rook/Codex/Claude CLI requirements;
+- Rook/Codex CLI requirements;
 - `.rook` storage and explicit export;
 - ScoreCard fields and promotion reasons;
 - real smoke-test opt-in and potential API cost;
@@ -1615,7 +1539,7 @@ If verification exposes a source defect, return to its owning Task 1-15, add the
 - [ ] **Step 1: Run all EvalOps and evolution tests in one fresh process**
 
 ```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_models.py tests/test_evalops_suites.py tests/test_evalops_workspace.py tests/test_evalops_artifacts.py tests/test_evalops_skills.py tests/test_evalops_candidates.py tests/test_evalops_process.py tests/test_evalops_adapter_contract.py tests/test_evalops_rook_adapter.py tests/test_evalops_codex_adapter.py tests/test_evalops_codex_normalizer.py tests/test_evalops_claude_adapter.py tests/test_evalops_claude_normalizer.py tests/test_evalops_evaluators.py tests/test_evalops_llm_judge.py tests/test_evalops_runner.py tests/test_evalops_scoring.py tests/test_evalops_policy.py tests/test_evalops_registry.py tests/test_evalops_report.py tests/test_evalops_service.py tests/test_evalops_cli.py tests/test_evalops_demo_suite.py tests/test_evolution_config.py tests/test_evolution_events.py tests/test_evolution_trace.py tests/test_evolution_evidence.py tests/test_evolution_gate.py tests/test_evolution_distiller.py tests/test_evolution_candidates.py tests/test_evolution_coordinator.py
+& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_models.py tests/test_evalops_suites.py tests/test_evalops_workspace.py tests/test_evalops_artifacts.py tests/test_evalops_skills.py tests/test_evalops_candidates.py tests/test_evalops_process.py tests/test_evalops_adapter_contract.py tests/test_evalops_rook_adapter.py tests/test_evalops_codex_adapter.py tests/test_evalops_codex_normalizer.py tests/test_evalops_evaluators.py tests/test_evalops_llm_judge.py tests/test_evalops_runner.py tests/test_evalops_scoring.py tests/test_evalops_policy.py tests/test_evalops_registry.py tests/test_evalops_report.py tests/test_evalops_service.py tests/test_evalops_cli.py tests/test_evalops_demo_suite.py tests/test_evolution_config.py tests/test_evolution_events.py tests/test_evolution_trace.py tests/test_evolution_evidence.py tests/test_evolution_gate.py tests/test_evolution_distiller.py tests/test_evolution_candidates.py tests/test_evolution_coordinator.py
 ```
 
 Expected: all listed tests pass.
@@ -1635,7 +1559,7 @@ Remove-Item Env:ROOK_RUN_EXTERNAL_EVALS -ErrorAction SilentlyContinue
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_external_smoke.py
 ```
 
-Expected: all live tests skip with the explicit opt-in reason and no Codex/Claude process starts.
+Expected: all live tests skip with the explicit opt-in reason and no Codex process starts.
 
 - [ ] **Step 4: Run the full core baseline comparison**
 
@@ -1703,12 +1627,12 @@ The implementation is ready for branch completion only when:
 - every Task 2-15 focused suite passes;
 - default tests make no paid external calls;
 - the full core run introduces no new failing test names;
-- a candidate produces isolated Baseline and Skill runs for all three targets;
+- a candidate produces isolated Baseline and Skill runs for Rook and Codex targets;
 - forced content effectiveness and routed retrieval are reported separately;
 - direct, transfer, regression, and adversarial cases are represented;
 - raw events are redacted before disk and remain traceable to normalized events;
 - per-Agent promotion decisions are independent and explainable;
-- promotion does not modify real Codex or Claude configuration;
+- promotion does not modify real Codex configuration;
 - stale detection and rollback are tested end to end;
 - the final report uses the approved resume-safe wording;
 - `superpowers:finishing-a-development-branch` is used to offer merge, PR, keep, or discard options.
