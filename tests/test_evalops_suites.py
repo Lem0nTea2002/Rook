@@ -73,7 +73,10 @@ def test_load_eval_suite_builds_frozen_protocol_from_real_files(tmp_path: Path) 
     assert case.timeout_seconds == 180
     assert case.network_policy is NetworkPolicy.DISABLED
     assert case.evaluator.kind == "command"
-    assert case.evaluator.options == {"command": ("python", "hidden_check.py")}
+    assert case.evaluator.options == {
+        "command": ("python", str((manifest.parent / "hidden_check.py").resolve())),
+        "timeout_seconds": 30,
+    }
 
 
 def test_load_eval_suite_rejects_unknown_top_level_field(tmp_path: Path) -> None:
@@ -200,14 +203,17 @@ def test_load_eval_suite_accepts_evaluator_file_outside_fixture(tmp_path: Path) 
 
     suite = load_eval_suite(manifest)
 
-    assert suite.cases[0].evaluator.options["command"] == ("python", "evaluators/hidden_check.py")
+    assert suite.cases[0].evaluator.options["command"] == (
+        "python",
+        str((manifest.parent / "evaluators" / "hidden_check.py").resolve()),
+    )
 
 
 @pytest.mark.parametrize(
     ("evaluator", "message"),
     [
         (
-            'kind = "file_state"\ncommand = ["python", "hidden_check.py"]',
+            'kind = "future_kind"\ncommand = ["python", "hidden_check.py"]',
             "unsupported evaluator kind",
         ),
         (
@@ -223,6 +229,87 @@ def test_load_eval_suite_rejects_invalid_evaluator_schema(
     tmp_path: Path,
     evaluator: str,
     message: str,
+) -> None:
+    original = 'kind = "command"\ncommand = ["python", "hidden_check.py"]'
+    manifest = write_eval_tree(tmp_path, manifest=SUITE_TOML.replace(original, evaluator))
+
+    with pytest.raises(ValueError, match=message):
+        load_eval_suite(manifest)
+
+
+@pytest.mark.parametrize(
+    ("evaluator", "kind", "expected"),
+    [
+        (
+            'kind = "file_state"\nrequired_files = ["result.txt"]\n'
+            'forbidden_files = ["secret.txt"]\n'
+            'expected_text = { "result.txt" = "done\\n" }\n'
+            f'expected_sha256 = {{ "result.txt" = "{"a" * 64}" }}',
+            "file_state",
+            {"required_files": ("result.txt",), "forbidden_files": ("secret.txt",)},
+        ),
+        (
+            'kind = "trajectory"\nrequired_tools = ["shell"]\n'
+            'forbidden_tools = ["network"]\nrequired_successful_tools = ["shell"]',
+            "trajectory",
+            {"required_tools": ("shell",), "forbidden_tools": ("network",)},
+        ),
+        (
+            'kind = "llm_judge"\nrubric = "Answer is complete."\nmax_tokens = 128',
+            "llm_judge",
+            {"rubric": "Answer is complete.", "max_tokens": 128},
+        ),
+        (
+            'kind = "composite"\nchildren = ['
+            '{ kind = "file_state", required_files = ["result.txt"] }, '
+            '{ kind = "trajectory", required_tools = ["shell"] }]',
+            "composite",
+            {},
+        ),
+    ],
+)
+def test_load_eval_suite_accepts_strict_evaluator_kinds(
+    tmp_path: Path,
+    evaluator: str,
+    kind: str,
+    expected: dict[str, object],
+) -> None:
+    original = 'kind = "command"\ncommand = ["python", "hidden_check.py"]'
+    manifest = write_eval_tree(tmp_path, manifest=SUITE_TOML.replace(original, evaluator))
+
+    loaded = load_eval_suite(manifest).cases[0].evaluator
+
+    assert loaded.kind == kind
+    for key, value in expected.items():
+        assert loaded.options[key] == value
+    if kind == "composite":
+        children = loaded.options["children"]
+        assert tuple(child.kind for child in children) == ("file_state", "trajectory")
+
+
+@pytest.mark.parametrize(
+    ("evaluator", "message"),
+    [
+        ('kind = "file_state"\nrequired_files = ["../secret.txt"]', "workspace path"),
+        ('kind = "file_state"\nexpected_sha256 = { "result.txt" = "bad" }', "SHA-256"),
+        ('kind = "trajectory"\nrequired_tools = [1]', "string list"),
+        ('kind = "llm_judge"\nrubric = "ok"\nmax_tokens = 257', "max_tokens"),
+        ('kind = "composite"\nchildren = []', "at least one child"),
+        (
+            'kind = "composite"\nchildren = ['
+            '{ kind = "llm_judge", rubric = "ok" }, '
+            '{ kind = "file_state", required_files = ["result.txt"] }]',
+            "LLM judge.*last",
+        ),
+        (
+            'kind = "composite"\nchildren = ['
+            '{ kind = "composite", children = [{ kind = "trajectory" }] }]',
+            "nested composite",
+        ),
+    ],
+)
+def test_load_eval_suite_rejects_invalid_known_evaluator_schema(
+    tmp_path: Path, evaluator: str, message: str
 ) -> None:
     original = 'kind = "command"\ncommand = ["python", "hidden_check.py"]'
     manifest = write_eval_tree(tmp_path, manifest=SUITE_TOML.replace(original, evaluator))

@@ -13,6 +13,8 @@ from rook_agent.evalops import (
     CaseCategory,
     EvalCase,
     EvalSuite,
+    EvaluationResult,
+    EvaluationStatus,
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
@@ -64,6 +66,9 @@ def test_evalops_protocol_has_stable_status_values() -> None:
     assert RunStatus.INFRA_ERROR.value == "infra_error"
     assert RunStatus.ADAPTER_ERROR.value == "adapter_error"
     assert RunStatus.USER_CANCELLED.value == "user_cancelled"
+    assert EvaluationStatus.PASSED.value == "passed"
+    assert EvaluationStatus.FAILED.value == "failed"
+    assert EvaluationStatus.ERROR.value == "error"
     assert PromotionStatus.PROMOTED.value == "promoted"
     assert PromotionStatus.REJECTED.value == "rejected"
     assert PromotionStatus.QUARANTINED.value == "quarantined"
@@ -88,6 +93,7 @@ def test_evalops_protocol_has_stable_status_values() -> None:
         PromotionPolicyConfig,
         Usage,
         NormalizedEvent,
+        EvaluationResult,
     ],
 )
 def test_evalops_models_are_frozen_slotted_dataclasses(model: type[object]) -> None:
@@ -231,6 +237,13 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "scorecard_hash",
             "created_at",
             "decision_id",
+        ),
+        EvaluationResult: (
+            "status",
+            "reason_code",
+            "evaluator_kind",
+            "details",
+            "duration_ms",
         ),
     }
 
@@ -379,3 +392,32 @@ def test_scorecard_and_run_spec_freeze_mapping_inputs() -> None:
     assert run_spec.environment_allowlist == {"PATH": "safe"}
     assert scorecard.metrics == {"success_rate": 1.0}
     assert scorecard.per_case["direct-01"]["passed"] is True  # type: ignore[index]
+
+
+def test_evaluation_result_freezes_details_and_exposes_passed_property() -> None:
+    details: dict[str, object] = {"checks": ["result.txt"]}
+    result = EvaluationResult(
+        status=EvaluationStatus.PASSED,
+        reason_code="file_state_match",
+        evaluator_kind="file_state",
+        details=details,
+        duration_ms=12,
+    )
+
+    details["checks"] = []
+
+    assert result.passed is True
+    assert result.details == {"checks": ("result.txt",)}
+    with pytest.raises(TypeError):
+        result.details["checks"] = ()  # type: ignore[index]
+
+
+def test_evaluation_result_rejects_invalid_duration() -> None:
+    with pytest.raises(ValueError, match="duration"):
+        EvaluationResult(
+            status=EvaluationStatus.ERROR,
+            reason_code="evaluator_error",
+            evaluator_kind="command",
+            details={},
+            duration_ms=-1,
+        )

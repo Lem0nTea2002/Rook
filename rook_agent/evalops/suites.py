@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import tomllib
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -22,7 +23,25 @@ from rook_agent.evalops.models import (
 
 _SUITE_FIELDS = {"id", "version", "policy", "cases"}
 _CASE_FIELDS = {"id", "category", "task", "fixture", "evaluator", "timeout_seconds", "network"}
-_COMMAND_EVALUATOR_FIELDS = {"kind", "command"}
+_EVALUATOR_KINDS = {"command", "file_state", "trajectory", "composite", "llm_judge"}
+_COMMAND_EVALUATOR_FIELDS = {"kind", "command", "timeout_seconds"}
+_FILE_STATE_EVALUATOR_FIELDS = {
+    "kind",
+    "required_files",
+    "forbidden_files",
+    "expected_text",
+    "expected_sha256",
+}
+_TRAJECTORY_EVALUATOR_FIELDS = {
+    "kind",
+    "required_tools",
+    "forbidden_tools",
+    "required_successful_tools",
+    "require_trace_complete",
+}
+_COMPOSITE_EVALUATOR_FIELDS = {"kind", "children"}
+_LLM_JUDGE_EVALUATOR_FIELDS = {"kind", "rubric", "max_trace_chars", "max_tokens"}
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def load_eval_suite(path: str | Path) -> EvalSuite:
@@ -127,20 +146,121 @@ def _load_evaluator(
     *,
     case_id: str,
     fixture: Path,
+    depth: int = 0,
 ) -> tuple[EvaluatorSpec, Mapping[str, object]]:
-    kind = _require_string(raw, "kind", context=f"case {case_id!r} evaluator")
-    if kind != "command":
-        raise ValueError(f"unsupported evaluator kind {kind!r}; expected: command")
-    _reject_unknown(raw, allowed=_COMMAND_EVALUATOR_FIELDS, context=f"case {case_id!r} evaluator")
+    context = f"case {case_id!r} evaluator"
+    kind = _require_string(raw, "kind", context=context)
+    if kind not in _EVALUATOR_KINDS:
+        allowed = ", ".join(sorted(_EVALUATOR_KINDS))
+        raise ValueError(f"unsupported evaluator kind {kind!r}; expected one of: {allowed}")
 
-    options = {"command": raw.get("command")}
+    if kind == "command":
+        return _load_command_evaluator(root, raw, case_id=case_id, fixture=fixture)
+    if kind == "file_state":
+        _reject_unknown(raw, allowed=_FILE_STATE_EVALUATOR_FIELDS, context=context)
+        required = _workspace_path_list(raw, "required_files", context=context)
+        forbidden = _workspace_path_list(raw, "forbidden_files", context=context)
+        expected_text = _workspace_path_mapping(raw, "expected_text", context=context)
+        expected_sha256 = _workspace_path_mapping(raw, "expected_sha256", context=context)
+        invalid_hashes = sorted(
+            path for path, value in expected_sha256.items() if _SHA256.fullmatch(value) is None
+        )
+        if invalid_hashes:
+            raise ValueError(f"{context} expected_sha256 values must be lowercase SHA-256 hex")
+        if set(required) & set(forbidden):
+            raise ValueError(f"{context} cannot require and forbid the same workspace path")
+        if not (required or forbidden or expected_text or expected_sha256):
+            raise ValueError(f"{context} file_state requires at least one assertion")
+        options = {
+            "required_files": required,
+            "forbidden_files": forbidden,
+            "expected_text": expected_text,
+            "expected_sha256": expected_sha256,
+        }
+    elif kind == "trajectory":
+        _reject_unknown(raw, allowed=_TRAJECTORY_EVALUATOR_FIELDS, context=context)
+        options = {
+            "required_tools": _string_list(raw, "required_tools", context=context),
+            "forbidden_tools": _string_list(raw, "forbidden_tools", context=context),
+            "required_successful_tools": _string_list(
+                raw, "required_successful_tools", context=context
+            ),
+            "require_trace_complete": _optional_bool(
+                raw, "require_trace_complete", default=True, context=context
+            ),
+        }
+        if set(options["required_tools"]) & set(options["forbidden_tools"]):
+            raise ValueError(f"{context} cannot require and forbid the same tool")
+    elif kind == "llm_judge":
+        _reject_unknown(raw, allowed=_LLM_JUDGE_EVALUATOR_FIELDS, context=context)
+        rubric = _require_string(raw, "rubric", context=context)
+        if len(rubric) > 4000:
+            raise ValueError(f"{context} rubric must not exceed 4000 characters")
+        options = {
+            "rubric": rubric,
+            "max_trace_chars": _bounded_positive_int(
+                raw, "max_trace_chars", default=8000, maximum=20000, context=context
+            ),
+            "max_tokens": _bounded_positive_int(
+                raw, "max_tokens", default=256, maximum=256, context=context
+            ),
+        }
+    else:
+        if depth >= 1:
+            raise ValueError(f"{context} does not allow a nested composite evaluator")
+        _reject_unknown(raw, allowed=_COMPOSITE_EVALUATOR_FIELDS, context=context)
+        children_raw = _require_list(raw, "children", context=context)
+        if not children_raw:
+            raise ValueError(f"{context} composite requires at least one child")
+        if len(children_raw) > 16:
+            raise ValueError(f"{context} composite supports at most 16 children")
+        loaded_children = [
+            _load_evaluator(
+                root,
+                _require_mapping(child, context=f"{context} child at index {index}"),
+                case_id=case_id,
+                fixture=fixture,
+                depth=depth + 1,
+            )
+            for index, child in enumerate(children_raw)
+        ]
+        child_specs = tuple(child[0] for child in loaded_children)
+        judge_positions = [index for index, child in enumerate(child_specs) if child.kind == "llm_judge"]
+        if len(judge_positions) > 1:
+            raise ValueError(f"{context} composite supports at most one LLM judge")
+        if judge_positions and judge_positions[0] != len(child_specs) - 1:
+            raise ValueError(f"{context} LLM judge must be the last child")
+        options = {"children": child_specs}
+        evaluator = EvaluatorSpec(kind=kind, options=options)
+        return evaluator, {
+            "config": plain_data(raw),
+            "children": [child[1] for child in loaded_children],
+        }
+
+    evaluator = EvaluatorSpec(kind=kind, options=options)
+    return evaluator, {"config": plain_data(raw), "referenced_files": []}
+
+
+def _load_command_evaluator(
+    root: Path,
+    raw: Mapping[str, object],
+    *,
+    case_id: str,
+    fixture: Path,
+) -> tuple[EvaluatorSpec, Mapping[str, object]]:
+    context = f"case {case_id!r} evaluator"
+    _reject_unknown(raw, allowed=_COMMAND_EVALUATOR_FIELDS, context=context)
+
+    command = raw.get("command")
+    if not isinstance(command, list) or not command or any(
+        not isinstance(item, str) or not item for item in command
+    ):
+        raise ValueError(f"{context} command evaluator field 'command' must be a non-empty string list")
+    resolved_command: list[str] = []
     referenced_files: list[Mapping[str, object]] = []
-
-    command = options["command"]
-    if not isinstance(command, list) or not command or any(not isinstance(item, str) or not item for item in command):
-        raise ValueError(f"case {case_id!r} command evaluator field 'command' must be a non-empty string list")
     for position, token in enumerate(command):
         if not _is_command_path(token, executable=position == 0):
+            resolved_command.append(token)
             continue
         reference = _resolve_under(
             root,
@@ -152,6 +272,7 @@ def _load_evaluator(
             raise ValueError(f"case {case_id!r} evaluator path is inside fixture: {reference}")
         if not reference.is_file():
             raise ValueError(f"case {case_id!r} evaluator path does not exist or is not a file: {reference}")
+        resolved_command.append(str(reference))
         referenced_files.append(
             {
                 "position": position,
@@ -160,12 +281,92 @@ def _load_evaluator(
             }
         )
 
-    evaluator = EvaluatorSpec(kind=kind, options=options)
+    evaluator = EvaluatorSpec(
+        kind="command",
+        options={
+            "command": tuple(resolved_command),
+            "timeout_seconds": _bounded_positive_int(
+                raw, "timeout_seconds", default=30, maximum=300, context=context
+            ),
+        },
+    )
     content = {
         "config": plain_data(raw),
         "referenced_files": referenced_files,
     }
     return evaluator, content
+
+
+def _string_list(raw: Mapping[str, object], key: str, *, context: str) -> tuple[str, ...]:
+    value = raw.get(key, [])
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+        raise ValueError(f"{context} field {key!r} must be a string list")
+    if len(set(value)) != len(value):
+        raise ValueError(f"{context} field {key!r} must not contain duplicates")
+    return tuple(value)
+
+
+def _workspace_path_list(
+    raw: Mapping[str, object], key: str, *, context: str
+) -> tuple[str, ...]:
+    return tuple(
+        _normalize_workspace_path(value, context=f"{context} field {key!r}")
+        for value in _string_list(raw, key, context=context)
+    )
+
+
+def _workspace_path_mapping(
+    raw: Mapping[str, object], key: str, *, context: str
+) -> Mapping[str, str]:
+    value = raw.get(key, {})
+    if not isinstance(value, Mapping) or any(
+        not isinstance(path, str) or not isinstance(expected, str)
+        for path, expected in value.items()
+    ):
+        raise ValueError(f"{context} field {key!r} must be a string-to-string table")
+    normalized: dict[str, str] = {}
+    for path, expected in value.items():
+        checked = _normalize_workspace_path(path, context=f"{context} field {key!r}")
+        if checked in normalized:
+            raise ValueError(f"{context} field {key!r} contains duplicate workspace paths")
+        normalized[checked] = expected
+    return normalized
+
+
+def _normalize_workspace_path(value: str, *, context: str) -> str:
+    candidate = Path(value)
+    if (
+        not value
+        or candidate.is_absolute()
+        or candidate.drive
+        or candidate == Path(".")
+        or ".." in candidate.parts
+    ):
+        raise ValueError(f"{context} contains invalid workspace path: {value!r}")
+    return candidate.as_posix()
+
+
+def _optional_bool(
+    raw: Mapping[str, object], key: str, *, default: bool, context: str
+) -> bool:
+    value = raw.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{context} field {key!r} must be a boolean")
+    return value
+
+
+def _bounded_positive_int(
+    raw: Mapping[str, object],
+    key: str,
+    *,
+    default: int,
+    maximum: int,
+    context: str,
+) -> int:
+    value = raw.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0 or value > maximum:
+        raise ValueError(f"{context} field {key!r} must be an integer between 1 and {maximum}")
+    return value
 
 
 def _load_policy(suite_root: Path, reference: str) -> PromotionPolicyConfig:

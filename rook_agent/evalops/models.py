@@ -49,6 +49,12 @@ class RunStatus(StrEnum):
     USER_CANCELLED = "user_cancelled"
 
 
+class EvaluationStatus(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+    ERROR = "error"
+
+
 class PromotionStatus(StrEnum):
     PROMOTED = "promoted"
     REJECTED = "rejected"
@@ -299,6 +305,30 @@ class AgentRun:
     trace_complete: bool = False
     error_code: str | None = None
     error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationResult:
+    status: EvaluationStatus
+    reason_code: str
+    evaluator_kind: str
+    details: Mapping[str, object]
+    duration_ms: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, EvaluationStatus):
+            raise ValueError(f"unknown evaluation status: {self.status!r}")
+        if not isinstance(self.reason_code, str) or not self.reason_code:
+            raise ValueError("evaluation reason_code must be a non-empty string")
+        if not isinstance(self.evaluator_kind, str) or not self.evaluator_kind:
+            raise ValueError("evaluation evaluator_kind must be a non-empty string")
+        if isinstance(self.duration_ms, bool) or not isinstance(self.duration_ms, int) or self.duration_ms < 0:
+            raise ValueError("evaluation duration_ms must be a non-negative integer")
+        object.__setattr__(self, "details", _freeze_mapping(self.details))
+
+    @property
+    def passed(self) -> bool:
+        return self.status is EvaluationStatus.PASSED
 
 
 @dataclass(frozen=True, slots=True)
