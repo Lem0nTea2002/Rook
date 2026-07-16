@@ -5,7 +5,7 @@
 <h1 align="center">Rook</h1>
 
 <p align="center">
-  <strong>A local Python coding agent built to make agent internals visible.</strong>
+  <strong>A local Python coding agent with Skill EvalOps, safety gates, and rollback.</strong>
 </p>
 
 <p align="center">
@@ -23,15 +23,36 @@
 
 ---
 
-Rook is a real, runnable local coding agent with a Textual TUI, tool calling, permissions, sessions, and context compaction. It is designed to be useful in daily work and easy to study in code.
+Rook is a real, runnable local coding agent and a Codex-only Skill EvalOps framework. The runtime provides a Textual TUI, tool calling, permissions, sessions, and context compaction; EvalOps adds isolated paired experiments, deterministic evaluation, promotion policy, and rollback for generated or manually authored Skills.
 
 If you want to understand how coding agents actually work, Rook keeps the moving parts visible instead of hiding them behind a black box.
 
+- Evaluate whether a Skill improves an Agent before it can be promoted or exported.
 - Learn the agent loop, tool calling, permissions, sessions, and context handling.
 - Build on a small Python codebase with clear module boundaries.
 - Use a local coding agent while still being able to inspect how it works.
 
 ![Rook planning, requesting permission, and completing a local task](docs/images/rook-demo.gif)
+
+## Skill EvalOps
+
+Rook treats a Skill as a versioned change that must earn promotion. Manual bundles and trace-derived output enter an inactive quarantine, then run through isolated Baseline/Forced and Baseline/Routed pairs. Deterministic evaluators produce ScoreCards; safety, regression, sample-size, and effect gates decide promotion independently for each Agent target.
+
+```mermaid
+flowchart LR
+    A["Task trace or manual bundle"] --> B["Quarantined Candidate"]
+    B --> C["Isolated Baseline / Forced / Routed runs"]
+    C --> D["Evaluator + ScoreCard"]
+    D --> E{"Promotion policy"}
+    E -->|pass| F["Immutable registry + staged export"]
+    E -->|fail| G["Rejected or quarantined"]
+    F --> H["Atomic rollback"]
+```
+
+The version-controlled portfolio suite contains 12 Direct, Transfer, Regression, and Adversarial cases plus effective, neutral, and unsafe control candidates. Its Fake Agent results prove control-plane behavior only; real success, latency, token, and cost metrics remain unpublished until an explicitly authorized live evaluation exists.
+
+- [EvalOps usage](docs/EVALOPS.md)
+- [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
 
 ## Why Rook
 
@@ -42,7 +63,7 @@ Compared with larger projects like OpenCode, Rook is intentionally smaller in sc
 | Dimension | Rook | Larger projects like OpenCode |
 | --- | --- | --- |
 | Primary goal | Make agent internals readable and teachable | Deliver a broader production-style coding-agent platform |
-| Codebase shape | Roughly 17k lines of Python runtime code in this repo | Roughly 575k lines of TS/JS across a much larger multi-surface codebase |
+| Codebase shape | Roughly 32k lines of Python runtime code in this repo | Roughly 575k lines of TS/JS across a much larger multi-surface codebase |
 | Engineering tradeoff | Drops some extra platform surface area to stay inspectable | Accepts more complexity to support a broader product surface |
 | Best fit | Learning, modification, interview prep, portfolio projects, and local experimentation | Users who want a larger, more full-surface coding-agent environment |
 
@@ -56,7 +77,7 @@ Compared with more tutorial-first or lightweight learning repos, Rook also tries
 | --- | --- | --- |
 | Learning value | Readable subsystem boundaries and explicit docs | Often optimized for a single tutorial path or demo flow |
 | Practical surface | Real TUI, tools, permissions, sessions, provider adapters | Often focused on a narrower loop or a simpler proof of concept |
-| Verification | 80+ test files and multiple benchmark entry points | Often lighter on testing and benchmark integration |
+| Verification | 120+ test files, cross-platform offline CI, and multiple benchmark entry points | Often lighter on testing and benchmark integration |
 | Extension path | Easier to adapt into a portfolio or resume project | Often better for following along than for long-term extension |
 
 In this repo, the learning goal is important, but it is paired with enough runtime structure, tests, and benchmark hooks to make the project useful after the first read-through.
@@ -102,6 +123,7 @@ rook --interactive
 - Tool calling with permission checks before risky actions
 - Session persistence, resume flow, and context compaction
 - Skills, provider adapters, and clean modules for study and modification
+- Skill candidate quarantine, isolated A/B evaluation, ScoreCards, promotion, reporting, and rollback
 
 ## Configuration
 
@@ -146,6 +168,7 @@ Conversation flow:
 - [Chinese Docs Index](docs/README.zh-CN.md)
 - [Codebase Reading Guide](docs/CODEBASE_READING_GUIDE.md)
 - [Codex-only Skill EvalOps](docs/EVALOPS.md)
+- [Portfolio Evidence](docs/PORTFOLIO_EVIDENCE.md)
 
 ## Development
 

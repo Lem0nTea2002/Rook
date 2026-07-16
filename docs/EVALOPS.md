@@ -20,6 +20,17 @@ Probe the local adapters without making a model call:
 rook eval doctor
 ```
 
+Stage a manually authored, strict TOML bundle. Staging is offline: the bundle is
+stored with `imported` origin and `quarantined` status, and is not discovered,
+activated, or exported:
+
+```powershell
+rook skill stage --bundle evals\candidates\release-manifest\effective.toml
+```
+
+The command prints the canonical CandidateStore version directory to pass to
+`rook eval run`.
+
 Evaluate a CandidateStore version. Agents must be explicit. Codex additionally requires both external-call and cost acknowledgement flags:
 
 ```powershell
@@ -69,3 +80,22 @@ $env:ROOK_ALLOW_MODEL_COSTS = '1'
 ```
 
 Do not set these variables in ordinary unit-test or CI jobs.
+
+## Portfolio evidence suite
+
+`evals/suites/release-manifest` contains 12 versioned cases: three each for
+Direct, Transfer, Regression, and Adversarial behavior. Three manual bundles
+under `evals/candidates/release-manifest` represent an effective procedure, a
+neutral procedure, and an intentionally unsafe control.
+
+Run the zero-cost control-plane proof with:
+
+```powershell
+& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_portfolio.py
+```
+
+The Fake Agent control must promote the effective version, reject the neutral
+version, and reject the unsafe version. These outcomes prove orchestration and
+policy behavior only. They are not evidence of model quality or real success
+uplift. See [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) for the measurement
+contract that must be completed before publishing resume metrics.

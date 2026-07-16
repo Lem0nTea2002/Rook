@@ -5,7 +5,7 @@
 <h1 align="center">Rook</h1>
 
 <p align="center">
-  <strong>一个把 coding agent 内部机制摊开给你看的本地 Python 项目。</strong>
+  <strong>带 Skill EvalOps、安全门禁和回滚能力的本地 Python Coding Agent。</strong>
 </p>
 
 <p align="center">
@@ -23,15 +23,36 @@
 
 ---
 
-Rook 是一个能真实运行的本地 coding agent，带有 Textual TUI、工具调用、权限系统、会话持久化和上下文压缩。它既可以日常使用，也刻意保持了适合阅读和学习的 Python 代码结构。
+Rook 是一个能真实运行的本地 Coding Agent，也是一个 Codex-only Skill EvalOps 框架。Runtime 提供 Textual TUI、工具调用、权限系统、会话持久化和上下文压缩；EvalOps 为自动生成或人工编写的 Skill 增加隔离配对实验、确定性评测、准入策略和回滚。
 
 如果你想真正理解 coding agent 是怎么工作的，Rook 会尽量把关键环节展示出来，而不是把它们藏在黑盒后面。
 
+- 在 Skill 获准导出或激活前，客观评测它是否真正改善 Agent。
 - 学习 agent loop、工具调用、权限系统、session 和上下文处理。
 - 基于一个模块边界清晰的小型 Python 代码库继续改造。
 - 一边使用本地 coding agent，一边读懂它的内部机制。
 
 ![Rook 规划、请求权限并完成本地任务](docs/images/rook-demo.gif)
+
+## Skill EvalOps
+
+Rook 将 Skill 视为必须经过准入的版本化变更。人工 bundle 和轨迹生成结果先进入非活动隔离区，再执行 Baseline/Forced 与 Baseline/Routed 隔离配对实验；确定性 Evaluator 生成 ScoreCard，安全、回归、有效样本数和效果门槛按 Agent 目标独立决定是否准入。
+
+```mermaid
+flowchart LR
+    A["任务轨迹或人工 bundle"] --> B["Quarantined Candidate"]
+    B --> C["隔离 Baseline / Forced / Routed 实验"]
+    C --> D["Evaluator + ScoreCard"]
+    D --> E{"准入策略"}
+    E -->|通过| F["不可变 Registry + 分阶段导出"]
+    E -->|未通过| G["Rejected 或 Quarantined"]
+    F --> H["原子回滚"]
+```
+
+仓库内置 12 个版本化简历证据案例，覆盖 Direct、Transfer、Regression、Adversarial，并提供有效、中性、危险三个控制 Candidate。Fake Agent 结果只证明控制面正确；真实成功率、时延、Token 和成本指标在获得授权并生成真实不可变报告前不会发布。
+
+- [EvalOps 使用说明](docs/EVALOPS.md)
+- [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
 
 ## 为什么做 Rook
 
@@ -42,7 +63,7 @@ Rook 是一个能真实运行的本地 coding agent，带有 Textual TUI、工�
 | 维度 | Rook | OpenCode 这类更大的项目 |
 | --- | --- | --- |
 | 主要目标 | 把 agent 内部机制做得可读、可学、可讲清楚 | 提供更完整、更偏产品化的 coding-agent 平台 |
-| 代码形态 | 当前仓库核心运行时代码约 1.7 万行 Python | TS/JS 代码规模约 57 万行，平台层和工程表面也更多 |
+| 代码形态 | 当前仓库核心运行时代码约 3.2 万行 Python | TS/JS 代码规模约 57 万行，平台层和工程表面也更多 |
 | 工程取舍 | 主动放弃一部分额外平台能力，换取更强可读性 | 接受更高复杂度，以支持更宽的产品能力面 |
 | 更适合谁 | 学习、二次改造、面试讲解、作品集 / 简历项目、本地实验 | 更想直接使用一个大而完整的 coding-agent 环境的用户 |
 
@@ -56,7 +77,7 @@ Rook 是一个能真实运行的本地 coding agent，带有 Textual TUI、工�
 | --- | --- | --- |
 | 学习价值 | 子系统边界清楚，文档明确，适合按模块阅读 | 往往更偏单一路径教程或 demo 流程 |
 | 实用表面 | 有真实 TUI、tools、permissions、sessions、provider adapters | 往往更聚焦某个更窄的 loop 或概念验证 |
-| 可验证性 | 有 80+ 个测试文件，并接入了多个 benchmark 入口 | 往往较少强调测试体系和 benchmark 集成 |
+| 可验证性 | 有 120+ 个测试文件、跨平台离线 CI，并接入多个 benchmark 入口 | 往往较少强调测试体系和 benchmark 集成 |
 | 延展路径 | 更适合继续改造成作品集或简历项目 | 更适合跟做和入门，但未必适合长期扩展 |
 
 也就是说，这个仓库在“适合学习”之外，还尽量保留了足够的运行时结构、测试和 benchmark 钩子，让它在你第一次读完之后依然有继续演化的价值。
@@ -102,6 +123,7 @@ rook --interactive
 - 对危险操作先做权限确认的工具调用流程
 - 会话持久化、恢复和上下文压缩
 - 适合学习和二次开发的 skills、provider 和清晰模块结构
+- Skill Candidate 隔离、A/B 评测、ScoreCard、准入、报告和回滚
 
 ## 配置
 
@@ -144,6 +166,7 @@ Rook 的 TUI 不是为了把 agent loop 藏起来，而是为了把它展示出�
 - [English Docs Index](docs/README.md)
 - [代码阅读指南](docs/CODEBASE_READING_GUIDE.zh-CN.md)
 - [Codex-only Skill EvalOps](docs/EVALOPS.md)
+- [简历证据说明](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
 
 ## 开发
 

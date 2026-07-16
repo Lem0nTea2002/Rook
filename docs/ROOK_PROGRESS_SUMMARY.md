@@ -16,7 +16,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 - 分支：`feature/rook-forge`
 - 工作树：`Rook/.worktrees/rook-forge`
-- 最新离线门禁提交：`a94a531 ci: test offline suite on Windows and Linux`
+- 最新简历证据套件提交：`b085dea test: add portfolio EvalOps evidence suite`
 
 ## 已完成功能
 
@@ -37,6 +37,8 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 15. 自动 Candidate 的 `quarantined` 隔离存储、安全 Gate、幂等生命周期协调和 Provider 切换。
 16. 自动 Candidate 继续复用显式 EvalOps 准入链路，不自动发布、发现、激活或导出。
 17. Windows/Linux 双平台离线 CI，显式关闭真实外部评测和模型费用。
+18. 严格人工 Skill bundle loader 与 `rook skill stage`，导入结果默认保持 `imported/quarantined`。
+19. 12-case 简历证据 suite，以及有效、中性、危险三类控制 Candidate 的准入/拒绝证明。
 
 ## 关键提交
 
@@ -53,14 +55,17 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 - `5a94aac`：修复父级 Git 仓库误识别、并发测试时序抖动和过期 prompt 断言。
 - `5331a9a`：使 ChainSWE verifier 可在 Windows 使用 Git for Windows shell，并避免已知任务序列的额外边界模型调用。
 - `a94a531`：增加 Windows/Linux 完整离线测试门禁。
+- `fba8b68`：增加严格人工 Skill bundle staging，默认非活动隔离存储。
+- `b085dea`：增加 12-case EvalOps 简历证据套件和三类控制 Candidate。
 
 ## 当前验证结果
 
-- 当前全部 EvalOps + evolution 专项：`574 passed, 7 skipped`。
+- 当前全部 EvalOps + evolution 专项：`585 passed, 7 skipped`。
 - Task 14 新增与直接依赖专项：`323 passed`。
 - Windows/安全硬化专项：`295 passed, 3 skipped`。
 - 历史失败维护直接回归：`131 passed`。
-- 完整核心基线（排除可选 EvalPlus）：`1585 passed, 10 skipped`，零失败。
+- 完整核心基线（排除可选 EvalPlus）：`1596 passed, 10 skipped`，零失败。
+- 简历证据控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate `rejected`；仅证明控制面，不作为真实模型效果。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
 - Codex Adapter 提交后专项验证：`58 passed, 1 skipped`。
 - 默认测试全部使用 Fake Process/Fake Provider，不会调用真实 Codex API，也不会产生模型费用。
@@ -69,14 +74,14 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 ## 下一阶段计划
 
-1. 在单独获得外部调用与费用授权后，执行可选的真实 Codex smoke。
-2. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
-3. 推送分支，让新增的 Windows/Linux GitHub Actions 门禁完成远端首跑。
+1. 推送分支，让新增的 Windows/Linux GitHub Actions 门禁完成远端首跑。
+2. 在单独获得外部调用与费用授权后，对 12-case suite 至少重复 3 次，填写真实成功率、Wilson 区间、回归、时延、Token 和成本。
+3. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 4. 审阅并合并 `feature/rook-forge`。
 5. 合并后再独立评估 Candidate 蒸馏后台队列，避免把额外并发复杂度带入当前 MVP。
 
 ## 当前停点
 
-Task 16 及离线历史失败维护已完成，当前停在远端 CI 首跑、分支审阅与合并前。
+Task 16、离线历史失败维护和简历证据包均已完成。工程闭环已经具备可验证表述；真实 Agent 成功率与成本仍停在显式授权评测前，当前没有用 Fake 结果填充这些指标。
 
 手工与自动 Candidate 均已接入 Candidate → A/B → ScoreCard → Decision → Registry → Report → Rollback 的同一闭环。自动生成结果保持 quarantined，必须显式执行评测；当前没有旁路准入机制。完整验证证据见 `docs/superpowers/reports/2026-07-16-rook-agent-evalops-verification.md`。

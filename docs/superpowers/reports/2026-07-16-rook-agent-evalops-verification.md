@@ -6,6 +6,8 @@
 - Windows 硬化提交：`116b04f fix: preserve CandidateStore publish conflicts`
 - 核心维护提交：`5a94aac fix: stabilize core tests on Windows`、`5331a9a fix: run ChainSWE verification portably`
 - 离线 CI 提交：`a94a531 ci: test offline suite on Windows and Linux`
+- 人工 Candidate 提交：`fba8b68 feat: stage manual Skill candidates safely`
+- 简历证据套件提交：`b085dea test: add portfolio EvalOps evidence suite`
 
 ## 结论
 
@@ -17,11 +19,12 @@ EvalOps/evolution 专项和完整核心基线均为零失败；默认验证没�
 
 | 范围 | 结果 | 说明 |
 |---|---:|---|
-| EvalOps + evolution 全集 | 574 passed, 7 skipped | 581 个用例；零失败 |
+| EvalOps + evolution 全集 | 585 passed, 7 skipped | 592 个用例；零失败 |
 | Task 14 与直接依赖 | 323 passed | 严格蒸馏、Gate、隔离存储、幂等协调、Runtime/Factory/TUI 接入 |
 | Windows 与安全硬化专项 | 295 passed, 3 skipped | 原子发布、进程取消、隐藏 evaluator、路径逃逸、脱敏、回滚 |
 | 历史维护直接回归 | 131 passed | AgentLoop/App/patch/ChainSWE/runtime 专项，零失败 |
-| 完整核心基线（排除 EvalPlus） | 1585 passed, 10 skipped | 总计 1595；零失败；外部评测与费用开关均为 0 |
+| 完整核心基线（排除 EvalPlus） | 1596 passed, 10 skipped | 总计 1606；零失败；外部评测与费用开关均为 0 |
+| 简历证据控制实验 | 3 passed | 12-case suite 结构、文档声明边界、有效/中性/危险 Candidate 决策 |
 | 可选 EvalPlus gate | collection error | 缺少可选依赖 `evalplus`，与实施前记录一致 |
 | 真实 Codex smoke | skipped | `ROOK_RUN_EXTERNAL_EVALS=0`、`ROOK_ALLOW_MODEL_COSTS=0`，未授权外部调用 |
 | Fake Agent demo | 1 passed | 完成 Candidate → A/B → ScoreCard → Decision → Registry → Rollback |
@@ -41,7 +44,7 @@ EvalOps/evolution 专项和完整核心基线均为零失败；默认验证没�
 ROOK_RUN_EXTERNAL_EVALS=0
 ROOK_ALLOW_MODEL_COSTS=0
 python -m pytest -q --ignore=tests/test_evalplus_benchmark.py
-1585 passed, 10 skipped in 124.79s
+1596 passed, 10 skipped in 112.61s
 ```
 
 全量运行中曾暴露 CandidateStore 临时目录清理的 `WinError 32`，该错误会覆盖正确的并发 `FileExistsError`。`116b04f` 增加了 Windows 有界清理重试，并在清理仍失败时保留原始发布异常；最终全量运行不再出现该失败，专项连续复跑通过。
@@ -73,6 +76,8 @@ Fake Agent 演示在隔离 pytest 根目录生成两个不可变报告：
 
 本轮可复现路径位于 `.pytest_cache/task16-demo/.../.rook/evalops/artifacts/reports/`。两个 Rook 内容版本均得到 `promoted` 内容决策；Codex 当前没有可靠 Skill 激活事件，因此路由结论保持 `quarantined/not observed`；Registry 最后原子 rollback 到版本 1。真实 Codex 未运行，所以不报告虚构的 live 决策或提升。
 
+新增的 `evals/suites/release-manifest` 提供 Direct、Transfer、Regression、Adversarial 各 3 个版本化案例；`evals/candidates/release-manifest` 提供有效、中性、危险三个同名版本。`tests/test_evalops_portfolio.py` 使用 Fake Agent 验证有效版本准入、中性版本无提升拒绝、危险版本 adversarial 拒绝，并检查中英文证据文档没有把这些控制结果写成真实模型提升。人工版本可通过 `rook skill stage --bundle ...` 以 `imported/quarantined` 状态离线入库。
+
 ## 安全与隔离证据
 
 - CandidateStore：版本不可变、no-replace 发布、Windows `WinError 5/32` 有界重试、竞争失败不覆盖。
@@ -101,7 +106,7 @@ Windows 非管理员环境无法创建符号链接，因此 4 个 symlink 逃逸
 | stale | registry fingerprint 测试 |
 | 不修改真实 Codex 配置 | materializer、CLI export 和 adapter 隔离测试 |
 | 原子 rollback | registry 与 demo 测试 |
-| 默认 Fake/no cost | 574/7 专项、1585/10 完整核心与 live skip |
+| 默认 Fake/no cost | 585/7 专项、1596/10 完整核心与 live skip |
 | 可选本机 Codex smoke | doctor 已探测可用；真实付费路径因未授权未执行 |
 
 ## 剩余限制与非声明
