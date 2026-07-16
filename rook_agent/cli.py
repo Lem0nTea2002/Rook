@@ -59,6 +59,33 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser = config_subparsers.add_parser("init", help="Create a starter global config file.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite the existing global config.")
 
+    eval_parser = subparsers.add_parser("eval", help="Run and inspect Skill EvalOps experiments.")
+    eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
+    doctor_parser = eval_subparsers.add_parser("doctor", help="Probe EvalOps Agent capabilities.")
+    doctor_parser.add_argument("--agents", default="rook,codex", help="Comma-separated Agents to probe.")
+    eval_run_parser = eval_subparsers.add_parser("run", help="Evaluate one stored Skill candidate.")
+    eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
+    eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")
+    eval_run_parser.add_argument("--agents", required=True, help="Comma-separated Agents to evaluate.")
+    eval_run_parser.add_argument("--repetitions", type=_positive_int, default=1)
+    eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
+    eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
+    report_parser = eval_subparsers.add_parser("report", help="Read an immutable EvalOps report.")
+    report_parser.add_argument("experiment_id")
+
+    skill_parser = subparsers.add_parser("skill", help="Inspect or change evaluated Skill state.")
+    skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
+    status_parser = skill_subparsers.add_parser("status", help="Show candidate and promotion state.")
+    status_parser.add_argument("name")
+    rollback_parser = skill_subparsers.add_parser("rollback", help="Roll back an active Skill version.")
+    rollback_parser.add_argument("name")
+    rollback_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    rollback_parser.add_argument("--to-version", type=_positive_int, default=None)
+    export_parser = skill_subparsers.add_parser("export", help="Export an evaluated Skill to a staging directory.")
+    export_parser.add_argument("name")
+    export_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    export_parser.add_argument("--output", required=True)
+
     parser.add_argument("--project", default=".", help="Project root for tools and AGENTS.md.")
     parser.add_argument("--data-root", default=None, help="Directory for Rook session data.")
     parser.add_argument("--session-id", default=None, help="Session id to create or reuse.")
@@ -81,10 +108,24 @@ def main(
     *,
     runner: CliRunner | None = None,
     stdin_text: str | None = None,
+    evalops_runner: Callable[[argparse.Namespace], int] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "config":
         return run_config_command(args)
+    if args.command in {"eval", "skill"}:
+        if evalops_runner is None:
+            from rook_agent.evalops.cli import run_evalops_command
+
+            evalops_runner = run_evalops_command
+        try:
+            return evalops_runner(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
     if args.tui or (args.message is None and stdin_text is None and sys.stdin.isatty() and not args.interactive):
         config = CliConfig(

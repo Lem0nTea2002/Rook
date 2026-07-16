@@ -27,6 +27,8 @@ Read in this order if you are new to the codebase:
    provider projection, compaction, and task boundaries.
 6. [Providers Design](PROVIDERS_DESIGN.md) and [Skill System Design](SKILL_SYSTEM_DESIGN.md)
    — the two main extension seams.
+7. [Codex-only Skill EvalOps](EVALOPS.md) — isolated paired evaluation,
+   promotion, reporting, and rollback.
 
 Each design document contains a runnable observation and links to relevant
 tests. Read code with the document open; the goal is to build an executable

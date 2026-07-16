@@ -155,9 +155,9 @@ def load_config(
     API key 是否存在；这些 provider 相关规则仍然交给 provider factory。
     """
 
-    load_dotenv()
-    env_snapshot = dict(os.environ if env is None else env)
     root = Path(project_root or os.getcwd()).resolve()
+    load_dotenv(dotenv_path=root / ".env")
+    env_snapshot = dict(os.environ if env is None else env)
     global_path = default_global_config_path()
     project_path = root / PROJECT_CONFIG_NAME
     global_config = _read_toml_file(global_path)

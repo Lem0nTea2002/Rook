@@ -143,6 +143,7 @@ Rook 的 TUI 不是为了把 agent loop 藏起来，而是为了把它展示出�
 - [技术文档入口](docs/README.zh-CN.md)
 - [English Docs Index](docs/README.md)
 - [代码阅读指南](docs/CODEBASE_READING_GUIDE.zh-CN.md)
+- [Codex-only Skill EvalOps](docs/EVALOPS.md)
 
 ## 开发
 
