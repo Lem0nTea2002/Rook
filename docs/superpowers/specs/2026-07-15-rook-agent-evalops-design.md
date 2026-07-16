@@ -1,18 +1,18 @@
 # Rook Agent EvalOps：Skill 纵向评测与演化准入设计
 
-- 状态：已批准，待实现计划
+- 状态：已批准，Codex-only MVP 实施中
 - 日期：2026-07-15
 - 产品定位：面向自适应 LLM Agent 的 Skill 纵向评测与演化准入框架
-- 首批被测 Agent：Rook、Codex CLI、Claude Code CLI
+- 首批被测 Agent：Rook、Codex CLI
 - 接入方式：CLI 黑盒适配优先，SDK 接入后置
 
 ## 1. 摘要
 
 Rook 不再以“另一个 Coding Agent”作为核心定位，而是作为 Agent EvalOps 框架，回答一个更具体的问题：自动生成或人工提供的 Skill，是否真的让工具型 Agent 变得更有效、更稳定且更安全。
 
-Rook 以任务执行结果、工具调用轨迹和外部验证器为主要证据，对候选 Skill 进行隔离测试、Baseline/Skill A/B 对照、相似任务迁移、无关任务回归、安全测试、按 Agent 独立准入、版本发布和回滚。第一版同时支持 Rook、Codex CLI 与 Claude Code CLI 作为被测对象。
+Rook 以任务执行结果、工具调用轨迹和外部验证器为主要证据，对候选 Skill 进行隔离测试、Baseline/Skill A/B 对照、相似任务迁移、无关任务回归、安全测试、按 Agent 独立准入、版本发布和回滚。第一版支持 Rook 与 Codex CLI；Claude Code 通过既有 Adapter 扩展边界在后续版本接入。
 
-候选 Skill 不因一次任务成功而直接进入正式能力库。它必须先进入隔离区，完成评测后才可在指定 Agent 上标记为 `promoted`。通过准入也不会静默修改用户真实的 Codex 或 Claude Code 配置；外部 Agent 的安装或导出必须是显式操作。
+候选 Skill 不因一次任务成功而直接进入正式能力库。它必须先进入隔离区，完成评测后才可在指定 Agent 上标记为 `promoted`。通过准入也不会静默修改用户真实的 Codex 配置；外部 Agent 的安装或导出必须是显式操作。
 
 Rook 的技术描述为：
 
@@ -43,14 +43,14 @@ Rook Agent EvalOps 必须满足以下目标：
 2. 分离“Skill 内容是否有效”和“Agent 是否能正确路由 Skill”两个问题。
 3. 支持直接任务、迁移任务、无关任务和安全任务四类评测。
 4. 使用外部验证器判定结果，不接受被测 Agent 的完成自述作为成功证据。
-5. 将 Codex CLI、Claude Code CLI 和 Rook 归一化为同一个运行与轨迹协议。
+5. 将 Codex CLI 和 Rook 归一化为同一个运行与轨迹协议。
 6. 保存原始事件和归一化轨迹，使评测结果可追溯、可复查。
 7. 区分 Agent 能力失败、评测基础设施失败、认证失败和适配器失败。
 8. 对每个 Agent、Agent 版本、模型和 Skill 版本独立作出准入决定。
 9. 提供可配置、可解释的硬门槛与效果指标，不依赖不透明总分。
 10. 支持候选隔离、版本历史、显式导出、状态失效和原子回滚。
 11. 生成适合本地查看和 CI 消费的 Markdown 与 JSON 报告。
-12. 在默认测试中不调用付费外部 Agent；真实 Codex/Claude 测试必须显式开启。
+12. 在默认测试中不调用付费外部 Agent；真实 Codex 测试必须显式开启。
 
 ## 4. 非目标
 
@@ -61,7 +61,7 @@ Rook Agent EvalOps 必须满足以下目标：
 - 不做分布式任务队列或云端多租户平台；
 - 不做 Web Dashboard；
 - 不监控真实生产流量；
-- 不自动修改 `~/.codex`、`~/.claude` 或其他用户全局配置；
+- 不自动修改 `~/.codex` 或其他用户全局配置；
 - 不允许候选 Skill 绕过评测直接发布；
 - 不以 LLM-as-a-Judge 作为唯一结果判定方式；
 - 不在第一版支持任意第三方 Agent 插件市场；
@@ -106,7 +106,7 @@ Rook Agent EvalOps 必须满足以下目标：
 
 ### 5.5 按 Agent 独立准入
 
-同一 Skill 可以对 Rook 有效、对 Codex 无效、对 Claude Code 有害。准入状态必须绑定：
+同一 Skill 可以对 Rook 有效、对 Codex 无效；未来新增的 Agent 也必须独立准入。准入状态必须绑定：
 
 ```text
 agent_type + agent_version + model + skill_version + suite_version + policy_version
@@ -136,7 +136,7 @@ agent_type + agent_version + model + skill_version + suite_version + policy_vers
                          |            |
              +-----------v--+      +--v----------------+
              | Workspace    |      | Agent Adapters    |
-             | Isolation    |      | Rook/Codex/Claude |
+             | Isolation    |      | Rook/Codex        |
              +-----------+--+      +--+----------------+
                          |            |
                          +------++----+
@@ -176,10 +176,8 @@ rook_agent/
       base.py              # AgentAdapter 协议
       rook.py
       codex_cli.py
-      claude_cli.py
     normalizers/
       codex.py
-      claude.py
     evaluators/
       command.py
       file_state.py
@@ -200,7 +198,7 @@ rook_agent/
 ```python
 @dataclass(frozen=True)
 class AgentTarget:
-    type: AgentType            # rook | codex | claude_code
+    type: AgentType            # MVP: rook | codex
     executable: str
     version: str
     model: str | None
@@ -243,7 +241,6 @@ Agent-specific Materializer 只能改变包装格式，不能改变 Skill 的语
 SkillBundle
   -> RookSkillMaterializer
   -> CodexSkillMaterializer
-  -> ClaudeSkillMaterializer
 ```
 
 ### 7.3 EvalSuite 与 EvalCase
@@ -381,15 +378,9 @@ class AgentAdapter(Protocol):
 - 将候选 Skill 只物化到隔离环境；
 - 记录精确 CLI 版本和实际参数的脱敏表示。
 
-### 8.3 ClaudeCodeCliAdapter
+### 8.3 后续 Agent 扩展
 
-第一版使用 Claude Code 的非交互 print 模式和 stream-json 输出。适配器负责：
-
-- 禁止会话持久化和自动记忆污染；
-- 固化 setting sources、工具范围、权限和预算；
-- 捕获结构化事件、最终结果和进程退出码；
-- 将候选 Skill 只物化到隔离环境；
-- 记录精确 CLI 版本和实际参数的脱敏表示。
+Claude Code 不进入 Codex-only MVP。现有 `AgentAdapter`、`AgentType` 与 Materializer 扩展边界保留，后续通过单独评审的计划接入，且不得改变 Codex 评测语义。
 
 ### 8.4 RookAdapter
 
@@ -400,7 +391,7 @@ RookAdapter 直接调用 Rook 的运行服务，但仍必须输出与外部 CLI 
 CLI 黑盒模式是第一版统一标准：
 
 - 测量用户实际安装和运行的 Agent；
-- Codex 与 Claude Code 接入方式对称；
+- 外部 Agent 统一通过受控 CLI 边界接入；
 - 框架不绑定某一家 SDK；
 - CLI 版本可以成为评测结论的一部分。
 
@@ -631,8 +622,7 @@ evals/
   "skill": "windows-cmd-switching",
   "active_versions": {
     "rook": 2,
-    "codex": 1,
-    "claude_code": null
+    "codex": 1
   }
 }
 ```
@@ -668,12 +658,12 @@ rook eval doctor
 rook eval run `
   --skill .rook\skill-registry\example\candidates\1 `
   --suite evals\suites\windows-shell `
-  --agents rook,codex,claude
+  --agents rook,codex
 
 rook eval report <experiment-id>
 rook skill status <skill-name>
 rook skill rollback <skill-name> --agent codex --to-version 1
-rook skill export <skill-name> --agent claude --output <directory>
+rook skill export <skill-name> --agent codex --output <directory>
 ```
 
 `eval doctor` 负责检查可执行文件、版本、认证、结构化输出、隔离工作区和可选功能。Doctor 失败不修改用户配置。
@@ -735,7 +725,7 @@ rook skill export <skill-name> --agent claude --output <directory>
 - 两组写入互不影响；
 - 原始 snapshot 不变；
 - 隐藏 evaluator 不可读；
-- 用户真实 Codex/Claude 配置不被修改；
+- 用户真实 Codex 配置不被修改；
 - 失败和取消后没有可复用脏状态。
 
 ### 17.3 ScoreCard 金标测试
@@ -769,7 +759,7 @@ candidate
 
 ### 17.5 外部 Agent 冒烟测试
 
-真实 Codex 和 Claude Code 测试通过显式环境变量开启，默认测试不产生 API 成本：
+真实 Codex 测试通过显式环境变量开启，默认测试不产生 API 成本：
 
 ```powershell
 $env:ROOK_RUN_EXTERNAL_EVALS = '1'
@@ -796,33 +786,33 @@ pytest tests/test_evalops_external_smoke.py
 4. A/B Runner 与 ScoreCard；
 5. PromotionPolicy、Registry 和 Report；
 6. evolution 候选生成接入；
-7. Codex/Claude 真实冒烟测试。
+7. Codex 真实冒烟测试。
 
 ## 19. MVP 验收标准
 
 第一版完成必须同时满足：
 
-1. 一个候选 Skill 能针对 Rook、Codex CLI 和 Claude Code CLI 创建隔离实验。
+1. 一个候选 Skill 能针对 Rook 和 Codex CLI 创建隔离实验。
 2. Baseline 与 Forced Skill 从同一 workspace snapshot 开始。
 3. Routed Skill 能单独报告路由 precision/recall，而不与内容效果混淆。
 4. 至少有 direct、transfer、regression 和 adversarial 四类案例。
 5. 成功结果由外部 evaluator 证明。
-6. 三个 Agent 的原始事件被保存并归一化为统一轨迹。
+6. Rook 与 Codex 的原始事件被保存并归一化为统一轨迹。
 7. 基础设施错误不被误算为 Skill 失败。
 8. ScoreCard 清楚展示原始指标、相对变化、缺失字段和样本数。
 9. 安全失败或新增回归必然阻止 promotion。
 10. 同一 Skill 可以对不同 Agent 产生不同准入状态。
 11. Agent、模型、Skill、suite 或 policy 变化能使旧结论变为 stale。
-12. promotion 不修改用户真实 Codex/Claude 配置。
+12. promotion 不修改用户真实 Codex 配置。
 13. rollback 可以原子恢复旧活动版本并保留完整历史。
 14. 默认测试使用 Fake Agent，不调用付费外部 Agent。
-15. 可选真实冒烟测试能分别运行本机 Codex CLI 和 Claude Code CLI。
+15. 可选真实冒烟测试能运行本机 Codex CLI。
 
 ## 20. 简历安全表述
 
 完成 MVP 后可表述为：
 
-> 设计并实现面向自适应 LLM Agent 的 EvalOps 框架，以执行结果和工具轨迹为依据，对自动生成 Skill 进行隔离测试、基线/学习后 A/B 对照、迁移评测、安全回归和按 Agent 独立准入；通过统一 CLI Adapter 接入 Rook、Codex 与 Claude Code，并以版本化 ScoreCard 控制 Skill 发布、失效和回滚。
+> 设计并实现面向自适应 LLM Agent 的 EvalOps 框架，以执行结果和工具轨迹为依据，对自动生成 Skill 进行隔离测试、基线/学习后 A/B 对照、迁移评测、安全回归和按 Agent 独立准入；通过统一 Adapter 接入 Rook 与 Codex CLI，并以版本化 ScoreCard 控制 Skill 发布、失效和回滚。
 
 不得宣称：
 
