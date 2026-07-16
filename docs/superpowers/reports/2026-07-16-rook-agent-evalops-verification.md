@@ -1,15 +1,17 @@
 # Rook Codex-only EvalOps Verification Report
 
-验证日期：2026-07-16  
-分支：`feature/rook-forge`  
-功能提交：`bac7ec1 feat: quarantine trace-derived Skill candidates`  
-Windows 硬化提交：`116b04f fix: preserve CandidateStore publish conflicts`
+- 验证日期：2026-07-16
+- 分支：`feature/rook-forge`
+- 功能提交：`bac7ec1 feat: quarantine trace-derived Skill candidates`
+- Windows 硬化提交：`116b04f fix: preserve CandidateStore publish conflicts`
+- 核心维护提交：`5a94aac fix: stabilize core tests on Windows`、`5331a9a fix: run ChainSWE verification portably`
+- 离线 CI 提交：`a94a531 ci: test offline suite on Windows and Linux`
 
 ## 结论
 
 Codex-only EvalOps 的手工 Candidate 和轨迹生成 Candidate 已共用同一条显式评测、准入、登记、报告与回滚链路。自动生成结果仅以 `quarantined` 状态进入 `.rook/skill-registry`，不会直接写入可发现 Skill 目录、设置活动版本或导出。
 
-EvalOps/evolution 专项零失败；默认验证没有启动真实 Codex 任务或产生模型费用。全量核心基线的失败数由实施前记录的 27 个降至本轮 14 个；其中 3 个负载型失败单独复跑通过，稳定剩余 11 个均属于本轮未修改的历史模块或旧断言。
+EvalOps/evolution 专项和完整核心基线均为零失败；默认验证没有启动真实 Codex 任务或产生模型费用。实施前记录的 27 个核心失败以及首次 Task 16 审计剩余的 11 个稳定失败均已在独立维护提交中关闭。
 
 ## 验证结果
 
@@ -18,32 +20,33 @@ EvalOps/evolution 专项零失败；默认验证没有启动真实 Codex 任务�
 | EvalOps + evolution 全集 | 574 passed, 7 skipped | 581 个用例；零失败 |
 | Task 14 与直接依赖 | 323 passed | 严格蒸馏、Gate、隔离存储、幂等协调、Runtime/Factory/TUI 接入 |
 | Windows 与安全硬化专项 | 295 passed, 3 skipped | 原子发布、进程取消、隐藏 evaluator、路径逃逸、脱敏、回滚 |
-| 直接影响回归 | 211 passed, 2 failed | 两个稳定失败均为既有问题，见下文 |
-| 完整核心基线（排除 EvalPlus） | 1569 passed, 14 failed, 10 skipped | 总计 1593；3 个失败复跑通过 |
+| 历史维护直接回归 | 131 passed | AgentLoop/App/patch/ChainSWE/runtime 专项，零失败 |
+| 完整核心基线（排除 EvalPlus） | 1585 passed, 10 skipped | 总计 1595；零失败；外部评测与费用开关均为 0 |
 | 可选 EvalPlus gate | collection error | 缺少可选依赖 `evalplus`，与实施前记录一致 |
-| 真实 Codex smoke | 1 skipped, 2 deselected | 未设置 `ROOK_RUN_EXTERNAL_EVALS=1`，未授权费用 |
+| 真实 Codex smoke | skipped | `ROOK_RUN_EXTERNAL_EVALS=0`、`ROOK_ALLOW_MODEL_COSTS=0`，未授权外部调用 |
 | Fake Agent demo | 1 passed | 完成 Candidate → A/B → ScoreCard → Decision → Registry → Rollback |
 
-完整核心基线的历史记录为 `956 passed, 27 failed, 3 skipped`，同样排除 `tests/test_evalplus_benchmark.py`。本轮没有 EvalOps/evolution 失败，也没有新增的稳定失败归因于本分支实现。
+完整核心基线的实施前记录为 `956 passed, 27 failed, 3 skipped`，同样排除 `tests/test_evalplus_benchmark.py`。当前完整核心基线已经全绿。
 
-## 全量失败审计
+## 历史失败关闭审计
 
-以下 3 个全量运行失败在隔离复跑时通过，判定为机器负载相关时序/文件系统波动：
+首次 Task 16 审计中的问题已由两个独立维护提交关闭：
 
-- `tests.test_agent_context_loop::test_agent_loop_runs_readonly_tool_calls_in_parallel_and_appends_results_in_order`
-- `tests.test_agent_context_loop::test_agent_loop_streaming_runs_readonly_tool_calls_in_parallel`
-- `tests.test_mutation_tools::test_edit_can_replace_all_matches_when_enabled`
+- `5a94aac`：并发测试改用线程 barrier 证明重叠执行，不再依赖 350ms 墙钟阈值；app factory 断言同步到 runtime 预分类设计；`collect_git_diff` 要求传入路径本身是 Git 顶层，避免继承父级仓库。
+- `5331a9a`：ChainSWE verifier 直接以 `sh -c` 执行，并在 Windows 从 Git for Windows 定位 `sh.exe`；外部已排序的 ChainSWE issue 使用注入式本地边界决策，不再产生隐藏 Provider 分类调用。
 
-以下 11 个为稳定或既有核心失败：
+此前单独复跑通过的 mutation tool 文件系统波动在最终完整核心运行中也已通过。最终命令及结果：
 
-- `tests.test_agent_context_loop::test_agent_loop_runs_bypass_allowed_tool_calls_in_parallel`：Windows 下 200ms 并行用例偶尔超过固定 350ms 阈值。
-- `tests.test_app_factory::test_create_rook_app_exposes_task_boundary_in_real_prompt`：测试仍期待“模型每轮调用 task_boundary”的旧文案，当前生产提示明确由 runtime 预分类。
-- `tests.test_eval_patch::test_collect_git_diff_returns_empty_for_non_git_directory`。
-- `tests.test_chainswe_runner` 下 8 个既有 ChainSWE runner 用例。
-
-从范围基线 `697fc33` 到当前，`AgentLoop`、ChainSWE、eval patch、mutation tool 和 system prompt 的失败所属生产文件均未修改；`test_app_factory.py` 只增加 CandidateCoordinator 接线测试，失败断言和对应 system prompt 也未修改。按计划未把这些历史核心问题混入 EvalOps 提交。
+```text
+ROOK_RUN_EXTERNAL_EVALS=0
+ROOK_ALLOW_MODEL_COSTS=0
+python -m pytest -q --ignore=tests/test_evalplus_benchmark.py
+1585 passed, 10 skipped in 124.79s
+```
 
 全量运行中曾暴露 CandidateStore 临时目录清理的 `WinError 32`，该错误会覆盖正确的并发 `FileExistsError`。`116b04f` 增加了 Windows 有界清理重试，并在清理仍失败时保留原始发布异常；最终全量运行不再出现该失败，专项连续复跑通过。
+
+`.github/workflows/offline-tests.yml` 已配置 Python 3.11 的 `ubuntu-latest` / `windows-latest` 矩阵，显式将两个外部调用开关设为 `0`，并运行同一完整核心命令。该 workflow 需在分支推送后完成首次远端执行；本报告不把本地验证冒充为 GitHub Actions 成功。
 
 ## 外部调用与本机能力
 
@@ -53,7 +56,7 @@ EvalOps/evolution 专项零失败；默认验证没有启动真实 Codex 任务�
 SKIPPED: set ROOK_RUN_EXTERNAL_EVALS=1 to enable live Codex smoke tests
 ```
 
-未设置 `ROOK_RUN_EXTERNAL_EVALS` 或 `ROOK_ALLOW_MODEL_COSTS`，因此没有提交真实 Codex 任务。无模型调用的 `rook eval doctor` 结果：
+本轮完整回归显式设置 `ROOK_RUN_EXTERNAL_EVALS=0` 和 `ROOK_ALLOW_MODEL_COSTS=0`，因此没有提交真实 Codex 任务。此前无模型调用的 `rook eval doctor` 结果：
 
 - Rook：available，in-process，structured events，isolation；
 - Codex：available，`D:\Develop\NodeJs\codex.EXE`，`codex-cli 0.144.1`，structured events，isolation；
@@ -98,7 +101,7 @@ Windows 非管理员环境无法创建符号链接，因此 4 个 symlink 逃逸
 | stale | registry fingerprint 测试 |
 | 不修改真实 Codex 配置 | materializer、CLI export 和 adapter 隔离测试 |
 | 原子 rollback | registry 与 demo 测试 |
-| 默认 Fake/no cost | 574/7 专项与 live skip |
+| 默认 Fake/no cost | 574/7 专项、1585/10 完整核心与 live skip |
 | 可选本机 Codex smoke | doctor 已探测可用；真实付费路径因未授权未执行 |
 
 ## 剩余限制与非声明
@@ -107,4 +110,5 @@ Windows 非管理员环境无法创建符号链接，因此 4 个 symlink 逃逸
 - LLM Judge 不是默认成功依据，也不能覆盖确定性失败。
 - 未安装可选 `evalplus` 包。
 - 未获得费用授权，未声明真实 Codex 的成功率、成本、时延或内容提升。
+- 新增双平台 workflow 尚待推送后的首次 GitHub Actions 执行。
 - 未实现 Claude Code 集成，不修改模型权重，也不宣称通用自主进化。
