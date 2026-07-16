@@ -150,6 +150,7 @@ class AgentLoop:
         tool_event_handler: Callable[[ToolExecutionEvent], None] | None = None,
         guidance_provider: Callable[[], list[str]] | None = None,
         cancellation_token: CancellationToken | None = None,
+        task_boundary_decider: Callable[[str], str] | None = None,
     ) -> None:
         self.session = session
         self.provider = provider
@@ -168,6 +169,7 @@ class AgentLoop:
         self.tool_event_handler = tool_event_handler
         self.guidance_provider = guidance_provider
         self.cancellation_token = cancellation_token
+        self.task_boundary_decider = task_boundary_decider
         self._skills_prepared_for_turn: int | None = None
         self._last_todo_stale_reminder_count = 0
         self._missing_todo_plan_reminded = False
@@ -314,6 +316,9 @@ class AgentLoop:
     def _classify_task_boundary(self, basis_message_id: str) -> None:
         """运行隐藏的 JSON 分类，并把有效结果写入既有边界状态机。"""
 
+        if self.task_boundary_decider is not None:
+            self._record_task_boundary_classification(self.task_boundary_decider(basis_message_id), basis_message_id)
+            return
         for attempt in range(_TASK_BOUNDARY_CLASSIFICATION_ATTEMPTS):
             try:
                 response = self._complete_task_boundary_classification(attempt=attempt)
@@ -328,6 +333,9 @@ class AgentLoop:
     async def _classify_task_boundary_async(self, basis_message_id: str) -> None:
         """流式主回复前运行隐藏分类，不向 UI 转发其任何事件。"""
 
+        if self.task_boundary_decider is not None:
+            self._record_task_boundary_classification(self.task_boundary_decider(basis_message_id), basis_message_id)
+            return
         for attempt in range(_TASK_BOUNDARY_CLASSIFICATION_ATTEMPTS):
             try:
                 request = self._task_boundary_classification_request(attempt=attempt)

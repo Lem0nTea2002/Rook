@@ -84,6 +84,7 @@ class AgentChatRunner:
     max_tool_rounds: int | None | object = _DEFAULT_MAX_TOOL_ROUNDS
     use_streaming: bool = False
     candidate_coordinator: Any | None = None
+    task_boundary_decider: Callable[[str], str] | None = None
     loops: list[AgentLoop] = field(default_factory=list)
     last_display_lines: list[str] = field(default_factory=list)
     last_stream_events: list[ChatStreamEvent] = field(default_factory=list)
@@ -164,6 +165,7 @@ class AgentChatRunner:
             tool_event_handler=self.tool_event_handler,
             guidance_provider=self.drain_guidance,
             cancellation_token=cancellation_token,
+            task_boundary_decider=self.task_boundary_decider,
             **self._legacy_max_tool_rounds_kwargs(),
         )
         self.loops.append(loop)
@@ -210,6 +212,7 @@ class AgentChatRunner:
             tool_event_handler=self.tool_event_handler,
             guidance_provider=self.drain_guidance,
             cancellation_token=cancellation_token,
+            task_boundary_decider=self.task_boundary_decider,
             **self._legacy_max_tool_rounds_kwargs(),
         )
         self.loops.append(loop)
@@ -260,6 +263,7 @@ class AgentChatRunner:
                 tool_event_handler=self.tool_event_handler,
                 guidance_provider=self.drain_guidance,
                 cancellation_token=cancellation_token,
+                task_boundary_decider=self.task_boundary_decider,
                 **self._legacy_max_tool_rounds_kwargs(),
             )
             self.loops.append(loop)
@@ -300,6 +304,7 @@ class AgentChatRunner:
                 tool_event_handler=self.tool_event_handler,
                 guidance_provider=self.drain_guidance,
                 cancellation_token=cancellation_token,
+                task_boundary_decider=self.task_boundary_decider,
                 **self._legacy_max_tool_rounds_kwargs(),
             )
             self.loops.append(loop)

@@ -232,6 +232,10 @@ class RookChainAgent:
         if max_tool_rounds is not None:
             limits = limits.with_max_tool_rounds(max_tool_rounds)
         self.app.chat_runner.limits = limits
+        # ChainSWE supplies an explicit sequence of distinct issues.  Record
+        # that known boundary locally instead of spending provider calls on a
+        # hidden classification whose answer is already defined by the runner.
+        self.app.chat_runner.task_boundary_decider = lambda _basis_message_id: "new"
         self.session_id = self.app.current_session.session.session_id
 
     @property
@@ -609,15 +613,29 @@ def _temporary_verifier_worktree(repo: Path, model_commit: str) -> _TemporaryVer
 
 def _run_shell(command: str, *, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        command,
+        [_resolve_posix_shell(), "-c", command],
         cwd=cwd,
-        shell=True,
-        executable="/bin/sh",
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
     )
+
+
+def _resolve_posix_shell() -> str:
+    shell = shutil.which("sh")
+    if shell is not None:
+        return shell
+
+    if sys.platform == "win32":
+        git = shutil.which("git")
+        if git is not None:
+            git_root = Path(git).resolve().parent.parent
+            for candidate in (git_root / "bin" / "sh.exe", git_root / "usr" / "bin" / "sh.exe"):
+                if candidate.is_file():
+                    return str(candidate)
+
+    raise FileNotFoundError("ChainSWE verification requires a POSIX-compatible 'sh' executable")
 
 
 def _commit_all(repo: Path, message: str) -> str:

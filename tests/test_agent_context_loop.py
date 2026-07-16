@@ -1424,6 +1424,27 @@ def test_agent_loop_skips_classification_for_initial_task(tmp_path) -> None:
     assert observations[0].payload["confirmation_reason"] == "implicit_initial_task"
 
 
+def test_agent_loop_uses_injected_task_boundary_decider_without_provider_call(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(store=store, session_id="sess_local_boundary", agents_md="")
+    provider = JsonBoundaryProvider(["first", "second"])
+    decided_message_ids: list[str] = []
+    loop = AgentLoop(
+        session=session,
+        provider=provider,
+        task_boundary_decider=lambda message_id: decided_message_ids.append(message_id) or "new",
+    )
+
+    loop.run_user_turn("first task")
+    loop.run_user_turn("second task")
+
+    observations = [event for event in store.list_events("sess_local_boundary") if event.type == "task_boundary_observed"]
+    assert len(provider.requests) == 2
+    assert len(decided_message_ids) == 1
+    assert observations[-1].payload["decision"] == "new"
+    assert observations[-1].payload["basis_message_id"] == decided_message_ids[0]
+
+
 def test_task_boundary_classification_prompt_defines_same_and_uncertain() -> None:
     prompt = agent_loop._TASK_BOUNDARY_CLASSIFICATION_PROMPT
 
