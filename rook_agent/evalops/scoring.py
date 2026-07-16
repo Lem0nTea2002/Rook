@@ -80,11 +80,14 @@ class ScoreCardBuilder:
         per_case = _per_case(complete_pairs)
         observed = tuple(sorted(key for key, value in metrics.items() if value is not None))
         missing = tuple(sorted(key for key, value in metrics.items() if value is None))
+        normalizer_fingerprint = _normalizer_fingerprint(runs)
         fingerprint = stable_json_hash(
             {
                 "target": selected_target.fingerprint,
                 "skill_name": candidate.bundle.name,
                 "skill_version": candidate.version,
+                "skill_content_hash": candidate.content_hash,
+                "normalizer_fingerprint": normalizer_fingerprint,
                 "suite_fingerprint": record.plan.suite_fingerprint,
                 "policy_fingerprint": record.plan.policy_fingerprint,
                 "metrics": plain_data(metrics),
@@ -104,6 +107,8 @@ class ScoreCardBuilder:
             missing_fields=missing,
             sample_count=len(content_pairs),
             fingerprint=fingerprint,
+            skill_content_hash=candidate.content_hash,
+            normalizer_fingerprint=normalizer_fingerprint,
         )
 
 
@@ -411,6 +416,17 @@ def _has_secret_leak(run: EvaluatedRun) -> bool:
     if evaluation is None:
         return False
     return evaluation.details.get("secret_leak") is True or "secret_leak" in evaluation.reason_code
+
+
+def _normalizer_fingerprint(runs: Sequence[EvaluatedRun]) -> str | None:
+    versions = sorted(
+        {
+            run.agent_run.trace.normalizer_version
+            for run in runs
+            if run.agent_run.trace is not None and run.agent_run.trace.normalizer_version
+        }
+    )
+    return None if not versions else stable_json_hash(versions, length=32)
 
 
 def _per_case(

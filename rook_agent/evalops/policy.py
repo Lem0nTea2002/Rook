@@ -177,6 +177,10 @@ class PromotionPolicy:
             decision_id=f"decision-{uuid.uuid4().hex}",
             routing_status=routing_status,
             routing_reason_code=routing_reason,
+            skill_content_hash=scorecard.skill_content_hash,
+            suite_fingerprint=scorecard.suite_fingerprint,
+            policy_fingerprint=scorecard.policy_fingerprint,
+            normalizer_fingerprint=scorecard.normalizer_fingerprint,
         )
 
 

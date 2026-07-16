@@ -31,6 +31,13 @@ from rook_agent.evalops.models import (
 from rook_agent.evalops.suites import load_eval_suite
 from rook_agent.evalops.scoring import ScoreCardBuilder
 from rook_agent.evalops.policy import FastGatePolicy, PromotionPolicy
+from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.report import ReportArtifacts, ReportRenderer
+from rook_agent.evalops.service import (
+    EvalOpsService,
+    EvaluationSummary,
+    TargetEvaluationSummary,
+)
 
 __all__ = [
     "AgentRun",
@@ -44,6 +51,8 @@ __all__ = [
     "EvaluatedRun",
     "EvaluationResult",
     "EvaluationStatus",
+    "EvaluationSummary",
+    "EvalOpsService",
     "ExperimentPhase",
     "ExperimentPlan",
     "ExperimentRecord",
@@ -53,6 +62,9 @@ __all__ = [
     "NormalizedTrace",
     "PromotionDecision",
     "PromotionPolicy",
+    "PromotionRegistry",
+    "ReportArtifacts",
+    "ReportRenderer",
     "PromotionStatus",
     "RunSpec",
     "RunStatus",
@@ -62,5 +74,6 @@ __all__ = [
     "SkillCandidate",
     "Treatment",
     "TreatmentFamily",
+    "TargetEvaluationSummary",
     "load_eval_suite",
 ]

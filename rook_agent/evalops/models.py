@@ -407,6 +407,8 @@ class ScoreCard:
     missing_fields: tuple[str, ...]
     sample_count: int
     fingerprint: str
+    skill_content_hash: str | None = None
+    normalizer_fingerprint: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metrics", _freeze_mapping(self.metrics))
@@ -426,6 +428,10 @@ class PromotionDecision:
     decision_id: str
     routing_status: PromotionStatus | None = None
     routing_reason_code: str | None = None
+    skill_content_hash: str | None = None
+    suite_fingerprint: str | None = None
+    policy_fingerprint: str | None = None
+    normalizer_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

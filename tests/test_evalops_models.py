@@ -243,6 +243,8 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "missing_fields",
             "sample_count",
             "fingerprint",
+            "skill_content_hash",
+            "normalizer_fingerprint",
         ),
         PromotionDecision: (
             "skill_name",
@@ -256,6 +258,10 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "decision_id",
             "routing_status",
             "routing_reason_code",
+            "skill_content_hash",
+            "suite_fingerprint",
+            "policy_fingerprint",
+            "normalizer_fingerprint",
         ),
         EvaluationResult: (
             "status",
