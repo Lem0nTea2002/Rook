@@ -229,6 +229,85 @@ def test_atomic_candidate_publish_does_not_replace_an_empty_destination(
     assert list(destination.iterdir()) == []
 
 
+def test_windows_candidate_publish_retries_transient_access_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "temporary"
+    destination = tmp_path / "1"
+    source.mkdir()
+    (source / "SKILL.md").write_text("candidate\n", encoding="utf-8")
+    real_rename = os.rename
+    attempts = 0
+    sleeps: list[float] = []
+
+    def flaky_rename(current: Path, target: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError(13, "simulated transient access denied", str(current))
+        real_rename(current, target)
+
+    monkeypatch.setattr(candidates_module.os, "rename", flaky_rename)
+    monkeypatch.setattr(candidates_module.time, "sleep", sleeps.append)
+
+    candidates_module._windows_rename_directory_noreplace(source, destination)
+
+    assert attempts == 3
+    assert sleeps == [0.01, 0.02]
+    assert not source.exists()
+    assert (destination / "SKILL.md").read_text(encoding="utf-8") == "candidate\n"
+
+
+def test_windows_candidate_publish_does_not_retry_over_a_claimed_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "temporary"
+    destination = tmp_path / "1"
+    source.mkdir()
+    attempts = 0
+
+    def claim_then_fail(current: Path, target: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        target.mkdir()
+        raise PermissionError(13, "simulated race", str(current))
+
+    monkeypatch.setattr(candidates_module.os, "rename", claim_then_fail)
+
+    with pytest.raises(FileExistsError):
+        candidates_module._windows_rename_directory_noreplace(source, destination)
+
+    assert attempts == 1
+    assert source.is_dir()
+    assert destination.is_dir()
+
+
+def test_windows_candidate_publish_access_denied_retry_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "temporary"
+    destination = tmp_path / "1"
+    source.mkdir()
+    monotonic_values = iter((10.0, 10.0, 10.1, 10.3, 10.51))
+    attempts = 0
+
+    def always_denied(current: Path, _target: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        raise PermissionError(13, "simulated persistent access denied", str(current))
+
+    monkeypatch.setattr(candidates_module.os, "rename", always_denied)
+    monkeypatch.setattr(candidates_module.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(candidates_module.time, "sleep", lambda _delay: None)
+
+    with pytest.raises(PermissionError, match="persistent access denied"):
+        candidates_module._windows_rename_directory_noreplace(source, destination)
+
+    assert attempts == 4
+    assert source.is_dir()
+    assert not destination.exists()
+
+
 def test_candidate_store_publish_race_does_not_replace_claimed_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

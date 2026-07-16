@@ -12,6 +12,7 @@ import re
 import shutil
 import stat
 import sys
+import time
 from typing import Any
 import uuid
 
@@ -29,6 +30,9 @@ from rook_agent.evolution.models import EvidenceRef
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _INFLIGHT_TEMP = re.compile(r"\.tmp-[0-9a-f]{32}-v(?:[1-9][0-9]*)\Z")
 _REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+_WINDOWS_RENAME_RETRY_SECONDS = 0.5
+_WINDOWS_RENAME_INITIAL_DELAY_SECONDS = 0.01
+_WINDOWS_RENAME_MAX_DELAY_SECONDS = 0.05
 _SKILL_KEYS = frozenset(
     {
         "name",
@@ -392,7 +396,7 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
     """Atomically publish a directory without replacing any destination."""
 
     if os.name == "nt":
-        os.rename(source, destination)
+        _windows_rename_directory_noreplace(source, destination)
         return
     if sys.platform.startswith("linux"):
         _linux_rename_no_replace(source, destination)
@@ -405,6 +409,38 @@ def _rename_directory_noreplace(source: Path, destination: Path) -> None:
         "atomic no-replace directory rename is unsupported on this platform",
         str(destination),
     )
+
+
+def _windows_rename_directory_noreplace(source: Path, destination: Path) -> None:
+    """Retry short-lived Windows file locks without weakening no-replace publication."""
+
+    deadline = time.monotonic() + _WINDOWS_RENAME_RETRY_SECONDS
+    delay = _WINDOWS_RENAME_INITIAL_DELAY_SECONDS
+    while True:
+        try:
+            os.rename(source, destination)
+            return
+        except PermissionError as exc:
+            if os.path.lexists(destination):
+                raise FileExistsError(
+                    errno.EEXIST,
+                    "candidate version already exists",
+                    str(destination),
+                ) from exc
+            if not _is_transient_windows_access_denied(exc):
+                raise
+            now = time.monotonic()
+            if now >= deadline:
+                raise
+            time.sleep(min(delay, deadline - now))
+            delay = min(delay * 2, _WINDOWS_RENAME_MAX_DELAY_SECONDS)
+
+
+def _is_transient_windows_access_denied(error: PermissionError) -> bool:
+    return getattr(error, "winerror", None) in {5, 32} or error.errno in {
+        errno.EACCES,
+        errno.EPERM,
+    }
 
 
 def _linux_rename_no_replace(source: Path, destination: Path) -> None:
