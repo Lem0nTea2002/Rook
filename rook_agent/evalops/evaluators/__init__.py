@@ -5,6 +5,7 @@ from rook_agent.evalops.evaluators.command import CommandEvaluator
 from rook_agent.evalops.evaluators.composite import CompositeEvaluator
 from rook_agent.evalops.evaluators.factory import EvaluatorFactory
 from rook_agent.evalops.evaluators.file_state import FileStateEvaluator
+from rook_agent.evalops.evaluators.llm_judge import LlmJudgeEvaluator
 from rook_agent.evalops.evaluators.trajectory import TrajectoryEvaluator
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "Evaluator",
     "EvaluatorFactory",
     "FileStateEvaluator",
+    "LlmJudgeEvaluator",
     "TrajectoryEvaluator",
 ]
