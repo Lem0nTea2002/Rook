@@ -15,6 +15,8 @@ from rook_agent.evalops.models import (
     ExperimentPhase,
     ExperimentPlan,
     ExperimentRecord,
+    FastGateDecision,
+    FastGateStatus,
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
@@ -27,6 +29,8 @@ from rook_agent.evalops.models import (
     TreatmentFamily,
 )
 from rook_agent.evalops.suites import load_eval_suite
+from rook_agent.evalops.scoring import ScoreCardBuilder
+from rook_agent.evalops.policy import FastGatePolicy, PromotionPolicy
 
 __all__ = [
     "AgentRun",
@@ -43,12 +47,17 @@ __all__ = [
     "ExperimentPhase",
     "ExperimentPlan",
     "ExperimentRecord",
+    "FastGateDecision",
+    "FastGateStatus",
+    "FastGatePolicy",
     "NormalizedTrace",
     "PromotionDecision",
+    "PromotionPolicy",
     "PromotionStatus",
     "RunSpec",
     "RunStatus",
     "ScoreCard",
+    "ScoreCardBuilder",
     "SkillBundle",
     "SkillCandidate",
     "Treatment",

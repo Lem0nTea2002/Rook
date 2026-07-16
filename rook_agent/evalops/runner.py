@@ -147,6 +147,7 @@ def build_experiment_plan(
         phase=phase,
         suite_id=suite.id,
         suite_fingerprint=suite.fingerprint,
+        policy_fingerprint=suite.policy.fingerprint,
         candidate_fingerprint=candidate.fingerprint,
         runs=tuple(runs),
     )
@@ -434,6 +435,7 @@ class ExperimentRunner:
                     "phase": plan.phase.value,
                     "suite_id": plan.suite_id,
                     "suite_fingerprint": plan.suite_fingerprint,
+                    "policy_fingerprint": plan.policy_fingerprint,
                     "candidate_fingerprint": plan.candidate_fingerprint,
                     "cancelled": cancelled,
                     "planned_run_count": len(plan.runs),

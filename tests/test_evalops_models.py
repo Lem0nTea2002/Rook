@@ -19,6 +19,8 @@ from rook_agent.evalops import (
     ExperimentPhase,
     ExperimentPlan,
     ExperimentRecord,
+    FastGateDecision,
+    FastGateStatus,
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
@@ -78,6 +80,9 @@ def test_evalops_protocol_has_stable_status_values() -> None:
     assert EvaluationStatus.PASSED.value == "passed"
     assert EvaluationStatus.FAILED.value == "failed"
     assert EvaluationStatus.ERROR.value == "error"
+    assert FastGateStatus.CONTINUE_FULL.value == "continue_full"
+    assert FastGateStatus.REJECTED.value == "rejected"
+    assert FastGateStatus.QUARANTINED.value == "quarantined"
     assert PromotionStatus.PROMOTED.value == "promoted"
     assert PromotionStatus.REJECTED.value == "rejected"
     assert PromotionStatus.QUARANTINED.value == "quarantined"
@@ -249,6 +254,8 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "scorecard_hash",
             "created_at",
             "decision_id",
+            "routing_status",
+            "routing_reason_code",
         ),
         EvaluationResult: (
             "status",
@@ -262,6 +269,7 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "phase",
             "suite_id",
             "suite_fingerprint",
+            "policy_fingerprint",
             "candidate_fingerprint",
             "runs",
         ),
@@ -275,6 +283,7 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "terminal_artifact_ref",
         ),
         ExperimentRecord: ("plan", "runs", "cancelled", "artifact_refs"),
+        FastGateDecision: ("status", "reason_code", "scorecard_hash"),
     }
 
     for model, names in expected.items():

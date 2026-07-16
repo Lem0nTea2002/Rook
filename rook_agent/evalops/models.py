@@ -73,6 +73,12 @@ class PromotionStatus(StrEnum):
     ROLLED_BACK = "rolled_back"
 
 
+class FastGateStatus(StrEnum):
+    CONTINUE_FULL = "continue_full"
+    REJECTED = "rejected"
+    QUARANTINED = "quarantined"
+
+
 class CandidateOrigin(StrEnum):
     FORGE = "forge"
     MANUAL = "manual"
@@ -352,6 +358,7 @@ class ExperimentPlan:
     phase: ExperimentPhase
     suite_id: str
     suite_fingerprint: str
+    policy_fingerprint: str
     candidate_fingerprint: str
     runs: tuple[RunSpec, ...]
 
@@ -417,3 +424,12 @@ class PromotionDecision:
     scorecard_hash: str
     created_at: str
     decision_id: str
+    routing_status: PromotionStatus | None = None
+    routing_reason_code: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FastGateDecision:
+    status: FastGateStatus
+    reason_code: str
+    scorecard_hash: str
