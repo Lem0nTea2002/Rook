@@ -61,6 +61,7 @@ def test_evalops_protocol_has_stable_status_values() -> None:
     assert CandidateOrigin.MANUAL.value == "manual"
     assert CandidateOrigin.IMPORTED.value == "imported"
     assert CandidateStatus.CANDIDATE.value == "candidate"
+    assert CandidateStatus.QUARANTINED.value == "quarantined"
     assert CandidateStatus.ARCHIVED.value == "archived"
     assert NetworkPolicy.DISABLED.value == "disabled"
     assert NetworkPolicy.LOOPBACK.value == "loopback"

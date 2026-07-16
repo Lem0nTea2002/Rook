@@ -21,6 +21,8 @@ FORGE_EVENT_TYPES = frozenset(
         "skill_updated",
         "skill_duplicate_skipped",
         "skill_use_outcome",
+        "skill_candidate_created",
+        "skill_candidate_rejected",
         "forge_failed",
     }
 )
@@ -55,6 +57,12 @@ _EVENT_FIELDS = {
         {"segment_id", "reason_code", "skill_name", "skill_path", "version", "content_hash", "scope"}
     ),
     "skill_use_outcome": frozenset({"segment_id", "skill_path", "content_hash", "outcome"}),
+    "skill_candidate_created": frozenset(
+        {"segment_id", "reason_code", "skill_name", "version", "content_hash", "status"}
+    ),
+    "skill_candidate_rejected": frozenset(
+        {"segment_id", "reason_code", "skill_name"}
+    ),
     "forge_failed": frozenset({"segment_id", "reason_code"}),
 }
 
@@ -104,6 +112,29 @@ _EVENT_REASON_CODES = {
         {"already_processed", "existing_skill_invalid", "handwritten_duplicate", "skip_duplicate"}
     ),
     "skill_use_outcome": frozenset(),
+    "skill_candidate_created": frozenset({"candidate_quarantined"}),
+    "skill_candidate_rejected": frozenset(
+        {
+            "distillation_failed",
+            "duplicate_content",
+            "evidence_ref_missing",
+            "evidence_ref_outside_segment",
+            "executable_step_ungrounded",
+            "global_disabled",
+            "injection_only_evidence",
+            "invalid_json",
+            "low_confidence",
+            "no_candidates",
+            "project_specific",
+            "provider_error",
+            "schema_invalid",
+            "secret_detected",
+            "store_failed",
+            "unknown_error",
+            "volatile_content",
+            "write_not_requested",
+        }
+    ),
     "forge_failed": frozenset(
         {
             "catalog_refresh_failed",
@@ -204,6 +235,10 @@ def _normalize_scope(value: object) -> str | None:
         return None
 
 
+def _normalize_candidate_status(value: object) -> str | None:
+    return "quarantined" if value == "quarantined" else None
+
+
 def _normalize_outcome(value: object) -> str | None:
     try:
         return TraceOutcome(value).value
@@ -249,5 +284,6 @@ _FIELD_NORMALIZERS: dict[str, Callable[[object], object | None]] = {
     "segment_id": _normalize_segment_id,
     "skill_name": _normalize_skill_name,
     "skill_path": _normalize_skill_path,
+    "status": _normalize_candidate_status,
     "version": _normalize_version,
 }

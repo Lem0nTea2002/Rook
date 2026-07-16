@@ -87,6 +87,7 @@ class CandidateOrigin(StrEnum):
 
 class CandidateStatus(StrEnum):
     CANDIDATE = "candidate"
+    QUARANTINED = "quarantined"
     ARCHIVED = "archived"
 
 

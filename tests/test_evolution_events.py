@@ -124,6 +124,32 @@ def test_append_forge_event_keeps_valid_created_skill_audit_fields(tmp_path) -> 
     }
 
 
+def test_candidate_audit_event_keeps_only_quarantine_metadata(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_forge")
+
+    append_forge_event(
+        writer,
+        "skill_candidate_created",
+        segment_id=SEGMENT_ID,
+        reason_code="candidate_quarantined",
+        skill_name="focused-pytest",
+        version=1,
+        content_hash=CONTENT_HASH,
+        status="quarantined",
+        raw_trace="must not persist",
+    )
+
+    assert store.list_events("sess_forge")[0].payload == {
+        "content_hash": CONTENT_HASH,
+        "reason_code": "candidate_quarantined",
+        "segment_id": SEGMENT_ID,
+        "skill_name": "focused-pytest",
+        "status": "quarantined",
+        "version": 1,
+    }
+
+
 @pytest.mark.parametrize("reason_code", ["waiting_for_user_input", "provider_length_limit"])
 def test_append_forge_event_keeps_terminal_skip_reason_codes(tmp_path, reason_code: str) -> None:
     store = JsonlSessionStore(tmp_path)

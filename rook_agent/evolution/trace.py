@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rook_agent.context.events import SessionEvent
 from rook_agent.context.identity import stable_json_hash
+from rook_agent.evolution.events import FORGE_EVENT_TYPES
 from rook_agent.evolution.models import (
     EvidenceItem,
     EvidenceRef,
@@ -83,19 +84,22 @@ class TaskTraceBuilder:
 
     def _build_trace(self, events: list[SessionEvent], *, is_closed: bool) -> TaskTrace:
         session_id = events[0].session_id
+        identity_events = [event for event in events if event.type not in FORGE_EVENT_TYPES]
+        if not identity_events:
+            identity_events = events
         segment_id = stable_json_hash(
             {
                 "session_id": session_id,
-                "first_event_id": events[0].id,
-                "last_event_id": events[-1].id,
+                "first_event_id": identity_events[0].id,
+                "last_event_id": identity_events[-1].id,
             },
             length=32,
         )
         return TaskTrace(
             session_id=session_id,
             segment_id=segment_id,
-            first_event_id=events[0].id,
-            last_event_id=events[-1].id,
+            first_event_id=identity_events[0].id,
+            last_event_id=identity_events[-1].id,
             user_goal=_first_text(events, "user_message"),
             final_answer=_last_text(events, "assistant_message"),
             evidence=tuple(_extract_evidence(events, segment_id=segment_id)),

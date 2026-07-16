@@ -83,6 +83,7 @@ class AgentChatRunner:
     limits: AgentLoopLimits | None = None
     max_tool_rounds: int | None | object = _DEFAULT_MAX_TOOL_ROUNDS
     use_streaming: bool = False
+    candidate_coordinator: Any | None = None
     loops: list[AgentLoop] = field(default_factory=list)
     last_display_lines: list[str] = field(default_factory=list)
     last_stream_events: list[ChatStreamEvent] = field(default_factory=list)
@@ -98,6 +99,27 @@ class AgentChatRunner:
         self.provider = provider
         self.use_streaming = use_streaming
         self.last_stream_events = []
+        if self.candidate_coordinator is not None:
+            try:
+                self.candidate_coordinator.set_provider(provider)
+            except Exception:
+                pass
+
+    def close(self) -> None:
+        if self.candidate_coordinator is None:
+            return
+        try:
+            self.candidate_coordinator.close(self.current_session.session)
+        except Exception:
+            pass
+
+    def _after_turn(self) -> None:
+        if self.candidate_coordinator is None:
+            return
+        try:
+            self.candidate_coordinator.after_turn(self.current_session.session)
+        except Exception:
+            pass
 
     def add_guidance(self, content: str) -> None:
         text = content.strip()
@@ -154,6 +176,7 @@ class AgentChatRunner:
         after_view = self.current_session.rebuild_view()
         self.last_display_lines = _display_lines_from_messages(after_view.messages[before_count:])
         if result.response is not None:
+            self._after_turn()
             return result.response
         response = ChatResponse(
             provider=self.provider.name,
@@ -164,6 +187,7 @@ class AgentChatRunner:
         )
         if response.content:
             self.last_display_lines.append(response.content)
+        self._after_turn()
         return response
 
     def resume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
@@ -200,6 +224,7 @@ class AgentChatRunner:
         if result.response is not None:
             if result.response.content and not self.last_display_lines:
                 self.last_display_lines.append(result.response.content)
+            self._after_turn()
             return result.response
         response = ChatResponse(
             provider=self.provider.name,
@@ -210,6 +235,7 @@ class AgentChatRunner:
         )
         if response.content:
             self.last_display_lines.append(response.content)
+        self._after_turn()
         return response
 
     async def arun_user_turn(self, content: str) -> ChatResponse:
@@ -253,6 +279,7 @@ class AgentChatRunner:
             self.last_display_lines = _display_lines_from_messages(after_view.messages[before_count:])
             if self.last_pending_input is not None and response.content:
                 self.last_display_lines.append(response.content)
+            self._after_turn()
             return response
 
         return await asyncio.to_thread(self.run_user_turn, content)
@@ -290,6 +317,7 @@ class AgentChatRunner:
             after_view = self.current_session.rebuild_view()
             self.last_display_lines = _display_lines_from_messages(after_view.messages[before_count:])
             if result.response is not None:
+                self._after_turn()
                 return result.response
             response = ChatResponse(
                 provider=self.provider.name,
@@ -300,6 +328,7 @@ class AgentChatRunner:
             )
             if response.content:
                 self.last_display_lines.append(response.content)
+            self._after_turn()
             return response
 
         return await asyncio.to_thread(self.resume_with_user_input, request_id, answer)

@@ -86,6 +86,28 @@ def test_candidate_store_hashes_canonical_skill_and_starts_as_candidate(
     assert _version_root(registry).joinpath("SKILL.md").read_bytes() == expected_content
 
 
+def test_candidate_store_can_quarantine_forge_candidate(tmp_path: Path) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+    store = CandidateStore(registry)
+
+    candidate = store.create(
+        sample_bundle(),
+        origin=CandidateOrigin.FORGE,
+        status=CandidateStatus.QUARANTINED,
+    )
+
+    assert candidate.status is CandidateStatus.QUARANTINED
+    assert store.get(candidate.bundle.name, candidate.version).status is CandidateStatus.QUARANTINED
+
+
+def test_candidate_store_rejects_archived_status_at_creation(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="candidate status"):
+        CandidateStore(tmp_path / "registry").create(
+            sample_bundle(),
+            status=CandidateStatus.ARCHIVED,
+        )
+
+
 def test_candidate_store_round_trips_bundle_origin_evidence_and_fingerprint(
     tmp_path: Path,
 ) -> None:

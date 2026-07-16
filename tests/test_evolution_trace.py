@@ -111,6 +111,29 @@ def test_one_task_builds_current_trace_from_raw_event_parts() -> None:
     assert batch.current.evidence[1].ref.part_id == "part-e2"
 
 
+def test_forge_audit_events_do_not_change_segment_identity() -> None:
+    events = [
+        user_event("e1", "fix parser", message_id="msg-user-1"),
+        tool_event("e2", "shell", ok=True, command="pytest -q"),
+        assistant_event("e3", "done"),
+    ]
+    before = TaskTraceBuilder().build(events, close_current=True).completed[0]
+    events.append(
+        SessionEvent(
+            id="audit-1",
+            session_id=SESSION_ID,
+            type="skill_candidate_rejected",
+            payload={"segment_id": before.segment_id, "reason_code": "no_candidates"},
+        )
+    )
+
+    after = TaskTraceBuilder().build(events, close_current=True).completed[0]
+
+    assert after.segment_id == before.segment_id
+    assert after.first_event_id == "e1"
+    assert after.last_event_id == "e3"
+
+
 def test_confirmed_boundary_splits_at_candidate_basis_message() -> None:
     events = [
         user_event("u1", "fix parser"),
@@ -177,4 +200,3 @@ def test_close_current_moves_final_trace_to_completed() -> None:
     assert batch.current is None
     assert len(batch.completed) == 1
     assert batch.completed[0].is_closed is True
-

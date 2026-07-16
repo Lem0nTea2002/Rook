@@ -21,6 +21,9 @@ from rook_agent.context.llm_compact import LlmCompactService
 from rook_agent.context.manager import ContextWindowManager
 from rook_agent.context.provider_summarizer import ProviderLlmCompactSummarizer
 from rook_agent.context.store import JsonlSessionStore
+from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evolution.coordinator import CandidateCoordinator
+from rook_agent.evolution.models import load_evolution_config
 from rook_agent.providers.base import ChatProvider
 from rook_agent.providers.factory import ProviderConfigError, create_provider, create_provider_from_config
 from rook_agent.providers.presets import PROVIDER_PRESETS
@@ -122,6 +125,15 @@ def create_rook_app(
     permission_handler = PermissionCommandHandler(session=current)
     skill_catalog_provider = lambda: discover_all_skills(project_path)
     skill_handler = SkillCommandHandler(catalog_provider=skill_catalog_provider)
+    evolution_config = load_evolution_config(resolved_app_config)
+    candidate_coordinator = None
+    if evolution_config.enabled:
+        candidate_coordinator = CandidateCoordinator(
+            provider=resolved_provider,
+            project_root=project_path,
+            config=evolution_config,
+            store=CandidateStore(resolved_data_root / "skill-registry"),
+        )
     chat_runner = AgentChatRunner(
         current_session=current,
         provider=resolved_provider,
@@ -129,6 +141,7 @@ def create_rook_app(
         context_manager=context_manager,
         limits=AgentLoopLimits.default(),
         use_streaming=_should_use_streaming(resolved_provider, resolved_app_config),
+        candidate_coordinator=candidate_coordinator,
     )
     model_switcher = RuntimeModelSwitcher(
         app_config=resolved_app_config,

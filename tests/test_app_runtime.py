@@ -92,6 +92,25 @@ class SlowContextBuilder:
         return list(system_prefix or [])
 
 
+@dataclass
+class RecordingCandidateCoordinator:
+    after_sessions: list[AgentSession] = field(default_factory=list)
+    closed_sessions: list[AgentSession] = field(default_factory=list)
+    providers: list[ChatProvider] = field(default_factory=list)
+    fail_after_turn: bool = False
+
+    def after_turn(self, session: AgentSession) -> None:
+        self.after_sessions.append(session)
+        if self.fail_after_turn:
+            raise RuntimeError("candidate generation must stay best effort")
+
+    def close(self, session: AgentSession) -> None:
+        self.closed_sessions.append(session)
+
+    def set_provider(self, provider: ChatProvider) -> None:
+        self.providers.append(provider)
+
+
 def test_current_session_state_proxies_replaced_session(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path)
     first = AgentSession.create(store=store, session_id="sess_first", agents_md="")
@@ -118,6 +137,42 @@ def test_agent_chat_runner_can_switch_provider(tmp_path) -> None:
     assert runner.provider is new_provider
     assert runner.use_streaming is True
     assert runner.last_stream_events == []
+
+
+def test_agent_chat_runner_updates_and_closes_candidate_coordinator(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(store=store, session_id="sess_test", agents_md="")
+    coordinator = RecordingCandidateCoordinator()
+    runner = AgentChatRunner(
+        current_session=CurrentSessionState(session),
+        provider=FakeProvider([]),
+        candidate_coordinator=coordinator,
+    )
+    new_provider = FakeProvider([])
+
+    runner.set_provider(new_provider, use_streaming=False)
+    runner.close()
+
+    assert coordinator.providers == [new_provider]
+    assert coordinator.closed_sessions == [session]
+
+
+def test_candidate_hook_failure_does_not_change_foreground_response(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(store=store, session_id="sess_test", agents_md="")
+    coordinator = RecordingCandidateCoordinator(fail_after_turn=True)
+    runner = AgentChatRunner(
+        current_session=CurrentSessionState(session),
+        provider=FakeProvider(
+            [ChatResponse(provider="fake", model="fake-model", content="unchanged")]
+        ),
+        candidate_coordinator=coordinator,
+    )
+
+    response = runner.run_user_turn("hello")
+
+    assert response.content == "unchanged"
+    assert coordinator.after_sessions == [session]
 
 
 def test_agent_chat_runner_uses_current_session_and_can_follow_resume(tmp_path) -> None:

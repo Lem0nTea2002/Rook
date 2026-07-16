@@ -269,6 +269,12 @@ class RookApp(App[None]):
     def on_unmount(self) -> None:
         self._stop_welcome_particles()
         self._stop_provider_glow()
+        close = getattr(self.chat_runner, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:
+                pass
 
     async def _submit_composer(self) -> None:
         input_widget = self.query_one("#input", TextArea)

@@ -63,11 +63,17 @@ class CandidateStore:
         bundle: SkillBundle,
         *,
         origin: CandidateOrigin = CandidateOrigin.MANUAL,
+        status: CandidateStatus = CandidateStatus.CANDIDATE,
     ) -> SkillCandidate:
         """Publish the next version; a concurrent loser may retry after FileExistsError."""
 
         if not isinstance(origin, CandidateOrigin):
             raise ValueError(f"unknown candidate origin: {origin!r}")
+        if not isinstance(status, CandidateStatus) or status not in {
+            CandidateStatus.CANDIDATE,
+            CandidateStatus.QUARANTINED,
+        }:
+            raise ValueError(f"unknown candidate status: {status!r}")
 
         skill_payload = _bundle_payload(bundle)
         validated_bundle = _parse_bundle(skill_payload)
@@ -111,7 +117,7 @@ class CandidateStore:
                     "version": version,
                     "content_hash": content_hash,
                     "origin": origin.value,
-                    "status": CandidateStatus.CANDIDATE.value,
+                    "status": status.value,
                     "evidence_ref_hashes": [
                         _hash_evidence_ref(reference)
                         for reference in validated_bundle.evidence_refs
