@@ -326,6 +326,56 @@ def test_windows_candidate_publish_access_denied_retry_is_bounded(
     assert not destination.exists()
 
 
+def test_candidate_temp_cleanup_retries_transient_access_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    (temporary / "SKILL.md").write_text("locked briefly", encoding="utf-8")
+    real_rmtree = candidates_module.shutil.rmtree
+    attempts = 0
+    sleeps: list[float] = []
+
+    def transient_cleanup(path: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            error = PermissionError(13, "simulated scanner lock", str(path))
+            error.winerror = 32
+            raise error
+        real_rmtree(path)
+
+    monkeypatch.setattr(candidates_module.shutil, "rmtree", transient_cleanup)
+    monkeypatch.setattr(candidates_module.time, "sleep", sleeps.append)
+
+    candidates_module._remove_inflight_temp(
+        temporary,
+        retry_access_denied=True,
+    )
+
+    assert attempts == 3
+    assert sleeps == [0.01, 0.02]
+    assert not temporary.exists()
+
+
+def test_candidate_cleanup_failure_does_not_mask_publish_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = tmp_path / ".rook/skill-registry"
+
+    def conflict(_source: Path, _destination: Path) -> None:
+        raise FileExistsError("simulated concurrent winner")
+
+    def cleanup_failure(_path: Path) -> None:
+        raise PermissionError("simulated persistent scanner lock")
+
+    monkeypatch.setattr(candidates_module, "_rename_directory_noreplace", conflict)
+    monkeypatch.setattr(candidates_module, "_remove_inflight_temp", cleanup_failure)
+
+    with pytest.raises(FileExistsError, match="concurrent winner"):
+        CandidateStore(registry).create(sample_bundle())
+
+
 def test_candidate_store_publish_race_does_not_replace_claimed_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

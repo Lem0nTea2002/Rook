@@ -93,6 +93,7 @@ class CandidateStore:
             raise FileExistsError(f"candidate version already exists: {slug}@{version}")
 
         temporary = _create_inflight_temp(candidates_root, version)
+        publication_error: BaseException | None = None
         try:
             artifacts = ArtifactStore(temporary)
             artifacts.write_json("skill.json", skill_payload)
@@ -129,9 +130,16 @@ class CandidateStore:
                     f"candidate version already exists: {slug}@{version}"
                 )
             _rename_directory_noreplace(temporary, final)
+        except BaseException as exc:
+            publication_error = exc
+            raise
         finally:
             if temporary.exists():
-                shutil.rmtree(temporary)
+                try:
+                    _remove_inflight_temp(temporary)
+                except OSError:
+                    if publication_error is None:
+                        raise
 
         return self.get(slug, version)
 
@@ -212,6 +220,32 @@ def _is_ignorable_inflight_temp(path: Path) -> bool:
         and not stat.S_ISLNK(status.st_mode)
         and not attributes & _REPARSE_POINT_ATTRIBUTE
     )
+
+
+def _remove_inflight_temp(
+    path: Path,
+    *,
+    retry_access_denied: bool | None = None,
+) -> None:
+    """Clean a private temp after short-lived scanners release its files."""
+
+    should_retry = os.name == "nt" if retry_access_denied is None else retry_access_denied
+    deadline = time.monotonic() + _WINDOWS_RENAME_RETRY_SECONDS
+    delay = _WINDOWS_RENAME_INITIAL_DELAY_SECONDS
+    while True:
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError as exc:
+            if not should_retry or not _is_transient_windows_access_denied(exc):
+                raise
+            now = time.monotonic()
+            if now >= deadline:
+                raise
+            time.sleep(min(delay, deadline - now))
+            delay = min(delay * 2, _WINDOWS_RENAME_MAX_DELAY_SECONDS)
 
 
 def _load_candidate(
