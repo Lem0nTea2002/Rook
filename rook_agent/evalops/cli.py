@@ -13,8 +13,15 @@ from rook_agent.evalops.adapters.base import AgentAdapter, AgentCapabilities
 from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
 from rook_agent.evalops.adapters.rook import RookEvalAdapter
 from rook_agent.evalops.artifacts import ArtifactStore
+from rook_agent.evalops.bundles import load_skill_bundle
 from rook_agent.evalops.candidates import CandidateStore
-from rook_agent.evalops.models import AgentTarget, AgentType, PromotionStatus
+from rook_agent.evalops.models import (
+    AgentTarget,
+    AgentType,
+    CandidateOrigin,
+    CandidateStatus,
+    PromotionStatus,
+)
 from rook_agent.evalops.registry import PromotionRegistry
 from rook_agent.evalops.report import ReportRenderer
 from rook_agent.evalops.runner import ExperimentRunner
@@ -104,11 +111,32 @@ def run_eval_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> 
 def run_skill_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     if args.skill_command == "status":
         return _show_skill_status(args, deps)
+    if args.skill_command == "stage":
+        return _stage_skill(args, deps)
     if args.skill_command == "rollback":
         return _rollback_skill(args, deps)
     if args.skill_command == "export":
         return _export_skill(args, deps)
     raise ValueError(f"unsupported skill command: {args.skill_command!r}")
+
+
+def _stage_skill(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
+    bundle = load_skill_bundle(Path(args.bundle))
+    candidate = deps.candidate_store.create(
+        bundle,
+        origin=CandidateOrigin.IMPORTED,
+        status=CandidateStatus.QUARANTINED,
+    )
+    version_path = (
+        deps.candidate_store.root
+        / candidate.bundle.name
+        / "candidates"
+        / str(candidate.version)
+    )
+    print(f"staged: {candidate.bundle.name}@{candidate.version}")
+    print(f"status: {candidate.status.value}")
+    print(f"candidate: {version_path}")
+    return 0
 
 
 def _run_doctor(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:

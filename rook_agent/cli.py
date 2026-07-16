@@ -77,6 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
     status_parser = skill_subparsers.add_parser("status", help="Show candidate and promotion state.")
     status_parser.add_argument("name")
+    stage_parser = skill_subparsers.add_parser(
+        "stage", help="Stage a strict TOML Skill bundle as an inactive quarantined candidate."
+    )
+    stage_parser.add_argument("--bundle", required=True, help="Manual Skill bundle TOML file.")
     rollback_parser = skill_subparsers.add_parser("rollback", help="Roll back an active Skill version.")
     rollback_parser.add_argument("name")
     rollback_parser.add_argument("--agent", required=True, choices=("rook", "codex"))

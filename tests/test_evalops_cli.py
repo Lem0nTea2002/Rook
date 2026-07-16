@@ -13,6 +13,8 @@ from rook_agent.evalops.cli import EvalOpsCliDependencies, run_evalops_command
 from rook_agent.evalops.models import (
     AgentTarget,
     AgentType,
+    CandidateOrigin,
+    CandidateStatus,
     PromotionDecision,
     PromotionStatus,
     SkillBundle,
@@ -41,6 +43,7 @@ from rook_agent.evalops.registry import PromotionRegistry
         ),
         (["eval", "report", "evaluation-1"], "eval", "report"),
         (["skill", "status", "safe-skill"], "skill", "status"),
+        (["skill", "stage", "--bundle", "skill.toml"], "skill", "stage"),
         (
             ["skill", "rollback", "safe-skill", "--agent", "codex", "--to-version", "1"],
             "skill",
@@ -178,6 +181,36 @@ def test_doctor_keeps_rook_visible_when_codex_is_missing(
     assert exit_code == 1
     assert "rook:\n  available: true" in output
     assert "codex:\n  available: false" in output
+
+
+def test_skill_stage_imports_quarantined_candidate(tmp_path: Path, capsys) -> None:
+    bundle_path = tmp_path / "bundle.toml"
+    bundle_path.write_text(
+        """name = "safe-skill"
+description = "A manually authored candidate."
+triggers = ["stage a safe skill"]
+procedure = ["Perform the requested operation."]
+verification = ["Verify the result."]
+pitfalls = []
+""",
+        encoding="utf-8",
+    )
+    deps = _dependencies(tmp_path, {})
+    args = build_parser().parse_args(
+        ["--project", str(tmp_path), "skill", "stage", "--bundle", str(bundle_path)]
+    )
+
+    exit_code = run_evalops_command(args, dependencies=deps)
+
+    candidate = deps.candidate_store.get("safe-skill", 1)
+    assert exit_code == 0
+    assert candidate.origin is CandidateOrigin.IMPORTED
+    assert candidate.status is CandidateStatus.QUARANTINED
+    assert candidate.bundle.evidence_refs == ()
+    output = capsys.readouterr().out
+    assert "staged: safe-skill@1" in output
+    assert "status: quarantined" in output
+    assert str(tmp_path / ".rook" / "skill-registry" / "safe-skill" / "candidates" / "1") in output
 
 
 def test_export_rejects_real_codex_home_even_for_promoted_candidate(

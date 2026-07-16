@@ -28,6 +28,7 @@ from rook_agent.evalops.models import (
     Treatment,
     TreatmentFamily,
 )
+from rook_agent.evalops.bundles import load_skill_bundle
 from rook_agent.evalops.suites import load_eval_suite
 from rook_agent.evalops.scoring import ScoreCardBuilder
 from rook_agent.evalops.policy import FastGatePolicy, PromotionPolicy
@@ -76,4 +77,5 @@ __all__ = [
     "TreatmentFamily",
     "TargetEvaluationSummary",
     "load_eval_suite",
+    "load_skill_bundle",
 ]
