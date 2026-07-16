@@ -42,6 +42,22 @@ rook skill export <skill-name> --agent codex --output .\staged-export
 
 Export requires a promoted, non-stale target decision. Rook refuses to export directly into the real `~/.codex` tree; the output is a reviewable staging directory.
 
+## Trace-derived candidates
+
+Automatic candidate generation is opt-in and remains outside the promotion path by default:
+
+```toml
+[evolution]
+enabled = true
+scope = "auto"
+allow_global = true
+max_skills_per_task = 2
+```
+
+For a verified completed task segment, Rook sends a redacted, bounded evidence summary to the active provider with tools disabled. The strict parser resolves model-produced `event_id:part_id` labels back to EvidenceRef values from that same segment. Unknown fields, invented references, unsafe content, or provider failures produce only a stable audit reason code.
+
+Accepted output is stored centrally under `.rook/skill-registry/<name>/candidates/<version>` with `quarantined` status. It is not written to `.agents/skills`, discovered by the runtime, exported, or made active. Evaluate it explicitly with `rook eval run`; only the existing ScoreCard, decision, and Registry path can later make an evaluated version eligible for staged export.
+
 ## Optional live smoke
 
 Live Codex smoke tests remain skipped unless external execution and costs are separately authorized:

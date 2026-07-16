@@ -1336,7 +1336,7 @@ git commit -m "feat: expose Agent EvalOps CLI"
 - Consumes: `TaskTraceBuilder`, `EvidenceClassifier`, `evaluate_skill_delta`, `ChatProvider`, `CandidateStore`, and `SkillBundle`.
 - Produces: `ExperienceDistiller.distill(trace, max_skills)`, `CandidateService.propose(trace)`, and best-effort `CandidateCoordinator` lifecycle hooks that never publish directly.
 
-- [ ] **Step 1: Write failing strict distiller tests**
+- [x] **Step 1: Write failing strict distiller tests**
 
 Test `tool_choice="none"`, temperature 0, bounded output, exact top-level shape `{"skills": [...]}`, maximum candidate count, unknown fields, non-list sections, invented evidence refs, invalid JSON, one format retry, and no write on parse failure:
 
@@ -1348,7 +1348,7 @@ def test_distiller_resolves_only_real_evidence_refs() -> None:
     assert provider.requests[0].tool_choice == "none"
 ```
 
-- [ ] **Step 2: Run distiller tests and observe RED**
+- [x] **Step 2: Run distiller tests and observe RED**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evolution_distiller.py
@@ -1356,15 +1356,15 @@ def test_distiller_resolves_only_real_evidence_refs() -> None:
 
 Expected: ExperienceDistiller is absent.
 
-- [ ] **Step 3: Implement strict evidence-bound distillation**
+- [x] **Step 3: Implement strict evidence-bound distillation**
 
 The model emits only `event_id:part_id`; the parser resolves full `EvidenceRef` values from the current trace lookup. It cannot invent session ids, segment ids, archive ids, paths, status, or version. Redact trace content before provider input.
 
-- [ ] **Step 4: Write failing CandidateService tests**
+- [x] **Step 4: Write failing CandidateService tests**
 
 Cover eligible trace, ineligible trace, zero deltas, Gate rejection, global-to-project downgrade, multiple candidates, duplicate content, CandidateStore failure, event redaction, and candidate initial status `candidate`/quarantined from active use.
 
-- [ ] **Step 5: Implement `SkillDelta -> SkillBundle -> CandidateStore`**
+- [x] **Step 5: Implement `SkillDelta -> SkillBundle -> CandidateStore`**
 
 ```python
 def bundle_from_delta(delta: SkillDelta, *, slug: str) -> SkillBundle:
@@ -1381,15 +1381,15 @@ def bundle_from_delta(delta: SkillDelta, *, slug: str) -> SkillBundle:
 
 CandidateService appends `skill_candidate_created` or `skill_candidate_rejected` events with hashes/reason codes only. Add both names to the explicit evolution-event type allowlist and its serialization tests. It never writes a discoverable active Skill.
 
-- [ ] **Step 6: Write failing lifecycle tests**
+- [x] **Step 6: Write failing lifecycle tests**
 
 Assert disabled mode creates no coordinator, no provider call, no candidate and no evolution event. Enabled mode processes verified completed segments once, task switch/normal close flush best-effort, provider switch updates the distiller, and any exception returns the user's original response unchanged.
 
-- [ ] **Step 7: Implement best-effort coordinator wiring**
+- [x] **Step 7: Implement best-effort coordinator wiring**
 
 Add an optional `candidate_coordinator` lifecycle interface to the existing Agent loop/runtime path. Idempotency uses terminal candidate events keyed by `segment_id`. Candidate creation does not call EvalOps automatically in the user's foreground turn; it queues or records the candidate for explicit `rook eval run`.
 
-- [ ] **Step 8: Run evolution and lifecycle verification**
+- [x] **Step 8: Run evolution and lifecycle verification**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evolution_distiller.py tests/test_evolution_candidates.py tests/test_evolution_coordinator.py tests/test_evolution_config.py tests/test_evolution_events.py tests/test_evolution_trace.py tests/test_evolution_evidence.py tests/test_evolution_gate.py tests/test_agent_context_loop.py tests/test_app_factory.py tests/test_app_runtime.py tests/test_app_tui.py
@@ -1398,7 +1398,7 @@ git diff --check
 
 Expected: all new and touched tests pass.
 
-- [ ] **Step 9: Commit quarantined candidate generation**
+- [x] **Step 9: Commit quarantined candidate generation**
 
 ```powershell
 git add rook_agent/evolution rook_agent/agent/loop.py rook_agent/app/factory.py rook_agent/app/runtime.py rook_agent/app/tui.py tests/test_evolution_distiller.py tests/test_evolution_candidates.py tests/test_evolution_coordinator.py tests/test_agent_context_loop.py tests/test_app_factory.py tests/test_app_runtime.py tests/test_app_tui.py
@@ -1536,7 +1536,7 @@ If verification exposes a source defect, return to its owning Task 1-15, add the
 - Consumes: every completed task and the approved design acceptance criteria.
 - Produces: fresh verification evidence, no new core failures, an optional external smoke record, and a final scoped hardening commit if needed.
 
-- [ ] **Step 1: Run all EvalOps and evolution tests in one fresh process**
+- [x] **Step 1: Run all EvalOps and evolution tests in one fresh process**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_models.py tests/test_evalops_suites.py tests/test_evalops_workspace.py tests/test_evalops_artifacts.py tests/test_evalops_skills.py tests/test_evalops_candidates.py tests/test_evalops_process.py tests/test_evalops_adapter_contract.py tests/test_evalops_rook_adapter.py tests/test_evalops_codex_adapter.py tests/test_evalops_codex_normalizer.py tests/test_evalops_evaluators.py tests/test_evalops_llm_judge.py tests/test_evalops_runner.py tests/test_evalops_scoring.py tests/test_evalops_policy.py tests/test_evalops_registry.py tests/test_evalops_report.py tests/test_evalops_service.py tests/test_evalops_cli.py tests/test_evalops_demo_suite.py tests/test_evolution_config.py tests/test_evolution_events.py tests/test_evolution_trace.py tests/test_evolution_evidence.py tests/test_evolution_gate.py tests/test_evolution_distiller.py tests/test_evolution_candidates.py tests/test_evolution_coordinator.py
@@ -1544,7 +1544,7 @@ If verification exposes a source defect, return to its owning Task 1-15, add the
 
 Expected: all listed tests pass.
 
-- [ ] **Step 2: Run directly affected regressions**
+- [x] **Step 2: Run directly affected regressions**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_eval_adapter.py tests/test_eval_tasks.py tests/test_agent_context_loop.py tests/test_agent_skill_flow.py tests/test_skill_discovery.py tests/test_skill_loader.py tests/test_skill_router.py tests/test_app_factory.py tests/test_cli.py tests/test_providers.py tests/test_provider_errors.py tests/test_session_redaction.py tests/test_permissions_policy.py tests/test_utils_subprocess.py tests/test_readme_provider_docs.py tests/test_brand_contract.py
@@ -1552,7 +1552,7 @@ Expected: all listed tests pass.
 
 Expected: all listed tests pass.
 
-- [ ] **Step 3: Prove default verification performs no live external calls**
+- [x] **Step 3: Prove default verification performs no live external calls**
 
 ```powershell
 Remove-Item Env:ROOK_RUN_EXTERNAL_EVALS -ErrorAction SilentlyContinue
@@ -1561,7 +1561,7 @@ Remove-Item Env:ROOK_RUN_EXTERNAL_EVALS -ErrorAction SilentlyContinue
 
 Expected: all live tests skip with the explicit opt-in reason and no Codex process starts.
 
-- [ ] **Step 4: Run the full core baseline comparison**
+- [x] **Step 4: Run the full core baseline comparison**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q --ignore=tests/test_evalplus_benchmark.py
@@ -1569,7 +1569,7 @@ Expected: all live tests skip with the explicit opt-in reason and no Codex proce
 
 Expected: no new failing test names beyond the recorded pre-EvalOps set. Record exact pass/fail/skip totals and compare failing names in the verification report.
 
-- [ ] **Step 5: Run the optional EvalPlus gate separately**
+- [x] **Step 5: Run the optional EvalPlus gate separately**
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalplus_benchmark.py
@@ -1587,7 +1587,7 @@ Remove-Item Env:ROOK_RUN_EXTERNAL_EVALS
 
 Expected: authenticated installed targets pass; unavailable authentication is recorded explicitly. Do not run this step without user authorization for external calls and cost.
 
-- [ ] **Step 7: Verify repository hygiene and design acceptance**
+- [x] **Step 7: Verify repository hygiene and design acceptance**
 
 ```powershell
 git diff --check
@@ -1597,7 +1597,7 @@ git log --oneline --decorate -20
 
 Manually map every item in design section 19 to a passing test or report entry. Confirm no `.rook/eval-runs`, candidate, raw event, credential, or user global Agent configuration is staged.
 
-- [ ] **Step 8: Write the verification report**
+- [x] **Step 8: Write the verification report**
 
 Record:
 
@@ -1610,7 +1610,7 @@ Record:
 - security and isolation evidence;
 - remaining limitations and non-claims.
 
-- [ ] **Step 9: Commit the verification report**
+- [x] **Step 9: Commit the verification report**
 
 ```powershell
 git add docs/superpowers/reports/2026-07-15-rook-agent-evalops-verification.md

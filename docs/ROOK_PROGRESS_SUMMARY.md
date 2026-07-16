@@ -16,7 +16,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 - 分支：`feature/rook-forge`
 - 工作树：`Rook/.worktrees/rook-forge`
-- 最新可演示 MVP 提交：`f23b4a7 feat: expose EvalOps CLI and deterministic demo`
+- 最新功能提交：`116b04f fix: preserve CandidateStore publish conflicts`
 
 ## 已完成功能
 
@@ -33,6 +33,9 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 11. ScoreCard、Wilson 区间、内容准入与独立路由判定。
 12. 不可变决策历史、按 target 活动指针、stale 检测、原子 rollback 和稳定报告。
 13. `rook eval` / `rook skill` CLI、四类确定性 demo suite 和默认跳过的真实 Codex smoke。
+14. 严格、脱敏且 EvidenceRef 可追溯的轨迹蒸馏器。
+15. 自动 Candidate 的 `quarantined` 隔离存储、安全 Gate、幂等生命周期协调和 Provider 切换。
+16. 自动 Candidate 继续复用显式 EvalOps 准入链路，不自动发布、发现、激活或导出。
 
 ## 关键提交
 
@@ -44,10 +47,15 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 - `0260af9`：增加 ScoreCard 与 Skill 准入策略。
 - `993c44f`：增加 Registry、报告和端到端 EvalOpsService。
 - `f23b4a7`：增加 EvalOps CLI、确定性 demo 和真实 smoke 授权边界。
+- `bac7ec1`：增加执行轨迹驱动、严格证据绑定的 quarantined Candidate 生成流程。
+- `116b04f`：增强 Windows 临时 Candidate 清理并保留原始并发冲突语义。
 
 ## 当前验证结果
 
-- 当前全部 `test_evalops_*` 专项：`327 passed, 7 skipped`。
+- 当前全部 EvalOps + evolution 专项：`574 passed, 7 skipped`。
+- Task 14 新增与直接依赖专项：`323 passed`。
+- Windows/安全硬化专项：`295 passed, 3 skipped`。
+- 完整核心基线（排除可选 EvalPlus）：`1569 passed, 14 failed, 10 skipped`；其中 3 个负载型失败隔离复跑通过，稳定剩余 11 个均来自本轮未修改的历史模块或旧断言。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
 - Codex Adapter 提交后专项验证：`58 passed, 1 skipped`。
 - 默认测试全部使用 Fake Process/Fake Provider，不会调用真实 Codex API，也不会产生模型费用。
@@ -56,12 +64,12 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 ## 下一阶段计划
 
-1. 接入执行轨迹驱动、EvidenceRef 可追溯的 Skill Candidate 生成流程。
-2. Candidate 只以 candidate/quarantined 状态进入 CandidateStore，并重新进入同一 EvalOps 准入链路。
-3. 完成 Task 16 全量回归、安全硬化、工作树卫生和最终文档一致性验证。
+1. 在单独获得外部调用与费用授权后，执行可选的真实 Codex smoke。
+2. 将已记录的历史核心失败作为独立维护工作处理，不与 EvalOps 功能提交混修。
+3. 审阅并合并 `feature/rook-forge`。
 
 ## 当前停点
 
-当前停在 Task 14：从执行轨迹提炼 EvidenceRef 可追溯的 quarantined Skill Candidate。
+Task 16 已完成，当前停在分支审阅与合并前。
 
-手工 Candidate 的 Candidate → A/B → ScoreCard → Decision → Registry → Report → Rollback 闭环已经可演示。下一步不建立旁路准入机制，自动生成的 Candidate 仍复用现有评测、准入和回滚链路。
+手工与自动 Candidate 均已接入 Candidate → A/B → ScoreCard → Decision → Registry → Report → Rollback 的同一闭环。自动生成结果保持 quarantined，必须显式执行评测；当前没有旁路准入机制。完整验证证据见 `docs/superpowers/reports/2026-07-16-rook-agent-evalops-verification.md`。
