@@ -40,14 +40,19 @@ def _collect_final_worktree_diff(repo: Path) -> str:
 def _is_git_worktree(repo: Path) -> bool:
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
+            ["git", "rev-parse", "--show-toplevel"],
             cwd=repo,
             text=True,
             capture_output=True,
         )
     except FileNotFoundError:
         return False
-    return result.returncode == 0 and result.stdout.strip() == "true"
+    if result.returncode != 0:
+        return False
+    # ``rev-parse`` walks parent directories.  Benchmark callers pass the
+    # checkout root, so a plain directory nested below an unrelated repository
+    # must not inherit that repository's index or HEAD.
+    return Path(result.stdout.strip()).resolve() == repo.resolve()
 
 
 def _git(

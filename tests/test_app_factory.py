@@ -251,7 +251,9 @@ def test_create_rook_app_exposes_task_boundary_in_real_prompt(tmp_path: Path) ->
     descriptions = {tool.name: tool.description for tool in provider.requests[0].tools}
     assert descriptions["task_boundary"].startswith("Report whether the current user message starts a new task")
     assert "Do not provide task hashes" in descriptions["task_boundary"]
-    assert "At the start of every user turn, call task_boundary before answering or using any other tool" in provider.requests[0].messages[0].content
+    system_prompt = provider.requests[0].messages[0].content
+    assert "The runtime classifies every real user turn before this request" in system_prompt
+    assert "At the start of every user turn, call task_boundary" not in system_prompt
 
 
 def test_create_rook_app_wires_l4_service_for_default_context_manager(tmp_path: Path) -> None:
