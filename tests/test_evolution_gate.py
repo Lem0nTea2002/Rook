@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import asdict, replace
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -44,6 +46,12 @@ LOCAL_REF = EvidenceRef(
     event_id="event-shell",
     part_id="part-shell",
 )
+
+
+@pytest.fixture
+def nonvolatile_workspace() -> Iterator[Path]:
+    with TemporaryDirectory(prefix=".rook-scope-", dir=Path.cwd()) as directory:
+        yield Path(directory)
 
 
 def evidence_item(
@@ -1872,11 +1880,11 @@ def test_project_owned_source_path_downgrades_global_delta(tmp_path: Path) -> No
 
 
 def test_existing_absolute_path_outside_project_does_not_downgrade_scope(
-    tmp_path: Path,
+    nonvolatile_workspace: Path,
 ) -> None:
-    project_root = tmp_path / "Project"
+    project_root = nonvolatile_workspace / "Project"
     project_root.mkdir()
-    outside_file = tmp_path / "External" / "policy.py"
+    outside_file = nonvolatile_workspace / "External" / "policy.py"
     outside_file.parent.mkdir()
     outside_file.write_text("", encoding="utf-8")
 
@@ -1894,11 +1902,11 @@ def test_existing_absolute_path_outside_project_does_not_downgrade_scope(
 
 
 def test_external_absolute_path_with_project_name_does_not_downgrade_scope(
-    tmp_path: Path,
+    nonvolatile_workspace: Path,
 ) -> None:
-    project_root = tmp_path / "Rook"
+    project_root = nonvolatile_workspace / "Rook"
     project_root.mkdir()
-    outside_file = tmp_path / "External" / "Rook" / "policy.py"
+    outside_file = nonvolatile_workspace / "External" / "Rook" / "policy.py"
     outside_file.parent.mkdir(parents=True)
     outside_file.write_text("", encoding="utf-8")
 
@@ -1954,10 +1962,10 @@ def test_relative_traversal_outside_project_does_not_downgrade_scope(
 
 @pytest.mark.parametrize("absolute", [False, True])
 def test_correct_case_project_file_path_downgrades_scope(
-    tmp_path: Path,
+    nonvolatile_workspace: Path,
     absolute: bool,
 ) -> None:
-    project_root = tmp_path / "Project"
+    project_root = nonvolatile_workspace / "Project"
     project_file = project_root / "Config" / "Policy.py"
     project_file.parent.mkdir(parents=True)
     project_file.write_text("", encoding="utf-8")

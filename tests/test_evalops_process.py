@@ -98,7 +98,9 @@ def test_process_runner_writes_stdin_as_utf8(tmp_path: Path) -> None:
     result = ProcessRunner().run(
         _request(
             tmp_path,
-            "import sys; print(sys.stdin.read().upper())",
+            "import sys; "
+            "data = sys.stdin.buffer.read().decode('utf-8'); "
+            "sys.stdout.buffer.write((data.upper() + '\\n').encode('utf-8'))",
             stdin_text="rook \u6d4b\u8bd5",
         )
     )
@@ -138,7 +140,7 @@ def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
     assert result.duration_ms < 3_000
     assert result.cleanup_error is None
     assert child_pid_file.exists()
-    assert not _process_is_running(int(child_pid_file.read_text()))
+    assert _wait_for_process_exit(int(child_pid_file.read_text()))
 
 
 def test_process_runner_keeps_cancellation_active_after_direct_parent_exits(
@@ -171,7 +173,7 @@ def test_process_runner_keeps_cancellation_active_after_direct_parent_exits(
     assert result.duration_ms < 3_000
     assert result.cleanup_error is None
     assert child_pid_file.exists()
-    assert not _process_is_running(int(child_pid_file.read_text()))
+    assert _wait_for_process_exit(int(child_pid_file.read_text()))
 
 
 def test_process_runner_reports_pre_cancelled_request_without_spawning(tmp_path: Path) -> None:
@@ -586,3 +588,12 @@ def _process_is_running(pid: int) -> bool:
     if os.name == "nt":
         return _windows_process_is_running(pid)
     return _posix_process_is_running(pid)
+
+
+def _wait_for_process_exit(pid: int, timeout_seconds: float = 3.0) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _process_is_running(pid):
+            return True
+        time.sleep(0.05)
+    return not _process_is_running(pid)
