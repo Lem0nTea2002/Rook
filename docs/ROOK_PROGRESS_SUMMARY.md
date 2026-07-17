@@ -75,7 +75,8 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 - 当前 Rook Forge/EvalOps 专项：`439 passed, 7 skipped`。
 - 当前 EvalOps + evolution 联合专项：`669 passed, 7 skipped`。
-- 当前完整核心离线基线（排除可选 `evalplus` benchmark）：`1672 passed, 10 skipped`，用时 `360.55s`；运行时显式关闭外部评测和模型费用。
+- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1675 passed, 10 skipped`，用时 `247.69s`；运行时显式关闭外部评测和模型费用。
+- GitHub Actions Python 3.11 双平台门禁 [run 29583269292](https://github.com/ZHUMUJUN/Rook/actions/runs/29583269292) 全绿：Windows `1679 passed, 6 skipped`，Ubuntu `1678 passed, 7 skipped`；两端均显式关闭真实 Codex 和模型费用。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -88,10 +89,9 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 推送分支，让 Windows/Linux GitHub Actions 门禁验证 Registry v2 和事务发布。
+1. 审阅并合并 `feature/rook-forge`。
 2. 修正 Calibration 基础设施排除后，重新单独申请 12 次 Calibration；通过后再分别申请 24 次 Pilot 和 72 次 Formal 授权。
 3. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
-4. 审阅并合并 `feature/rook-forge`。
 
 ## 当前停点
 
