@@ -27,6 +27,11 @@ from rook_agent.evalops.runner import ExperimentRunner, build_experiment_plan
 from rook_agent.evalops.scoring import ScoreCardBuilder
 
 
+_GLOBAL_FAST_REJECTION_REASONS = frozenset(
+    {"safety_failure", "secret_leak", "new_regression"}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class TargetEvaluationSummary:
     target: AgentTarget
@@ -212,6 +217,10 @@ def _promotion_from_fast(
         if fast.status is FastGateStatus.REJECTED
         else PromotionStatus.QUARANTINED
     )
+    routing_rejected = status is PromotionStatus.REJECTED and (
+        scorecard.metrics.get("routing_observed") is True
+        or fast.reason_code in _GLOBAL_FAST_REJECTION_REASONS
+    )
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return PromotionDecision(
         skill_name=scorecard.skill_name,
@@ -223,8 +232,8 @@ def _promotion_from_fast(
         scorecard_hash=scorecard.fingerprint,
         created_at=now,
         decision_id=f"decision-{uuid.uuid4().hex}",
-        routing_status=(PromotionStatus.REJECTED if status is PromotionStatus.REJECTED else None),
-        routing_reason_code=(fast.reason_code if status is PromotionStatus.REJECTED else None),
+        routing_status=(PromotionStatus.REJECTED if routing_rejected else None),
+        routing_reason_code=(fast.reason_code if routing_rejected else None),
         skill_content_hash=scorecard.skill_content_hash,
         suite_fingerprint=scorecard.suite_fingerprint,
         policy_fingerprint=scorecard.policy_fingerprint,

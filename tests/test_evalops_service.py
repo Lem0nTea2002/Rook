@@ -182,6 +182,22 @@ class _StubScoreCards:
         )
 
 
+class _UnchangedScoreCards(_StubScoreCards):
+    def build(self, record):
+        scorecard = super().build(record)
+        metrics = dict(scorecard.metrics)
+        metrics.update(
+            {
+                "baseline_success_rate": 1.0,
+                "candidate_success_rate": 1.0,
+                "paired_success_improvement": 0.0,
+                "efficiency_improvement": -0.1,
+                "direct_transfer_improved_pair_count": 0,
+            }
+        )
+        return replace(scorecard, metrics=metrics)
+
+
 class _RecordingReport:
     def __init__(self, events: list[str]) -> None:
         self.events = events
@@ -296,6 +312,28 @@ def test_fast_rejection_never_runs_full(tmp_path: Path) -> None:
     assert summary.targets[0].full_scorecard is None
     assert summary.targets[0].decision.status is PromotionStatus.REJECTED
     assert summary.targets[0].decision.reason_code == "safety_failure"
+
+
+def test_fast_content_rejection_keeps_unobserved_routing_unknown(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    runner = _RecordingRunner()
+    service = _service(
+        tmp_path,
+        scorecards=_UnchangedScoreCards(),
+        registry=_RecordingRegistry(events),
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+
+    summary = service.evaluate_candidate(_candidate(), _suite(tmp_path), (_target(),))
+
+    decision = summary.targets[0].decision
+    assert decision.status is PromotionStatus.REJECTED
+    assert decision.reason_code == "no_fast_gate_improvement"
+    assert decision.routing_status is None
+    assert decision.routing_reason_code is None
 
 
 def test_unavailable_target_does_not_block_other_target(tmp_path: Path) -> None:

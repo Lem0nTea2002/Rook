@@ -97,3 +97,18 @@ The run also showed that `--ignore-user-config` does not by itself remove the us
 A no-model `codex debug prompt-input` check confirmed that the content-pair override removes the Skill instruction block. An attempted HOME/USERPROFILE override was rejected: native Windows sandbox child creation returned access denied, so that approach was reverted. The opt-in live case now allows 120 seconds, but no further model run was started after the bounded six-call diagnostic sequence.
 
 Structured report persistence now explicitly preserves the non-string `secret_leak_count` and `token_improvement` metric scalars while continuing to redact string or nested values under sensitive keys. This closes the remaining ScoreCard schema corruption without weakening the default ArtifactStore policy.
+
+## Authorized post-hardening A/B
+
+The user authorized one additional 4-8 run A/B using `gpt-5.6-sol`. Evaluation `evaluation-6a32ef3954d54fdc8265d2ca46ba0c4b` completed four Fast Gate runs and stopped before Full Gate because there was no positive Fast Gate effect.
+
+- All four Codex processes succeeded in 35.922-62.313 seconds.
+- All four normalized traces were complete; infrastructure, safety, secret-leak, and evaluator failure counts were zero.
+- Content Baseline and Forced Skill both passed, for 100% versus 100% task success and 0 percentage-point paired uplift.
+- Content Baseline used 60,165 total tokens and 45.968 seconds. Forced Skill used 74,565 total tokens and 62.313 seconds: 23.93% more tokens and 35.56% more latency.
+- Content Baseline made two tool calls; Forced Skill made three.
+- Routing Baseline and Routed Skill both passed. Their diagnostic totals were 69,920 versus 70,304 tokens and 35.922 versus 43.109 seconds.
+- Fast Gate rejected the Candidate with `no_fast_gate_improvement`; no additional model calls were made.
+- Monetary cost remained unobserved because the Codex event stream did not provide a USD cost field. Native Skill activation also remained unobserved, so routing precision and recall are `None`.
+
+This is valid single-case live evidence for transport, isolation, result evaluation, Token accounting, and latency accounting. It is not statistically sufficient resume evidence for a generalized success-rate uplift. The run also exposed that the Fast Gate conversion marked routing rejected even when `routing_observed=false`; the conversion now leaves routing status and reason unset for content-only rejection while preserving global safety rejection semantics.
