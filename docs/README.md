@@ -27,6 +27,10 @@ Read in this order if you are new to the codebase:
    provider projection, compaction, and task boundaries.
 6. [Providers Design](PROVIDERS_DESIGN.md) and [Skill System Design](SKILL_SYSTEM_DESIGN.md)
    — the two main extension seams.
+7. [Rook Forge Skill Governance](EVALOPS.md) — isolated paired exams,
+   automatic gates, human approval, target deployment, and rollback.
+8. [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) — reproducible control cases,
+   contribution boundary, and the claims that still require live measurements.
 
 Each design document contains a runnable observation and links to relevant
 tests. Read code with the document open; the goal is to build an executable
@@ -53,6 +57,7 @@ score.
 - [Local Pytest Benchmark](LOCAL_PYTEST_BENCHMARK.md) / [中文](LOCAL_PYTEST_BENCHMARK.zh-CN.md)
 - [SWE-bench Fast Runbook](SWE_BENCH_FAST_RUNBOOK.md) / [中文](SWE_BENCH_FAST_RUNBOOK.zh-CN.md)
 - [SWE-bench Lite Runbook](SWE_LITE_RUNBOOK.md) / [中文](SWE_LITE_RUNBOOK.zh-CN.md)
+- [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) / [中文](PORTFOLIO_EVIDENCE.zh-CN.md)
 
 ## Documentation Maintenance
 

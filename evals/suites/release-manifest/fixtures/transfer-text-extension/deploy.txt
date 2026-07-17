@@ -1,0 +1,6 @@
+
+# copied from deployment notes
+service = WorkerPool
+version = V5
+channel = INTERNAL
+owners = Ops, platform, OPS

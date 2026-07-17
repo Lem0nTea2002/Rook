@@ -1,0 +1,41 @@
+"""Rook Forge 的公共协议接口。"""
+
+from rook_agent.evolution.models import (
+    CurationAction,
+    CurationPlan,
+    EligibilityDecision,
+    EvidenceItem,
+    EvidenceRef,
+    EvidenceSource,
+    EvolutionConfig,
+    EvolutionScope,
+    ForgeResult,
+    GateDecision,
+    GateStatus,
+    SkillDelta,
+    SkillDocument,
+    StoredSkill,
+    TaskTrace,
+    TraceOutcome,
+    load_evolution_config,
+)
+
+__all__ = [
+    "CurationAction",
+    "CurationPlan",
+    "EligibilityDecision",
+    "EvidenceItem",
+    "EvidenceRef",
+    "EvidenceSource",
+    "EvolutionConfig",
+    "EvolutionScope",
+    "ForgeResult",
+    "GateDecision",
+    "GateStatus",
+    "SkillDelta",
+    "SkillDocument",
+    "StoredSkill",
+    "TaskTrace",
+    "TraceOutcome",
+    "load_evolution_config",
+]

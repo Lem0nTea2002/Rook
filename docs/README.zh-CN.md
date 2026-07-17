@@ -14,6 +14,8 @@
 4. [工具设计](TOOLS_DESIGN.zh-CN.md) 与 [权限设计](PERMISSIONS_DESIGN.zh-CN.md)：理解模型的请求怎样变成受控的本地操作。
 5. [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md)：理解会话事实、投影、压缩与任务边界。
 6. [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) 与 [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md)：理解两个主要扩展点。
+7. [Rook Forge Skill 治理](EVALOPS.md)：理解隔离配对考试、自动门禁、人工审批、双目标部署与回滚。
+8. [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md)：查看可复现控制案例、Calibration 观测、贡献边界和仍需 Formal 测量的指标。
 
 每篇设计文档都提供可观察的小实验和相关测试。建议边读边开源码；目标不是背文件名，而是建立能实际排障的运行模型。
 
@@ -36,6 +38,7 @@
 - [本地 Pytest 基准](LOCAL_PYTEST_BENCHMARK.zh-CN.md) / [English](LOCAL_PYTEST_BENCHMARK.md)
 - [SWE-bench 快速手册](SWE_BENCH_FAST_RUNBOOK.zh-CN.md) / [English](SWE_BENCH_FAST_RUNBOOK.md)
 - [SWE-bench Lite 手册](SWE_LITE_RUNBOOK.zh-CN.md) / [English](SWE_LITE_RUNBOOK.md)
+- [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md) / [English](PORTFOLIO_EVIDENCE.md)
 
 ## 维护约定
 

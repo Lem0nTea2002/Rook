@@ -27,8 +27,11 @@ def collect_git_diff(repo_path: str | Path, *, include_untracked: bool = False) 
 
 
 def _collect_final_worktree_diff(repo: Path) -> str:
-    with tempfile.NamedTemporaryFile(prefix="rook-index-") as index:
-        env = {"GIT_INDEX_FILE": index.name}
+    with tempfile.TemporaryDirectory(prefix="rook-index-") as directory:
+        # Git needs to create and replace the index itself.  Keeping a
+        # NamedTemporaryFile open prevents that operation on Windows.
+        index = Path(directory) / "index"
+        env = {"GIT_INDEX_FILE": str(index)}
         _git(["read-tree", "HEAD"], repo, env=env)
         _git(["add", "-A"], repo, env=env)
         return _git(["diff", "--cached", "--binary"], repo, env=env).stdout
@@ -37,14 +40,19 @@ def _collect_final_worktree_diff(repo: Path) -> str:
 def _is_git_worktree(repo: Path) -> bool:
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
+            ["git", "rev-parse", "--show-toplevel"],
             cwd=repo,
             text=True,
             capture_output=True,
         )
     except FileNotFoundError:
         return False
-    return result.returncode == 0 and result.stdout.strip() == "true"
+    if result.returncode != 0:
+        return False
+    # ``rev-parse`` walks parent directories.  Benchmark callers pass the
+    # checkout root, so a plain directory nested below an unrelated repository
+    # must not inherit that repository's index or HEAD.
+    return Path(result.stdout.strip()).resolve() == repo.resolve()
 
 
 def _git(

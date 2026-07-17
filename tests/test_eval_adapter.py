@@ -146,6 +146,13 @@ def test_adapter_builds_benchmark_prompt(tmp_path: Path):
     assert "Fix the issue." in loop.messages[0]
     assert "Return by editing files" in loop.messages[0]
     assert result.raw_response == "done"
+    assert result.session_id == "sympy__sympy-20590"
+    assert result.finish_reason == "stop"
+    assert result.to_prediction_dict() == {
+        "instance_id": "sympy__sympy-20590",
+        "model_name_or_path": "rook-test",
+        "model_patch": "",
+    }
 
 
 def test_default_loop_factory_keeps_session_outside_repo(tmp_path: Path):

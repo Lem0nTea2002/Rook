@@ -20,6 +20,7 @@ HELP_COMMANDS = [
     ("/model <model|provider/model>", "Switch the active model."),
     ("/skills", "Pick a skill to reference."),
     ("/skill <name>", "Show skill details."),
+    ("/forge [skill-name]", "Show Rook Forge gate, approval, release, and rollback state."),
     ("/context", "Inspect context state."),
     ("/compact status", "Show compaction status."),
     ("/compact", "Compact context now."),

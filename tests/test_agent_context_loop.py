@@ -4,7 +4,6 @@ import asyncio
 from dataclasses import dataclass, field
 import re
 import threading
-import time
 
 import pytest
 
@@ -432,15 +431,15 @@ def _echo_tool() -> Tool:
     )
 
 
-def _slow_named_tool(name: str, *, delay: float) -> Tool:
+def _synchronized_named_tool(name: str, *, barrier: threading.Barrier) -> Tool:
     def execute(text: str) -> ToolResult:
-        time.sleep(delay)
+        barrier.wait(timeout=2)
         return ToolResult(name=name, ok=True, content=f"{name}:{text}")
 
     return Tool(
         definition=ToolDefinition(
             name=name,
-            description=f"slow {name}",
+            description=f"synchronized {name}",
             parameters={
                 "type": "object",
                 "properties": {"text": {"type": "string"}},
@@ -638,19 +637,20 @@ def test_agent_loop_runs_readonly_tool_calls_in_parallel_and_appends_results_in_
         ]
     )
     tool_events: list[ToolExecutionEvent] = []
+    barrier = threading.Barrier(2)
     loop = AgentLoop(
         session=session,
         provider=provider,
-        tools=[_slow_named_tool("view", delay=0.2), _slow_named_tool("grep", delay=0.2)],
+        tools=[
+            _synchronized_named_tool("view", barrier=barrier),
+            _synchronized_named_tool("grep", barrier=barrier),
+        ],
         tool_event_handler=tool_events.append,
     )
 
-    started_at = time.perf_counter()
     result = loop.run_user_turn("并发读")
-    elapsed = time.perf_counter() - started_at
 
     assert result.content == "完成"
-    assert elapsed < 0.35
     assert [event.kind for event in tool_events] == ["started", "started", "finished", "finished"]
     view = store.rebuild_session_view("sess_parallel_readonly")
     tool_messages = [message for message in view.messages if message.role == "tool"]
@@ -663,11 +663,15 @@ def test_agent_loop_runs_readonly_tool_calls_in_parallel_and_appends_results_in_
 
 def test_agent_loop_runs_bypass_allowed_tool_calls_in_parallel(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path / ".rook")
+    barrier = threading.Barrier(2)
     session = AgentSession.from_project(
         store=store,
         session_id="sess_parallel_bypass",
         project_root=tmp_path,
-        tools=[_slow_named_tool("write", delay=0.2), _slow_named_tool("shell", delay=0.2)],
+        tools=[
+            _synchronized_named_tool("write", barrier=barrier),
+            _synchronized_named_tool("shell", barrier=barrier),
+        ],
     )
     session.set_permission_mode(PermissionMode.BYPASS)
     provider = FakeProvider(
@@ -692,12 +696,9 @@ def test_agent_loop_runs_bypass_allowed_tool_calls_in_parallel(tmp_path) -> None
         tool_event_handler=tool_events.append,
     )
 
-    started_at = time.perf_counter()
     result = loop.run_user_turn("bypass 并发")
-    elapsed = time.perf_counter() - started_at
 
     assert result.content == "完成"
-    assert elapsed < 0.35
     assert [event.kind for event in tool_events] == ["started", "started", "finished", "finished"]
     view = store.rebuild_session_view("sess_parallel_bypass")
     tool_messages = [message for message in view.messages if message.role == "tool"]
@@ -726,18 +727,19 @@ def test_agent_loop_streaming_runs_readonly_tool_calls_in_parallel(tmp_path) -> 
             ChatResponse(provider="fake-stream", model="fake-stream-model", content="完成"),
         ]
     )
+    barrier = threading.Barrier(2)
     loop = AgentLoop(
         session=session,
         provider=provider,
-        tools=[_slow_named_tool("view", delay=0.2), _slow_named_tool("grep", delay=0.2)],
+        tools=[
+            _synchronized_named_tool("view", barrier=barrier),
+            _synchronized_named_tool("grep", barrier=barrier),
+        ],
     )
 
-    started_at = time.perf_counter()
     result = loop.run_user_turn_streaming_sync("并发读")
-    elapsed = time.perf_counter() - started_at
 
     assert result.content == "完成"
-    assert elapsed < 0.35
     view = store.rebuild_session_view("sess_stream_parallel_readonly")
     tool_messages = [message for message in view.messages if message.role == "tool"]
     assert [message.parts[0].metadata["tool_call_id"] for message in tool_messages] == [
@@ -1420,6 +1422,27 @@ def test_agent_loop_skips_classification_for_initial_task(tmp_path) -> None:
     observations = [event for event in store.list_events("sess_forced_boundary") if event.type == "task_boundary_observed"]
     assert len(observations) == 1
     assert observations[0].payload["confirmation_reason"] == "implicit_initial_task"
+
+
+def test_agent_loop_uses_injected_task_boundary_decider_without_provider_call(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(store=store, session_id="sess_local_boundary", agents_md="")
+    provider = JsonBoundaryProvider(["first", "second"])
+    decided_message_ids: list[str] = []
+    loop = AgentLoop(
+        session=session,
+        provider=provider,
+        task_boundary_decider=lambda message_id: decided_message_ids.append(message_id) or "new",
+    )
+
+    loop.run_user_turn("first task")
+    loop.run_user_turn("second task")
+
+    observations = [event for event in store.list_events("sess_local_boundary") if event.type == "task_boundary_observed"]
+    assert len(provider.requests) == 2
+    assert len(decided_message_ids) == 1
+    assert observations[-1].payload["decision"] == "new"
+    assert observations[-1].payload["basis_message_id"] == decided_message_ids[0]
 
 
 def test_task_boundary_classification_prompt_defines_same_and_uncertain() -> None:

@@ -1,0 +1,4 @@
+service = PaymentsAPI
+version = v2.4.0
+channel = STABLE
+owners = Alice, bob, alice

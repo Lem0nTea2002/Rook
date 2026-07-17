@@ -49,8 +49,17 @@ def read_message(message: str | None, *, stdin_text: str | None = None) -> str:
     return text.strip()
 
 
+def _nonempty_text(value: str) -> str:
+    text = value.strip()
+    if not text:
+        raise argparse.ArgumentTypeError("value must not be empty")
+    return text
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run a single Rook user turn.")
+    parser = argparse.ArgumentParser(
+        description="Run the Rook Coding Agent or its Rook Forge Skill governance commands."
+    )
     subparsers = parser.add_subparsers(dest="command")
     config_parser = subparsers.add_parser("config", help="Inspect or initialize Rook configuration.")
     config_subparsers = config_parser.add_subparsers(dest="config_command")
@@ -58,6 +67,84 @@ def build_parser() -> argparse.ArgumentParser:
     config_subparsers.add_parser("show", help="Show effective provider configuration without secrets.")
     init_parser = config_subparsers.add_parser("init", help="Create a starter global config file.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite the existing global config.")
+
+    eval_parser = subparsers.add_parser("eval", help="Run and inspect Rook Forge Skill exams.")
+    eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
+    doctor_parser = eval_subparsers.add_parser("doctor", help="Probe Rook Forge Agent capabilities.")
+    doctor_parser.add_argument("--agents", default="rook,codex", help="Comma-separated Agents to probe.")
+    eval_run_parser = eval_subparsers.add_parser("run", help="Run a Rook Forge exam for one stored Skill Candidate.")
+    eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
+    eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")
+    eval_run_parser.add_argument("--agents", required=True, help="Comma-separated Agents to evaluate.")
+    eval_run_parser.add_argument(
+        "--model",
+        type=_nonempty_text,
+        default=None,
+        help="Explicit Codex model recorded in the target fingerprint.",
+    )
+    eval_run_parser.add_argument(
+        "--inherit-proxy",
+        action="store_true",
+        help="Explicitly pass configured proxy environment variables to Codex.",
+    )
+    eval_run_parser.add_argument("--repetitions", type=_positive_int, default=1)
+    eval_run_parser.add_argument(
+        "--families",
+        default="content,routing",
+        help="Comma-separated treatment families: content,routing.",
+    )
+    eval_run_parser.add_argument(
+        "--phase",
+        choices=("auto", "fast", "full"),
+        default="auto",
+        help="Run Fast then Full automatically, or only one phase.",
+    )
+    eval_run_parser.add_argument(
+        "--fast-count-per-category",
+        type=_positive_int,
+        default=1,
+    )
+    eval_run_parser.add_argument(
+        "--measurement-only",
+        action="store_true",
+        help="Write evidence and reports without mutating the promotion registry.",
+    )
+    eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
+    eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
+    report_parser = eval_subparsers.add_parser("report", help="Read an immutable Rook Forge report.")
+    report_parser.add_argument("experiment_id")
+
+    skill_parser = subparsers.add_parser("skill", help="Inspect or change Rook Forge Skill state.")
+    skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
+    status_parser = skill_subparsers.add_parser("status", help="Show candidate and promotion state.")
+    status_parser.add_argument("name")
+    approve_parser = skill_subparsers.add_parser(
+        "approve", help="Approve and deploy one promoted, non-stale Skill decision."
+    )
+    approve_parser.add_argument("name")
+    approve_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    approve_parser.add_argument("--decision-id", required=True)
+    approve_parser.add_argument("--suite", required=True, help="Current Eval suite TOML manifest.")
+    approve_parser.add_argument("--approver", required=True, type=_nonempty_text)
+    approve_parser.add_argument("--reason", required=True, type=_nonempty_text)
+    history_parser = skill_subparsers.add_parser(
+        "history", help="Show immutable gate, approval, and release history."
+    )
+    history_parser.add_argument("name")
+    stage_parser = skill_subparsers.add_parser(
+        "stage", help="Stage a strict TOML Skill bundle as an inactive quarantined candidate."
+    )
+    stage_parser.add_argument("--bundle", required=True, help="Manual Skill bundle TOML file.")
+    rollback_parser = skill_subparsers.add_parser("rollback", help="Roll back an active Skill version.")
+    rollback_parser.add_argument("name")
+    rollback_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    rollback_parser.add_argument("--to-version", type=_positive_int, required=True)
+    rollback_parser.add_argument("--approver", required=True, type=_nonempty_text)
+    rollback_parser.add_argument("--reason", required=True, type=_nonempty_text)
+    export_parser = skill_subparsers.add_parser("export", help="Export an evaluated Skill to a staging directory.")
+    export_parser.add_argument("name")
+    export_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    export_parser.add_argument("--output", required=True)
 
     parser.add_argument("--project", default=".", help="Project root for tools and AGENTS.md.")
     parser.add_argument("--data-root", default=None, help="Directory for Rook session data.")
@@ -81,10 +168,24 @@ def main(
     *,
     runner: CliRunner | None = None,
     stdin_text: str | None = None,
+    evalops_runner: Callable[[argparse.Namespace], int] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "config":
         return run_config_command(args)
+    if args.command in {"eval", "skill"}:
+        if evalops_runner is None:
+            from rook_agent.evalops.cli import run_evalops_command
+
+            evalops_runner = run_evalops_command
+        try:
+            return evalops_runner(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
 
     if args.tui or (args.message is None and stdin_text is None and sys.stdin.isatty() and not args.interactive):
         config = CliConfig(

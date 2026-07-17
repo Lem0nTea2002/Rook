@@ -1,5 +1,15 @@
 from pathlib import Path
 
+from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evalops.models import (
+    AgentTarget,
+    AgentType,
+    PromotionDecision,
+    PromotionStatus,
+    SkillBundle,
+)
+from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.release import SkillReleaseService
 from rook_agent.skills.discovery import discover_all_skills, discover_project_skills
 from rook_agent.skills.models import SkillSource
 
@@ -40,6 +50,21 @@ def test_discovers_project_agent_skill_frontmatter(tmp_path: Path) -> None:
     assert skill.description == "Fetch X/Twitter posts."
     assert skill.path == ".agents/skills/fetch-tweet/SKILL.md"
     assert skill.source == SkillSource.PROJECT_AGENT_SKILL
+
+
+def test_invalid_json_quoted_frontmatter_value_fails_closed(tmp_path: Path) -> None:
+    skill_dir = tmp_path / ".agents" / "skills" / "safe-fallback"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        '---\nname: safe-fallback\ndescription: "unterminated\n---\n\n'
+        "# Safe Fallback\n",
+        encoding="utf-8",
+    )
+
+    catalog = discover_project_skills(tmp_path)
+
+    assert catalog.skills[0].name == "safe-fallback"
+    assert catalog.skills[0].description == "Safe Fallback"
 
 
 def test_discovers_frontmatter_triggers(tmp_path: Path) -> None:
@@ -129,3 +154,94 @@ def test_catalog_fingerprint_changes_when_skill_metadata_changes(tmp_path: Path)
     after = discover_project_skills(tmp_path).fingerprint
 
     assert before != after
+
+
+def test_promoted_candidate_is_not_discovered_until_rook_approval(tmp_path: Path) -> None:
+    store, registry, service, candidate, decision = _managed_candidate(
+        tmp_path, AgentType.ROOK
+    )
+    registry.record(decision)
+
+    assert discover_project_skills(tmp_path).skills == []
+
+    service.approve(
+        skill_name=candidate.bundle.name,
+        decision_id=decision.decision_id,
+        current_target=decision.target,
+        suite_fingerprint="suite",
+        policy_fingerprint="policy",
+        normalizer_fingerprint="normalizer",
+        approver="reviewer",
+        reason="approve Rook runtime use",
+    )
+
+    skill = discover_project_skills(tmp_path).skills[0]
+    assert skill.name == "managed-discovery"
+    assert skill.source is SkillSource.PROJECT_MANAGED
+    assert skill.version == 1
+    assert skill.content_hash == candidate.content_hash
+
+
+def test_codex_only_approval_does_not_leak_into_rook_catalog(tmp_path: Path) -> None:
+    _store, registry, service, candidate, decision = _managed_candidate(
+        tmp_path, AgentType.CODEX
+    )
+    registry.record(decision)
+
+    service.approve(
+        skill_name=candidate.bundle.name,
+        decision_id=decision.decision_id,
+        current_target=decision.target,
+        suite_fingerprint="suite",
+        policy_fingerprint="policy",
+        normalizer_fingerprint="normalizer",
+        approver="reviewer",
+        reason="approve Codex only",
+    )
+
+    assert (tmp_path / ".agents/skills/managed-discovery/SKILL.md").is_file()
+    assert discover_project_skills(tmp_path).skills == []
+
+
+def _managed_candidate(tmp_path: Path, agent_type: AgentType):
+    store = CandidateStore(tmp_path / ".rook" / "skill-registry")
+    candidate = store.create(
+        SkillBundle(
+            name="managed-discovery",
+            description="Managed discovery test.",
+            triggers=("managed",),
+            procedure=("Perform the managed workflow.",),
+            verification=("Verify it.",),
+            pitfalls=(),
+            evidence_refs=(),
+        )
+    )
+    target = AgentTarget(
+        type=agent_type,
+        executable=agent_type.value,
+        version="1",
+        model="model",
+        adapter_version="evalops-v1",
+    )
+    decision = PromotionDecision(
+        skill_name=candidate.bundle.name,
+        skill_version=candidate.version,
+        target=target,
+        status=PromotionStatus.PROMOTED,
+        reason_code="success_uplift",
+        policy_version="1",
+        scorecard_hash="score",
+        created_at="2026-07-17T00:00:00Z",
+        decision_id=f"decision-{agent_type.value}",
+        skill_content_hash=candidate.content_hash,
+        suite_fingerprint="suite",
+        policy_fingerprint="policy",
+        normalizer_fingerprint="normalizer",
+    )
+    registry = PromotionRegistry(tmp_path)
+    service = SkillReleaseService(
+        project_root=tmp_path,
+        candidates=store,
+        registry=registry,
+    )
+    return store, registry, service, candidate, decision

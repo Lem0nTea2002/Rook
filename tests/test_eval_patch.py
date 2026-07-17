@@ -81,6 +81,15 @@ def test_collect_git_diff_returns_empty_for_non_git_directory(tmp_path: Path):
     assert collect_git_diff(workspace, include_untracked=True) == ""
 
 
+def test_collect_git_diff_does_not_inherit_parent_repository(tmp_path: Path):
+    parent_repo = init_repo(tmp_path)
+    workspace = parent_repo / "nested-workspace"
+    workspace.mkdir()
+    (workspace / "hello.txt").write_text("Hello, world!\n", encoding="utf-8")
+
+    assert collect_git_diff(workspace, include_untracked=True) == ""
+
+
 def test_collect_git_diff_returns_empty_when_git_is_unavailable(tmp_path: Path, monkeypatch):
     workspace = tmp_path / "workspace"
     workspace.mkdir()

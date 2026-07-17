@@ -28,6 +28,8 @@ class CodingTaskResult:
     transcript_path: Path | None = None
     raw_response: str = ""
     context_metrics: dict[str, Any] = field(default_factory=dict)
+    session_id: str | None = None
+    finish_reason: str | None = None
 
     def to_prediction_dict(self) -> dict[str, str]:
         return {

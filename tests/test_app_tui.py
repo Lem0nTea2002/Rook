@@ -693,10 +693,26 @@ class FakeChatRunner:
     def __init__(self) -> None:
         self.inputs = []
         self.last_display_lines = []
+        self.closed = False
 
     def run_user_turn(self, content: str) -> ChatResponse:
         self.inputs.append(content)
         return ChatResponse(provider="fake", model="fake", content=f"reply:{content}")
+
+    def close(self) -> None:
+        self.closed = True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_closes_candidate_lifecycle_on_unmount() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test():
+        pass
+
+    assert runner.closed is True
 
 
 class FakeDisplayChatRunner(FakeChatRunner):

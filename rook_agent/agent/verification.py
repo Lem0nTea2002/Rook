@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shlex
 
 from rook_agent.tools.types import ToolResult
@@ -15,6 +16,9 @@ _PACKAGE_TEST_COMMANDS = {
     ("cargo", "test"),
 }
 
+_NODE_VERIFICATION_SCRIPTS = frozenset({"build", "lint", "typecheck"})
+_CARGO_VERIFICATION_COMMANDS = frozenset({"build", "check", "clippy", "test"})
+
 
 def is_verification_command(command: str) -> bool:
     """Return True when a shell command looks like a project verification command."""
@@ -25,7 +29,7 @@ def is_verification_command(command: str) -> bool:
     if _has_shell_control_operator(stripped):
         return False
     try:
-        tokens = shlex.split(stripped)
+        tokens = shlex.split(stripped, posix=False)
     except ValueError:
         return False
     if not tokens:
@@ -34,9 +38,26 @@ def is_verification_command(command: str) -> bool:
     executable = _basename(tokens[0])
     if executable == "pytest":
         return True
-    if executable.startswith("python") and len(tokens) >= 3 and tokens[1:3] == ["-m", "pytest"]:
+    if _is_python_executable(executable) and len(tokens) >= 3 and tokens[1:3] == ["-m", "pytest"]:
         return True
     if len(tokens) >= 2 and (_basename(tokens[0]), tokens[1]) in _PACKAGE_TEST_COMMANDS:
+        return True
+    if executable == "ruff" and len(tokens) >= 2 and tokens[1] == "check":
+        return True
+    if executable in {"mypy", "pyright"}:
+        return True
+    if (
+        executable == "npm"
+        and len(tokens) >= 3
+        and tokens[1] == "run"
+        and tokens[2] in _NODE_VERIFICATION_SCRIPTS
+    ):
+        return True
+    if executable in {"pnpm", "yarn"} and len(tokens) >= 2 and tokens[1] in _NODE_VERIFICATION_SCRIPTS:
+        return True
+    if executable == "cargo" and len(tokens) >= 2 and tokens[1] in _CARGO_VERIFICATION_COMMANDS:
+        return True
+    if executable == "go" and len(tokens) >= 2 and tokens[1] in {"build", "test"}:
         return True
     return False
 
@@ -57,8 +78,19 @@ def is_successful_verification_result(tool_name: str, result: ToolResult) -> boo
 
 
 def _basename(value: str) -> str:
-    return value.rsplit("/", 1)[-1]
+    name = value.strip('"\'').replace("\\", "/").rsplit("/", 1)[-1]
+    for suffix in (".exe", ".cmd", ".bat"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def _is_python_executable(value: str) -> bool:
+    return re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", value) is not None
 
 
 def _has_shell_control_operator(command: str) -> bool:
-    return any(operator in command for operator in ("&&", "||", ";", "|", "\n", "&"))
+    return any(
+        operator in command
+        for operator in ("&&", "||", ";", "|", "\n", "&", "$(", "`", "<(", ">(")
+    )

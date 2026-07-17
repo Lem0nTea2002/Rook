@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Mapping
 
+from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evalops.models import AgentType
+from rook_agent.evalops.registry import PromotionRegistry
 from rook_agent.skills.models import SkillCatalog, SkillDefinition, SkillSource
 
 
@@ -35,8 +39,11 @@ def discover_project_skills(project_root: str | Path) -> SkillCatalog:
                 project_agent_skills,
                 root=root,
                 source=SkillSource.PROJECT_AGENT_SKILL,
+                skip_rook_managed=True,
             )
         )
+
+    skills.extend(_discover_managed_rook_skills(root))
 
     return SkillCatalog(skills=_sort_and_dedupe(skills), index_content=index_content)
 
@@ -105,9 +112,17 @@ def _discover_markdown_skills(
     return skills
 
 
-def _discover_agent_skills(directory: Path, *, root: Path, source: SkillSource) -> list[SkillDefinition]:
+def _discover_agent_skills(
+    directory: Path,
+    *,
+    root: Path,
+    source: SkillSource,
+    skip_rook_managed: bool = False,
+) -> list[SkillDefinition]:
     skills: list[SkillDefinition] = []
     for path in sorted(directory.glob("*/SKILL.md")):
+        if skip_rook_managed and (path.parent / ".rook-managed.json").exists():
+            continue
         content = _read_text(path)
         metadata = _frontmatter_metadata(content)
         skills.append(
@@ -118,6 +133,37 @@ def _discover_agent_skills(directory: Path, *, root: Path, source: SkillSource) 
                 root=str(root),
                 description=metadata.get("description") or _first_heading(content) or _first_nonempty_line(content),
                 triggers=_parse_triggers(metadata.get("triggers", "")),
+            )
+        )
+    return skills
+
+
+def _discover_managed_rook_skills(project_root: Path) -> list[SkillDefinition]:
+    registry = PromotionRegistry(project_root)
+    store = CandidateStore(project_root / ".rook" / "skill-registry")
+    skills: list[SkillDefinition] = []
+    for name in registry.skill_names():
+        entry = registry.active_entry(name, AgentType.ROOK)
+        if entry is None:
+            continue
+        version = int(entry["active_version"])
+        candidate = store.get(name, version)
+        if candidate.content_hash != entry.get("skill_content_hash"):
+            raise ValueError("managed Rook Skill content does not match its release")
+        version_root = store.root / name / "candidates" / str(version)
+        skill_path = version_root / "SKILL.md"
+        if skill_path.is_symlink() or not skill_path.is_file():
+            raise ValueError("managed Rook Skill artifact is invalid")
+        skills.append(
+            SkillDefinition(
+                name=name,
+                path="SKILL.md",
+                source=SkillSource.PROJECT_MANAGED,
+                root=str(version_root),
+                description=candidate.bundle.description,
+                triggers=candidate.bundle.triggers,
+                version=version,
+                content_hash=candidate.content_hash,
             )
         )
     return skills
@@ -164,8 +210,20 @@ def _frontmatter_metadata(content: str) -> dict[str, str]:
             break
         key, separator, value = line.partition(":")
         if separator:
-            metadata[key.strip()] = value.strip()
+            decoded = _decode_frontmatter_value(value.strip())
+            if decoded is not None:
+                metadata[key.strip()] = decoded
     return metadata
+
+
+def _decode_frontmatter_value(value: str) -> str | None:
+    if not value.startswith('"'):
+        return value
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return decoded if isinstance(decoded, str) else None
 
 
 def _parse_triggers(value: str) -> tuple[str, ...]:

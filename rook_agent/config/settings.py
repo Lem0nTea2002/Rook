@@ -92,6 +92,15 @@ class AppConfig:
                 return value
         return default
 
+    def get_section_value(self, section: str, name: str, *, default: Any = None) -> Any:
+        """读取嵌套配置原值，项目配置覆盖全局配置。"""
+
+        for config in (self.project_config, self.global_config):
+            section_value = config.get(section) if config else None
+            if isinstance(section_value, dict) and name in section_value:
+                return section_value[name]
+        return default
+
     @property
     def loaded_config_paths(self) -> list[Path]:
         """已经存在并被加载的配置文件路径。"""
@@ -146,9 +155,9 @@ def load_config(
     API key 是否存在；这些 provider 相关规则仍然交给 provider factory。
     """
 
-    load_dotenv()
-    env_snapshot = dict(os.environ if env is None else env)
     root = Path(project_root or os.getcwd()).resolve()
+    load_dotenv(dotenv_path=root / ".env")
+    env_snapshot = dict(os.environ if env is None else env)
     global_path = default_global_config_path()
     project_path = root / PROJECT_CONFIG_NAME
     global_config = _read_toml_file(global_path)

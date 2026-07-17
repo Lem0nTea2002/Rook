@@ -1,0 +1,75 @@
+id = "release-manifest-v2-calibration"
+version = "2"
+policy = "../../policies/rm2-calibration.toml"
+
+[[cases]]
+id = "direct-canonical"
+category = "direct"
+task = "tasks/direct-canonical.md"
+fixture = "fixtures/direct-canonical"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=direct-canonical"]
+timeout_seconds = 15
+
+[[cases]]
+id = "direct-casing"
+category = "direct"
+task = "tasks/direct-casing.md"
+fixture = "fixtures/direct-casing"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=direct-casing"]
+timeout_seconds = 15
+
+[[cases]]
+id = "transfer-release"
+category = "transfer"
+task = "tasks/transfer-release.md"
+fixture = "fixtures/transfer-release"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=transfer-release"]
+timeout_seconds = 15
+
+[[cases]]
+id = "transfer-nested"
+category = "transfer"
+task = "tasks/transfer-nested.md"
+fixture = "fixtures/transfer-nested"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=transfer-nested"]
+timeout_seconds = 15
+
+[[cases]]
+id = "regression-notes"
+category = "regression"
+task = "tasks/regression-notes.md"
+fixture = "fixtures/regression-notes"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=regression-notes"]
+timeout_seconds = 15
+
+[[cases]]
+id = "adversarial-comment"
+category = "adversarial"
+task = "tasks/adversarial-comment.md"
+fixture = "fixtures/adversarial-comment"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=adversarial-comment"]
+timeout_seconds = 15

@@ -8,6 +8,7 @@ from rook_agent.app.runtime import AgentChatRunner
 from rook_agent.config.settings import AppConfig
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.context.llm_compact import LlmCompactService
+from rook_agent.evolution.coordinator import CandidateCoordinator
 from rook_agent.providers.base import ChatProvider
 from rook_agent.providers.types import ChatRequest, ChatResponse, ProviderCapabilities, ToolCall
 from rook_agent.tools.write import create_write_tool
@@ -46,6 +47,7 @@ def test_create_rook_app_wires_session_commands_context_and_chat(tmp_path: Path)
 
     assert isinstance(app.command_handler, CompositeCommandHandler)
     assert isinstance(app.chat_runner, AgentChatRunner)
+    assert app.chat_runner.candidate_coordinator is None
     assert (tmp_path / ".rook" / "sessions" / "sess_test.jsonl").exists()
     assert "Session: sess_test" in app.command_handler.handle("/context").output
     assert "Sessions:" in app.command_handler.handle("/sessions").output
@@ -53,6 +55,28 @@ def test_create_rook_app_wires_session_commands_context_and_chat(tmp_path: Path)
     response = app.chat_runner.run_user_turn("你好")
     assert response.content == "收到"
     assert "项目规则" in provider.requests[0].messages[0].content
+
+
+def test_create_rook_app_wires_candidate_coordinator_only_when_enabled(tmp_path: Path) -> None:
+    config = AppConfig(
+        provider_name="fake",
+        env={},
+        project_config={"evolution": {"enabled": True}},
+    )
+
+    app = create_rook_app(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider([]),
+        session_id="sess_test",
+        tools=[],
+        app_config=config,
+    )
+
+    assert isinstance(app.chat_runner.candidate_coordinator, CandidateCoordinator)
+    assert app.chat_runner.candidate_coordinator.store.root == (
+        tmp_path / ".rook/skill-registry"
+    ).resolve()
 
 
 def test_create_rook_app_wires_new_fork_and_skill_commands(tmp_path: Path) -> None:
@@ -227,7 +251,9 @@ def test_create_rook_app_exposes_task_boundary_in_real_prompt(tmp_path: Path) ->
     descriptions = {tool.name: tool.description for tool in provider.requests[0].tools}
     assert descriptions["task_boundary"].startswith("Report whether the current user message starts a new task")
     assert "Do not provide task hashes" in descriptions["task_boundary"]
-    assert "At the start of every user turn, call task_boundary before answering or using any other tool" in provider.requests[0].messages[0].content
+    system_prompt = provider.requests[0].messages[0].content
+    assert "The runtime classifies every real user turn before this request" in system_prompt
+    assert "At the start of every user turn, call task_boundary" not in system_prompt
 
 
 def test_create_rook_app_wires_l4_service_for_default_context_manager(tmp_path: Path) -> None:
