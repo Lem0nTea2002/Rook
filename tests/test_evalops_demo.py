@@ -10,6 +10,7 @@ from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
 from rook_agent.evalops.adapters.fake import FakeAgentAdapter, FakeAgentScript
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evalops.cli import _proxy_environment
 from rook_agent.evalops.models import (
     AgentTarget,
     AgentType,
@@ -121,6 +122,11 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
     model = os.environ.get("ROOK_CODEX_EVAL_MODEL")
     if not model:
         pytest.skip("set ROOK_CODEX_EVAL_MODEL to record the live target model")
+    environment_allowlist = (
+        _proxy_environment(os.environ)
+        if os.environ.get("ROOK_EVAL_INHERIT_PROXY") == "1"
+        else {}
+    )
     suite = load_eval_suite(_SUITE)
     direct = next(case for case in suite.cases if case.category is CaseCategory.DIRECT)
     policy = replace(
@@ -158,7 +164,12 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
         artifact_store=artifacts,
     )
 
-    summary = service.evaluate_candidate(candidate, suite, (target,))
+    summary = service.evaluate_candidate(
+        candidate,
+        suite,
+        (target,),
+        environment_allowlist=environment_allowlist,
+    )
 
     assert summary.report_json_ref is not None
     target_summary = summary.targets[0]

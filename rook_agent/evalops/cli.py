@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 from collections.abc import Mapping
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
+from urllib.parse import urlsplit
 
 from rook_agent.config import load_config
 from rook_agent.evalops.adapters.base import AgentAdapter, AgentCapabilities
@@ -33,6 +35,9 @@ from rook_agent.evalops.workspace import WorkspaceManager
 
 
 _EVALUATION_ID = re.compile(r"evaluation-[0-9a-f]{32}\Z")
+_PROXY_ENV_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy", "no_proxy"})
+_PROXY_ENDPOINT_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy"})
+_PROXY_SCHEMES = frozenset({"http", "https", "socks5", "socks5h"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +66,8 @@ def run_evalops_command(
             )
             if args.model is not None and AgentType.CODEX not in requested:
                 raise ValueError("--model is only supported when codex is selected")
+            if args.inherit_proxy and AgentType.CODEX not in requested:
+                raise ValueError("--inherit-proxy is only supported when codex is selected")
         deps = dependencies or create_evalops_dependencies(project_root)
         return run_eval_command(args, deps)
     if args.command == "skill":
@@ -172,6 +179,16 @@ def _run_doctor(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
 
 def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     requested = _parse_agents(args.agents)
+    environment_allowlist: dict[str, str] = {}
+    if args.inherit_proxy:
+        environment_allowlist = _proxy_environment(os.environ)
+        if not any(
+            key.casefold() in _PROXY_ENDPOINT_KEYS
+            for key in environment_allowlist
+        ):
+            raise ValueError(
+                "--inherit-proxy requires HTTP_PROXY, HTTPS_PROXY, or ALL_PROXY"
+            )
     candidate = _load_candidate_path(Path(args.skill_path), deps)
     suite = load_eval_suite(Path(args.suite))
     targets = tuple(
@@ -187,6 +204,7 @@ def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> i
         suite,
         targets,
         repetitions=args.repetitions,
+        environment_allowlist=environment_allowlist,
     )
     print(f"evaluation: {summary.evaluation_id}")
     print(f"report: {summary.report_markdown_ref or 'not available'}")
@@ -364,6 +382,23 @@ def _target_for(
         model=target_model,
         adapter_version="evalops-v1",
     )
+
+
+def _proxy_environment(host_environment: Mapping[str, str]) -> dict[str, str]:
+    environment: dict[str, str] = {}
+    for key, value in host_environment.items():
+        folded = key.casefold()
+        if folded not in _PROXY_ENV_KEYS:
+            continue
+        text = value.strip()
+        if not text:
+            continue
+        if folded in _PROXY_ENDPOINT_KEYS:
+            parsed = urlsplit(text)
+            if parsed.scheme.casefold() not in _PROXY_SCHEMES or not parsed.hostname:
+                raise ValueError(f"invalid proxy URL in {key}")
+        environment[key] = text
+    return environment
 
 
 def _unavailable_capabilities() -> AgentCapabilities:

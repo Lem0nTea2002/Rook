@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import uuid
@@ -76,6 +77,7 @@ class EvalOpsService:
         *,
         repetitions: int = 1,
         fast_count_per_category: int = 1,
+        environment_allowlist: Mapping[str, str] | None = None,
     ) -> EvaluationSummary:
         if not targets:
             raise ValueError("at least one target is required")
@@ -96,6 +98,7 @@ class EvalOpsService:
                     fast_count_per_category=fast_count_per_category,
                     fast_policy=fast_policy,
                     full_policy=full_policy,
+                    environment_allowlist=dict(environment_allowlist or {}),
                 )
             )
 
@@ -137,6 +140,7 @@ class EvalOpsService:
         fast_count_per_category: int,
         fast_policy: FastGatePolicy,
         full_policy: PromotionPolicy,
+        environment_allowlist: Mapping[str, str],
     ) -> TargetEvaluationSummary:
         fast_record: ExperimentRecord | None = None
         fast_scorecard: ScoreCard | None = None
@@ -149,6 +153,7 @@ class EvalOpsService:
                 repetitions=repetitions,
                 phase=ExperimentPhase.FAST,
                 fast_count_per_category=fast_count_per_category,
+                environment_allowlist=environment_allowlist,
             )
             fast_record = self._runner.run(fast_plan)
             fast_scorecard = self._scorecards.build(fast_record)
@@ -172,6 +177,7 @@ class EvalOpsService:
                 candidate=candidate,
                 repetitions=repetitions,
                 phase=ExperimentPhase.FULL,
+                environment_allowlist=environment_allowlist,
             )
             full_record = self._runner.run(full_plan)
             full_scorecard = self._scorecards.build(full_record)

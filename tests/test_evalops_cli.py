@@ -11,6 +11,7 @@ from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
 from rook_agent.evalops.cli import (
     EvalOpsCliDependencies,
+    _proxy_environment,
     _target_for,
     run_evalops_command,
 )
@@ -91,6 +92,7 @@ def test_codex_eval_model_is_part_of_target_identity(tmp_path: Path) -> None:
             "codex",
             "--model",
             "gpt-5.6-sol",
+            "--inherit-proxy",
         ]
     )
     deps = _dependencies(
@@ -101,7 +103,31 @@ def test_codex_eval_model_is_part_of_target_identity(tmp_path: Path) -> None:
     target = _target_for(AgentType.CODEX, deps, model=args.model)
 
     assert args.model == "gpt-5.6-sol"
+    assert args.inherit_proxy is True
     assert target.model == "gpt-5.6-sol"
+
+
+def test_proxy_environment_keeps_only_explicit_proxy_keys() -> None:
+    environment = _proxy_environment(
+        {
+            "HTTPS_PROXY": "http://127.0.0.1:10808",
+            "http_proxy": "http://127.0.0.1:10808",
+            "NO_PROXY": "localhost,127.0.0.1",
+            "PATH": "must-not-leak",
+            "OPENAI_API_KEY": "must-not-leak",
+        }
+    )
+
+    assert environment == {
+        "HTTPS_PROXY": "http://127.0.0.1:10808",
+        "http_proxy": "http://127.0.0.1:10808",
+        "NO_PROXY": "localhost,127.0.0.1",
+    }
+
+
+def test_proxy_environment_rejects_non_proxy_urls() -> None:
+    with pytest.raises(ValueError, match="invalid proxy URL"):
+        _proxy_environment({"HTTPS_PROXY": "file:///tmp/not-a-proxy"})
 
 
 def test_main_dispatches_evalops_before_message_handling(tmp_path: Path) -> None:

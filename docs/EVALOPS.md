@@ -43,6 +43,15 @@ rook eval run `
   --allow-costs
 ```
 
+If the network requires a local proxy, set it only for the current process and
+append `--inherit-proxy` to `rook eval run`:
+
+```powershell
+$env:HTTP_PROXY = 'http://127.0.0.1:10808'
+$env:HTTPS_PROXY = 'http://127.0.0.1:10808'
+$env:ALL_PROXY = 'http://127.0.0.1:10808'
+```
+
 Inspect reports and registry state:
 
 ```powershell
@@ -81,7 +90,15 @@ $env:ROOK_CODEX_EVAL_MODEL = 'gpt-5.6-sol'
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_demo.py -k live
 ```
 
+For the opt-in live smoke behind a proxy, also set the three proxy variables
+above and `$env:ROOK_EVAL_INHERIT_PROXY = '1'`.
+
 Do not set these variables in ordinary unit-test or CI jobs.
+
+Rook does not inherit proxy variables by default. `--inherit-proxy` is an
+explicit opt-in and passes only `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and
+`NO_PROXY` variants through the existing Codex environment allowlist. Proxy
+values are not written to process metadata or reports.
 
 ## Portfolio evidence suite
 

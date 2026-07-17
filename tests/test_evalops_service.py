@@ -107,10 +107,12 @@ def _suite(tmp_path: Path) -> EvalSuite:
 class _RecordingRunner:
     def __init__(self) -> None:
         self.calls: list[tuple[AgentType, ExperimentPhase]] = []
+        self.plans = []
 
     def run(self, plan):
         target = plan.runs[0].target
         self.calls.append((target.type, plan.phase))
+        self.plans.append(plan)
         return ExperimentRecord(plan=plan, runs=(), cancelled=False)
 
 
@@ -245,6 +247,35 @@ def test_service_runs_fast_then_full_reports_then_records(tmp_path: Path) -> Non
     assert summary.report_json_ref.endswith("scorecard.json")
     assert summary.report_markdown_ref.endswith("report.md")
     assert registry.decisions == [summary.targets[0].decision]
+
+
+def test_service_propagates_explicit_environment_to_fast_and_full_plans(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    runner = _RecordingRunner()
+    service = _service(
+        tmp_path,
+        scorecards=_StubScoreCards(),
+        registry=_RecordingRegistry(events),
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+    proxy_environment = {"HTTPS_PROXY": "http://127.0.0.1:10808"}
+
+    service.evaluate_candidate(
+        _candidate(),
+        _suite(tmp_path),
+        (_target(AgentType.CODEX),),
+        environment_allowlist=proxy_environment,
+    )
+
+    assert len(runner.plans) == 2
+    assert all(
+        dict(run.environment_allowlist) == proxy_environment
+        for plan in runner.plans
+        for run in plan.runs
+    )
 
 
 def test_fast_rejection_never_runs_full(tmp_path: Path) -> None:

@@ -80,6 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Explicit Codex model recorded in the target fingerprint.",
     )
+    eval_run_parser.add_argument(
+        "--inherit-proxy",
+        action="store_true",
+        help="Explicitly pass configured proxy environment variables to Codex.",
+    )
     eval_run_parser.add_argument("--repetitions", type=_positive_int, default=1)
     eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")

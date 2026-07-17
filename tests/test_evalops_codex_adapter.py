@@ -362,15 +362,24 @@ def test_codex_prepare_inherits_only_execution_and_explicit_auth_environment(
     secret = "sk-explicit-secret-must-not-persist"
 
     prepared = adapter.prepare(
-        _spec(tmp_path, environment={"OPENAI_API_KEY": secret}), workspace
+        _spec(
+            tmp_path,
+            environment={
+                "OPENAI_API_KEY": secret,
+                "HTTPS_PROXY": "http://127.0.0.1:10808",
+            },
+        ),
+        workspace,
     )
 
     assert prepared.environment["PATH"] == r"C:\Windows\System32"
     assert prepared.environment["SystemRoot"] == r"C:\Windows"
     assert prepared.environment["OPENAI_API_KEY"] == secret
+    assert prepared.environment["HTTPS_PROXY"] == "http://127.0.0.1:10808"
     assert "UNRELATED_SECRET" not in prepared.environment
     assert secret not in repr(prepared.metadata)
     assert prepared.metadata["environment_keys"] == (
+        "HTTPS_PROXY",
         "OPENAI_API_KEY",
         "PATH",
         "SystemRoot",
