@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 import os
 from pathlib import Path
 import uuid
@@ -8,22 +9,17 @@ import uuid
 import pytest
 
 from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
-from rook_agent.evalops.adapters.fake import FakeAgentAdapter, FakeAgentScript
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
 from rook_agent.evalops.cli import _proxy_environment
+from rook_agent.evalops.demo import demo_suite_path, run_forge_demo
 from rook_agent.evalops.models import (
     AgentTarget,
     AgentType,
     CaseCategory,
-    PromotionPolicyConfig,
-    PromotionStatus,
-    ReleaseStatus,
     SkillBundle,
-    Treatment,
 )
 from rook_agent.evalops.registry import PromotionRegistry
-from rook_agent.evalops.release import SkillReleaseService, normalizer_fingerprint
 from rook_agent.evalops.report import ReportRenderer
 from rook_agent.evalops.runner import ExperimentRunner
 from rook_agent.evalops.scoring import ScoreCardBuilder
@@ -31,8 +27,6 @@ from rook_agent.evalops.service import EvalOpsService
 from rook_agent.evalops.skills import SkillMaterializer
 from rook_agent.evalops.suites import load_eval_suite
 from rook_agent.evalops.workspace import WorkspaceManager
-from rook_agent.skills.discovery import discover_project_skills
-from rook_agent.skills.models import SkillSource
 
 
 _SUITE = Path(__file__).parents[1] / "evals" / "suites" / "codex-demo" / "suite.toml"
@@ -55,22 +49,8 @@ def _bundle(description: str) -> SkillBundle:
     )
 
 
-def _fake_scripts() -> dict[str | tuple[str, Treatment], FakeAgentScript]:
-    scripts: dict[str | tuple[str, Treatment], FakeAgentScript] = {}
-    for treatment in Treatment:
-        scripts[("direct-01", treatment)] = FakeAgentScript(
-            writes={} if treatment is Treatment.BASELINE else {"result.txt": "ok"}
-        )
-        scripts[("transfer-01", treatment)] = FakeAgentScript(
-            writes={} if treatment is Treatment.BASELINE else {"summary.txt": "alpha=1"}
-        )
-        scripts[("regression-01", treatment)] = FakeAgentScript()
-        scripts[("adversarial-01", treatment)] = FakeAgentScript()
-    return scripts
-
-
 def test_demo_suite_covers_all_four_case_categories() -> None:
-    suite = load_eval_suite(_SUITE)
+    suite = load_eval_suite(demo_suite_path())
 
     assert {case.category for case in suite.cases} == set(CaseCategory)
     assert all(case.network_policy.value == "disabled" for case in suite.cases)
@@ -80,116 +60,26 @@ def test_demo_suite_covers_all_four_case_categories() -> None:
 def test_fake_demo_runs_candidate_to_dual_approval_deployment_and_rollback(
     tmp_path: Path,
 ) -> None:
-    suite = load_eval_suite(_SUITE)
-    candidate_store = CandidateStore(tmp_path / ".rook" / "skill-registry")
-    first = candidate_store.create(_bundle("first deterministic demo candidate"))
-    second = candidate_store.create(_bundle("second deterministic demo candidate"))
-    artifacts = ArtifactStore(tmp_path / ".rook" / "evalops" / "artifacts")
-    adapter = FakeAgentAdapter(scripts=_fake_scripts(), artifact_store=artifacts)
-    runner = ExperimentRunner(
-        adapters={AgentType.ROOK: adapter, AgentType.CODEX: adapter},
-        workspace_manager=WorkspaceManager(tmp_path / ".rook" / "evalops"),
-        materializer=SkillMaterializer(),
-        artifact_store=artifacts,
-    )
-    registry = PromotionRegistry(tmp_path)
-    service = EvalOpsService(
-        runner=runner,
-        scorecard_builder=ScoreCardBuilder(),
-        registry=registry,
-        report_renderer=ReportRenderer(),
-        artifact_store=artifacts,
-    )
-    rook_target = AgentTarget(
-        type=AgentType.ROOK,
-        executable="fake-rook",
-        version="fake-1",
-        model="fake-model",
-        adapter_version="1",
-    )
-    codex_target = replace(
-        rook_target,
-        type=AgentType.CODEX,
-        executable="fake-codex",
-    )
-    targets = (rook_target, codex_target)
+    (tmp_path / ".git").mkdir()
+    result = run_forge_demo(tmp_path / ".rook" / "demo")
 
-    first_summary = service.evaluate_candidate(first, suite, targets)
-    release_service = SkillReleaseService(
-        project_root=tmp_path,
-        candidates=candidate_store,
-        registry=registry,
-    )
-    assert all(item.decision is not None for item in first_summary.targets)
-    assert all(
-        item.decision.status is PromotionStatus.PROMOTED
-        for item in first_summary.targets
-    )
-    assert all(registry.active_version(first.bundle.name, target) is None for target in targets)
-    first_releases = []
-    for item in first_summary.targets:
-        first_releases.append(
-            release_service.approve(
-                skill_name=first.bundle.name,
-                decision_id=item.decision.decision_id,
-                current_target=item.target,
-                suite_fingerprint=suite.fingerprint,
-                policy_fingerprint=suite.policy.fingerprint,
-                normalizer_fingerprint=normalizer_fingerprint("fake-1"),
-                approver="demo-reviewer",
-                reason=f"approve deterministic v1 for {item.target.type.value}",
-            )
-        )
-    discovered_v1 = discover_project_skills(tmp_path).skills
-    assert len(discovered_v1) == 1
-    assert discovered_v1[0].source is SkillSource.PROJECT_MANAGED
-    assert discovered_v1[0].version == 1
-    assert (tmp_path / ".agents" / "skills" / first.bundle.name / "SKILL.md").is_file()
-
-    second_summary = service.evaluate_candidate(second, suite, targets)
-    second_releases = []
-    for item in second_summary.targets:
-        assert item.decision is not None
-        assert item.decision.status is PromotionStatus.PROMOTED
-        assert item.decision.routing_status is (
-            None
-            if item.target.type is AgentType.CODEX
-            else PromotionStatus.QUARANTINED
-        )
-        second_releases.append(
-            release_service.approve(
-                skill_name=second.bundle.name,
-                decision_id=item.decision.decision_id,
-                current_target=item.target,
-                suite_fingerprint=suite.fingerprint,
-                policy_fingerprint=suite.policy.fingerprint,
-                normalizer_fingerprint=normalizer_fingerprint("fake-1"),
-                approver="demo-reviewer",
-                reason=f"approve deterministic v2 for {item.target.type.value}",
-            )
-        )
-
-    rollbacks = [
-        release_service.rollback(
-            skill_name=first.bundle.name,
-            current_target=target,
-            to_version=1,
-            approver="demo-reviewer",
-            reason=f"demonstrate {target.type.value} atomic rollback",
-        )
-        for target in targets
-    ]
-
-    assert all(registry.active_version(first.bundle.name, target) == 1 for target in targets)
-    assert all(item.status is ReleaseStatus.DEPLOYED for item in first_releases)
-    assert all(item.status is ReleaseStatus.DEPLOYED for item in second_releases)
-    assert all(item.status is ReleaseStatus.ROLLED_BACK for item in rollbacks)
-    assert discover_project_skills(tmp_path).skills[0].version == 1
-    installed = tmp_path / ".agents" / "skills" / first.bundle.name / "SKILL.md"
-    assert installed.read_text(encoding="utf-8") == (
-        candidate_store.root / first.bundle.name / "candidates" / "1" / "SKILL.md"
-    ).read_text(encoding="utf-8")
-    assert (tmp_path / ".rook" / "evalops" / "artifacts" / first_summary.report_markdown_ref).is_file()
+    assert result.first_version == 1
+    assert result.second_version == 2
+    assert dict(result.final_active_versions) == {"rook": 1, "codex": 1}
+    assert len(result.report_paths) == 2
+    assert all(path.is_file() for path in result.report_paths)
+    assert result.summary_json.is_file()
+    assert result.summary_markdown.is_file()
+    payload = json.loads(result.summary_json.read_text(encoding="utf-8"))
+    assert payload["demo_kind"] == "offline_fake_agent"
+    assert payload["external_calls"] is False
+    assert payload["model_costs"] is False
+    assert payload["checks"] == {
+        "automatic_gate_did_not_deploy": True,
+        "codex_content_matches_candidate": True,
+        "dual_target_rollback_restored_v1": True,
+        "rook_discovery_matches_registry": True,
+    }
 
 
 @pytest.mark.skipif(

@@ -65,6 +65,8 @@ def run_evalops_command(
 ) -> int:
     project_root = Path(args.project).resolve()
     if args.command == "eval":
+        if args.eval_command == "demo":
+            return _run_demo(args, project_root)
         if args.eval_command == "run":
             requested = _parse_agents(args.agents)
             _parse_families(args.families)
@@ -83,6 +85,24 @@ def run_evalops_command(
         deps = dependencies or create_evalops_dependencies(project_root)
         return run_skill_command(args, deps)
     raise ValueError(f"unsupported EvalOps command: {args.command!r}")
+
+
+def _run_demo(args: argparse.Namespace, project_root: Path) -> int:
+    from rook_agent.evalops.demo import run_forge_demo
+
+    requested = Path(args.output).expanduser()
+    output_root = requested if requested.is_absolute() else project_root / requested
+    result = run_forge_demo(output_root)
+    print("Rook Forge offline demo: completed")
+    print("external calls: false")
+    print("model costs: false")
+    print(f"skill: {result.skill_name}")
+    print("v1: gate passed -> approved -> deployed to rook,codex")
+    print("v2: gate passed -> approved -> deployed to rook,codex")
+    print("rollback: rook,codex -> v1")
+    print(f"run root: {result.run_root}")
+    print(f"summary: {result.summary_markdown}")
+    return 0
 
 
 def create_evalops_dependencies(project_root: Path) -> EvalOpsCliDependencies:

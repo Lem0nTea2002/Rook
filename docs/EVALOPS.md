@@ -11,13 +11,21 @@ Candidate quarantine -> paired exam -> ScoreCard -> automatic gate
 
 ## Deterministic demo
 
-The version-controlled demo suite contains Direct, Transfer, Regression, and Adversarial cases:
+Run the complete product lifecycle with the installed CLI:
+
+```powershell
+rook eval demo
+```
+
+The command creates a unique sandbox below `.rook/forge-demo`, uses the packaged Direct, Transfer, Regression, and Adversarial suite, and writes JSON/Markdown summaries plus immutable evidence. It uses `FakeAgentAdapter`: it does not probe or launch Codex, call a model API, access the network, or create model charges. The demo exercises Candidate storage, paired A/B runs, ScoreCard construction, automatic gate history, human approval, isolated Rook/Codex deployment, immutable release history, and rollback.
+
+The focused regression test is still available:
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_demo.py
 ```
 
-The default test path uses `FakeAgentAdapter`. It does not launch Codex, call a model API, or create model charges. The demo exercises Candidate storage, paired A/B runs, ScoreCard construction, automatic gate history, human approval, Rook/Codex deployment, immutable release history, and rollback.
+See [Offline Demo](DEMO.md) for the artifact layout and expected checkpoints.
 
 ## CLI
 

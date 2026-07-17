@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rook-agent"
-version = "0.1.2"
+version = "0.2.0"
 description = "Rook is a local coding agent with Rook Forge Skill governance."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,4 +28,11 @@ rook = "rook_agent.cli:main"
 include = ["rook_agent*"]
 
 [tool.setuptools.package-data]
-rook_agent = ["context/prompts/*.md", "app/*.tcss"]
+rook_agent = [
+    "context/prompts/*.md",
+    "app/*.tcss",
+    "evalops/demo_assets/evals/policies/*.toml",
+    "evalops/demo_assets/evals/suites/offline-demo/*.toml",
+    "evalops/demo_assets/evals/suites/offline-demo/tasks/*.md",
+    "evalops/demo_assets/evals/suites/offline-demo/fixtures/*/*.txt",
+]

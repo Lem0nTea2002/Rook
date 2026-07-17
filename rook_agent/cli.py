@@ -72,6 +72,14 @@ def build_parser() -> argparse.ArgumentParser:
     eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
     doctor_parser = eval_subparsers.add_parser("doctor", help="Probe Rook Forge Agent capabilities.")
     doctor_parser.add_argument("--agents", default="rook,codex", help="Comma-separated Agents to probe.")
+    demo_parser = eval_subparsers.add_parser(
+        "demo", help="Run the complete offline Rook Forge lifecycle with Fake Agents."
+    )
+    demo_parser.add_argument(
+        "--output",
+        default=".rook/forge-demo",
+        help="Parent directory for the isolated demo run (default: .rook/forge-demo).",
+    )
     eval_run_parser = eval_subparsers.add_parser("run", help="Run a Rook Forge exam for one stored Skill Candidate.")
     eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
     eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")

@@ -13,7 +13,6 @@
   <a href="#tui"><img alt="Textual TUI" src="https://img.shields.io/badge/Textual-TUI-5B5BD6?style=flat-square"></a>
   <a href="#配置"><img alt="OpenAI Compatible" src="https://img.shields.io/badge/OpenAI-Compatible-111827?style=flat-square"></a>
   <a href="#开发"><img alt="pytest" src="https://img.shields.io/badge/pytest-tested-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-  <a href="https://deepwiki.com/KomorGiaoGiao/Rook"><img alt="Ask DeepWiki" src="https://img.shields.io/badge/Ask-DeepWiki-0F7BBF?style=flat-square&labelColor=2B2B2B"></a>
 </p>
 
 <p align="center">
@@ -54,7 +53,16 @@ flowchart LR
 
 仓库内置 12 个版本化简历证据案例，覆盖 Direct、Transfer、Regression、Adversarial，并提供有效、中性、危险三个控制 Candidate。Fake Agent 结果只证明控制面正确。一次获授权的 Codex Calibration 在 5 个完整可比配对中观测到成功率提升 80 个百分点、中位时延降低 27.4%、完整 Token 观测的中位数增加 17.2%；但该轮因基础设施排除率超限被门禁隔离，只能作为校准证据，不能作为 Formal 上线或最终简历结论。
 
+用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
+
+```sh
+rook eval demo
+```
+
+该命令只使用确定性 Fake Agent，并把 Registry、报告、Rook 部署和仓库级 Codex 部署全部隔离写入 `.rook/forge-demo/run-*`。它不会探测或启动 Codex，也不会产生模型或网络调用。
+
 - [EvalOps 使用说明](docs/EVALOPS.md)
+- [离线演示手册](docs/DEMO.md)
 - [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
 
 ## 为什么做 Rook
@@ -119,6 +127,12 @@ rook --message "用一段话介绍这个仓库"
 rook --interactive
 ```
 
+无需配置 Provider、无需消耗模型 Token，直接体验 Rook Forge：
+
+```sh
+rook eval demo
+```
+
 ## 你会得到什么
 
 - 本地 Python coding agent
@@ -169,6 +183,7 @@ Rook 的 TUI 不是为了把 agent loop 藏起来，而是为了把它展示出�
 - [English Docs Index](docs/README.md)
 - [代码阅读指南](docs/CODEBASE_READING_GUIDE.zh-CN.md)
 - [Codex-only Skill EvalOps](docs/EVALOPS.md)
+- [Rook Forge 离线演示](docs/DEMO.md)
 - [简历证据说明](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
 
 ## 开发
