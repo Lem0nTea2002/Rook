@@ -9,7 +9,11 @@ from rook_agent.cli import build_parser, main
 from rook_agent.evalops.adapters.base import AgentCapabilities
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
-from rook_agent.evalops.cli import EvalOpsCliDependencies, run_evalops_command
+from rook_agent.evalops.cli import (
+    EvalOpsCliDependencies,
+    _target_for,
+    run_evalops_command,
+)
 from rook_agent.evalops.models import (
     AgentTarget,
     AgentType,
@@ -72,6 +76,32 @@ def test_eval_run_requires_explicit_agents() -> None:
         )
 
     assert raised.value.code == 2
+
+
+def test_codex_eval_model_is_part_of_target_identity(tmp_path: Path) -> None:
+    args = build_parser().parse_args(
+        [
+            "eval",
+            "run",
+            "--skill-path",
+            "candidate",
+            "--suite",
+            "suite.toml",
+            "--agents",
+            "codex",
+            "--model",
+            "gpt-5.6-sol",
+        ]
+    )
+    deps = _dependencies(
+        tmp_path,
+        {AgentType.CODEX: _ProbeAdapter(_capabilities(AgentType.CODEX))},
+    )
+
+    target = _target_for(AgentType.CODEX, deps, model=args.model)
+
+    assert args.model == "gpt-5.6-sol"
+    assert target.model == "gpt-5.6-sol"
 
 
 def test_main_dispatches_evalops_before_message_handling(tmp_path: Path) -> None:

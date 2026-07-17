@@ -118,6 +118,9 @@ def test_fake_demo_runs_candidate_to_promotion_and_rollback(tmp_path: Path) -> N
 def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Path) -> None:
     if os.environ.get("ROOK_ALLOW_MODEL_COSTS") != "1":
         pytest.skip("set ROOK_ALLOW_MODEL_COSTS=1 to authorize model costs")
+    model = os.environ.get("ROOK_CODEX_EVAL_MODEL")
+    if not model:
+        pytest.skip("set ROOK_CODEX_EVAL_MODEL to record the live target model")
     suite = load_eval_suite(_SUITE)
     direct = next(case for case in suite.cases if case.category is CaseCategory.DIRECT)
     policy = replace(
@@ -138,7 +141,7 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
         type=AgentType.CODEX,
         executable=capabilities.executable_path or "codex",
         version=capabilities.version or "unknown",
-        model=None,
+        model=model,
         adapter_version="evalops-v1",
     )
     registry = PromotionRegistry(tmp_path)
@@ -158,3 +161,15 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
     summary = service.evaluate_candidate(candidate, suite, (target,))
 
     assert summary.report_json_ref is not None
+    target_summary = summary.targets[0]
+    records = tuple(
+        record
+        for record in (target_summary.fast_record, target_summary.full_record)
+        if record is not None
+    )
+    run_count = sum(len(record.runs) for record in records)
+    assert 1 <= run_count <= 8
+    print(f"live_smoke_evaluation={summary.evaluation_id}")
+    print(f"live_smoke_model={target.model}")
+    print(f"live_smoke_runs={run_count}")
+    print(f"live_smoke_report={artifacts.root / summary.report_json_ref}")

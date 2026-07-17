@@ -67,6 +67,10 @@ fingerprint, policy fingerprint, target/model version, repetition count,
 infrastructure exclusions, immutable report path, and exact authorization
 state together with any metric.
 
+Pass the Codex model explicitly with `rook eval run --model <model>` or set
+`ROOK_CODEX_EVAL_MODEL` for the opt-in live smoke. The model is included in the
+target fingerprint instead of relying on ignored user configuration.
+
 ## Resume-safe claim boundary
 
 Safe now:

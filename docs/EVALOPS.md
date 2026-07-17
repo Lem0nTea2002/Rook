@@ -38,6 +38,7 @@ rook eval run `
   --skill-path .rook\skill-registry\example\candidates\1 `
   --suite evals\suites\codex-demo\suite.toml `
   --agents rook,codex `
+  --model gpt-5.6-sol `
   --allow-external `
   --allow-costs
 ```
@@ -76,6 +77,7 @@ Live Codex smoke tests remain skipped unless external execution and costs are se
 ```powershell
 $env:ROOK_RUN_EXTERNAL_EVALS = '1'
 $env:ROOK_ALLOW_MODEL_COSTS = '1'
+$env:ROOK_CODEX_EVAL_MODEL = 'gpt-5.6-sol'
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_demo.py -k live
 ```
 

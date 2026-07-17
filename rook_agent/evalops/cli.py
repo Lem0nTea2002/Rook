@@ -59,6 +59,8 @@ def run_evalops_command(
                 allow_external=args.allow_external,
                 allow_costs=args.allow_costs,
             )
+            if args.model is not None and AgentType.CODEX not in requested:
+                raise ValueError("--model is only supported when codex is selected")
         deps = dependencies or create_evalops_dependencies(project_root)
         return run_eval_command(args, deps)
     if args.command == "skill":
@@ -172,7 +174,14 @@ def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> i
     requested = _parse_agents(args.agents)
     candidate = _load_candidate_path(Path(args.skill_path), deps)
     suite = load_eval_suite(Path(args.suite))
-    targets = tuple(_target_for(agent_type, deps) for agent_type in requested)
+    targets = tuple(
+        _target_for(
+            agent_type,
+            deps,
+            model=args.model if agent_type is AgentType.CODEX else None,
+        )
+        for agent_type in requested
+    )
     summary = deps.service.evaluate_candidate(
         candidate,
         suite,
@@ -327,7 +336,12 @@ def _registered_target(
     raise ValueError("active target has no immutable decision history")
 
 
-def _target_for(agent_type: AgentType, deps: EvalOpsCliDependencies) -> AgentTarget:
+def _target_for(
+    agent_type: AgentType,
+    deps: EvalOpsCliDependencies,
+    *,
+    model: str | None = None,
+) -> AgentTarget:
     adapter = deps.adapters.get(agent_type)
     if adapter is None:
         raise ValueError(f"adapter is not configured: {agent_type.value}")
@@ -335,19 +349,19 @@ def _target_for(agent_type: AgentType, deps: EvalOpsCliDependencies) -> AgentTar
         capabilities = adapter.probe()
     except Exception:
         capabilities = _unavailable_capabilities()
-    model = None
+    target_model = model
     if agent_type is AgentType.ROOK:
         try:
             config = load_config(None, project_root=deps.project_root)
             model_value = config.get_config_value("model") or config.get_env("ROOK_MODEL")
-            model = model_value or None
+            target_model = model_value or None
         except Exception:
-            model = None
+            target_model = None
     return AgentTarget(
         type=agent_type,
         executable=capabilities.executable_path or agent_type.value,
         version=capabilities.version or "unavailable",
-        model=model,
+        model=target_model,
         adapter_version="evalops-v1",
     )
 

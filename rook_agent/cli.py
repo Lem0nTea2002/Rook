@@ -49,6 +49,13 @@ def read_message(message: str | None, *, stdin_text: str | None = None) -> str:
     return text.strip()
 
 
+def _nonempty_text(value: str) -> str:
+    text = value.strip()
+    if not text:
+        raise argparse.ArgumentTypeError("value must not be empty")
+    return text
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a single Rook user turn.")
     subparsers = parser.add_subparsers(dest="command")
@@ -67,6 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
     eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
     eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")
     eval_run_parser.add_argument("--agents", required=True, help="Comma-separated Agents to evaluate.")
+    eval_run_parser.add_argument(
+        "--model",
+        type=_nonempty_text,
+        default=None,
+        help="Explicit Codex model recorded in the target fingerprint.",
+    )
     eval_run_parser.add_argument("--repetitions", type=_positive_int, default=1)
     eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")

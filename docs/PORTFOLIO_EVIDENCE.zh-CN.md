@@ -53,6 +53,8 @@ rook skill status release-manifest-normalizer
 
 12 个案例至少重复 3 次。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
 
+正式执行使用 `rook eval run --model <model>` 显式指定 Codex 模型；可选 live smoke 使用 `ROOK_CODEX_EVAL_MODEL`。模型会进入目标指纹，不能依赖被隔离执行忽略的用户配置。
+
 ## 简历表述边界
 
 现在可以写：
