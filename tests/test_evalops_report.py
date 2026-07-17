@@ -54,6 +54,8 @@ def _scorecard(target: AgentTarget) -> ScoreCard:
         "baseline_success_rate": 0.5,
         "candidate_success_rate": 1.0,
         "paired_success_improvement": 0.5,
+        "baseline_tokens": {"count": 1, "median": 1200.0},
+        "candidate_tokens": {"count": 1, "median": 900.0},
         "routing_precision": None,
         "routing_recall": None,
         "efficiency_improvement": None,
@@ -174,3 +176,6 @@ def test_report_writer_persists_json_and_markdown_artifacts(tmp_path: Path) -> N
     assert artifacts.markdown_ref == "reports/evaluation-1/report.md"
     assert (tmp_path / artifacts.json_ref).is_file()
     assert (tmp_path / artifacts.markdown_ref).is_file()
+    payload = json.loads((tmp_path / artifacts.json_ref).read_text(encoding="utf-8"))
+    assert payload["targets"][0]["metrics"]["baseline_tokens"]["median"] == 1200.0
+    assert payload["targets"][0]["metrics"]["candidate_tokens"]["median"] == 900.0

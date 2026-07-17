@@ -57,8 +57,8 @@ class ReportRenderer:
         self, summary: EvaluationSummary, artifact_store: ArtifactStore
     ) -> ReportArtifacts:
         root = Path("reports") / summary.evaluation_id
-        json_ref = artifact_store.write_text(
-            root / "scorecard.json", self.render_json(summary)
+        json_ref = artifact_store.write_json(
+            root / "scorecard.json", _summary_payload(summary)
         )
         markdown_ref = artifact_store.write_text(
             root / "report.md", self.render_markdown(summary)

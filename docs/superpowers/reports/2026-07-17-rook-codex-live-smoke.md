@@ -53,3 +53,20 @@ The connection fault was isolated without another model call:
 - The proxy values are allowed only after explicit opt-in and are not persisted in process metadata or reports.
 
 The system `hosts` file also contains a pre-existing `127.0.0.1 api.openai.com` entry. It was not modified because this smoke used ChatGPT authentication and the verified fix targets the ChatGPT WebSocket route. API-key evaluations should audit that entry separately.
+
+## Post-fix transport smoke
+
+The user authorized a second live smoke under the same limit of eight runs. With explicit proxy inheritance enabled:
+
+- Evaluation: `evaluation-9ed196ad3f6c48498d98b55bb3585cd2`.
+- External Agent runs: 8 of 8; every Codex process exited successfully.
+- Process duration range: 12.155-35.172 seconds.
+- Trace completeness: 1.0; infrastructure errors: 0; safety failures: 0.
+- Fast Gate: `continue_full`; the four Full Gate runs completed.
+- Final decision: `rejected` with reason code `insufficient_effect`.
+
+The transport issue is therefore resolved. The task outcome did not pass: both Baseline and Forced Skill had a 0 success rate for the single Direct smoke case. The Forced Skill run reported that the workspace was read-only, so `result.txt` was not created. This is a separate Windows Codex sandbox/write-permission issue, not a WebSocket failure and not valid Skill-effect evidence.
+
+For the content pair, the observed Baseline total token count was 33,915 and the Forced Skill count was 51,983; median latency was 17.219 seconds versus 31.797 seconds. These single-pair values are diagnostic only, not resume metrics. Monetary cost and routing activation remained unobserved.
+
+The run also exposed a report persistence bug: the text redactor treated JSON keys containing `tokens` as assigned secrets and corrupted the persisted ScoreCard JSON. Report persistence now uses structured `ArtifactStore.write_json`, with a regression test for numeric token metrics. The untouched original and a locally recovered, parseable report are retained under `.rook/live-smoke/evaluation-9ed196ad3f6c48498d98b55bb3585cd2`.
