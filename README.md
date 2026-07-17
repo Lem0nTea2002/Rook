@@ -13,7 +13,6 @@
   <a href="#tui"><img alt="Textual TUI" src="https://img.shields.io/badge/Textual-TUI-5B5BD6?style=flat-square"></a>
   <a href="#configuration"><img alt="OpenAI Compatible" src="https://img.shields.io/badge/OpenAI-Compatible-111827?style=flat-square"></a>
   <a href="#development"><img alt="pytest" src="https://img.shields.io/badge/pytest-tested-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
-  <a href="https://deepwiki.com/KomorGiaoGiao/Rook"><img alt="Ask DeepWiki" src="https://img.shields.io/badge/Ask-DeepWiki-0F7BBF?style=flat-square&labelColor=2B2B2B"></a>
 </p>
 
 <p align="center">
@@ -54,7 +53,16 @@ flowchart LR
 
 The version-controlled portfolio suite contains 12 Direct, Transfer, Regression, and Adversarial cases plus effective, neutral, and unsafe controls. Fake Agent results prove the control plane only. An authorized five-pair Codex Calibration observed +80 percentage points success, 27.4% lower median latency, and 17.2% more median tokens among complete observations, but the gate quarantined that run for excessive infrastructure exclusions. It is calibration evidence, not a Formal release or resume conclusion.
 
+Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
+
+```sh
+rook eval demo
+```
+
+The command uses deterministic Fake Agents only and writes its isolated Registry, reports, Rook deployment, and repository-level Codex deployment below `.rook/forge-demo/run-*`. It never probes or launches Codex and makes no model or network call.
+
 - [EvalOps usage](docs/EVALOPS.md)
+- [Offline demo walkthrough](docs/DEMO.md)
 - [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
 
 ## Why Rook
@@ -119,6 +127,12 @@ Use line-oriented interactive mode:
 rook --interactive
 ```
 
+Try Rook Forge without configuring a provider or spending model tokens:
+
+```sh
+rook eval demo
+```
+
 ## What You Get
 
 - Local Python coding agent
@@ -171,6 +185,7 @@ Conversation flow:
 - [Chinese Docs Index](docs/README.zh-CN.md)
 - [Codebase Reading Guide](docs/CODEBASE_READING_GUIDE.md)
 - [Codex-only Skill EvalOps](docs/EVALOPS.md)
+- [Offline Rook Forge Demo](docs/DEMO.md)
 - [Portfolio Evidence](docs/PORTFOLIO_EVIDENCE.md)
 
 ## Development

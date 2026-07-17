@@ -36,6 +36,7 @@ from rook_agent.evalops.suites import load_eval_suite
     ("argv", "command", "subcommand"),
     [
         (["eval", "doctor"], "eval", "doctor"),
+        (["eval", "demo"], "eval", "demo"),
         (
             [
                 "eval",
@@ -243,6 +244,22 @@ def test_main_maps_evalops_validation_to_usage_error(capsys) -> None:
 
     assert exit_code == 2
     assert "explicit authorization required" in capsys.readouterr().err
+
+
+def test_eval_demo_runs_offline_without_regular_adapter_dependencies(
+    tmp_path: Path, capsys
+) -> None:
+    exit_code = main(["--project", str(tmp_path), "eval", "demo"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "Rook Forge offline demo: completed" in output
+    assert "external calls: false" in output
+    assert "model costs: false" in output
+    runs = tuple((tmp_path / ".rook" / "forge-demo").glob("run-*"))
+    assert len(runs) == 1
+    assert (runs[0] / "demo-summary.json").is_file()
+    assert (runs[0] / "demo-summary.md").is_file()
 
 
 class _ProbeAdapter:
