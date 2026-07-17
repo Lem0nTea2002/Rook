@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
@@ -290,7 +290,8 @@ class Usage:
     cached_input_tokens: int | None = None
 
 
-_EMPTY_MAPPING: Mapping[str, object] = MappingProxyType({})
+def _empty_mapping() -> Mapping[str, object]:
+    return MappingProxyType({})
 
 
 @dataclass(frozen=True, slots=True)
@@ -306,7 +307,7 @@ class NormalizedEvent:
     input_summary: str | None = None
     ok: bool | None = None
     exit_code: int | None = None
-    data: Mapping[str, object] = _EMPTY_MAPPING
+    data: Mapping[str, object] = field(default_factory=_empty_mapping)
     redacted: bool = False
 
     def __post_init__(self) -> None:

@@ -1,4 +1,4 @@
-from dataclasses import FrozenInstanceError, fields, is_dataclass
+from dataclasses import MISSING, FrozenInstanceError, fields, is_dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -431,6 +431,22 @@ def test_mapping_inputs_are_defensively_frozen() -> None:
     assert event.data["tool"]["name"] == "shell"  # type: ignore[index]
     with pytest.raises(TypeError):
         evaluator.options["command"] = ()  # type: ignore[index]
+
+
+def test_normalized_event_default_data_uses_readonly_factory() -> None:
+    data_field = next(item for item in fields(NormalizedEvent) if item.name == "data")
+
+    assert data_field.default is MISSING
+    assert data_field.default_factory is not MISSING
+    event = NormalizedEvent(
+        sequence=1,
+        type="assistant_message",
+        agent_type=AgentType.ROOK,
+        agent_version="0.1.2",
+    )
+    assert dict(event.data) == {}
+    with pytest.raises(TypeError):
+        event.data["unexpected"] = True  # type: ignore[index]
 
 
 def test_scorecard_and_run_spec_freeze_mapping_inputs() -> None:
