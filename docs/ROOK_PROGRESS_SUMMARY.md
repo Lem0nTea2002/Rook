@@ -16,7 +16,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 - 分支：`feature/rook-forge`
 - 工作树：`Rook/.worktrees/rook-forge`
-- 最新 RM-2 套件提交：`6d41dd9 feat: add RM-2 differential Skill benchmark`
+- 最新 RM-2 控制提交：`28c2575 test: validate RM-2 evidence controls`
 
 ## 已完成功能
 
@@ -63,6 +63,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 - `b7c246b`：增加有界实验 family、phase 和 measurement-only 控制。
 - `4dee29f`：增加能力/保持性分层 ScoreCard 与正式门禁。
 - `6d41dd9`：增加 RM-2 差异化 Skill 基准、隐藏 Validator 和分阶段策略。
+- `28c2575`：增加 RM-2 Fake 控制、报告断言、调用数证明和证据文档。
 
 ## 当前验证结果
 
@@ -71,7 +72,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 - Task 14 新增与直接依赖专项：`323 passed`。
 - Windows/安全硬化专项：`295 passed, 3 skipped`。
 - 历史失败维护直接回归：`131 passed`。
-- 完整核心基线（排除可选 EvalPlus）：`1596 passed, 10 skipped`，零失败。
+- 完整核心基线（排除可选 EvalPlus）：`1637 passed, 10 skipped`，零失败。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
