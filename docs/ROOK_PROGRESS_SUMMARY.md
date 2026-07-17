@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-17
+更新时间：2026-07-18
 
 ## 项目定位
 
@@ -14,9 +14,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 分支：`feature/rook-forge`
+- 分支：`agent/rook-forge-v0.2.0`
 - 工作树：`Rook/.worktrees/rook-forge`
-- 当前产品化改动：工作树中待提交，包含 Registry v2、人工审批、双目标发布和 `/forge`。
+- Rook Forge 产品化主线已通过 PR #1 合并到 `main`，合并提交为 `6f6a9d8`。
+- 当前改动：v0.2.0 发布候选，包含一键离线演示、发布文档和 Actions 硬化。
 
 ## 已完成功能
 
@@ -48,6 +49,8 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 26. Codex 发布采用每 Skill 文件锁、同级 staging/backup、事务 journal、崩溃恢复、漂移检测和 Windows 临时文件占用有界重试；不覆盖非 Rook 管理目录。
 27. 新增 `rook skill approve/history`，升级 status/rollback/export，并提供只读 `/forge` 状态页。
 28. Codex EvalOps 显式设置 `web_search="disabled"` 与 `sandbox_workspace_write.network_access=false`；禁网运行出现 Web Search 会成为安全策略违规。
+29. `rook eval demo` 使用打包的四类 Suite 和 Fake Agent，在独立 run 目录内完整演示 Candidate → 门禁 → 人工审批 → Rook/Codex 部署 → v2 替换 → 双目标原子回滚。
+30. 补齐 `CHANGELOG.md`、`SECURITY.md`、`CONTRIBUTING.md`、中英双语 Demo 手册和已安装 wheel 冒烟；GitHub Actions 升级到当前 Node 24 主版本。
 
 ## 关键提交
 
@@ -73,9 +76,9 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前 Rook Forge/EvalOps 专项：`439 passed, 7 skipped`。
-- 当前 EvalOps + evolution 联合专项：`669 passed, 7 skipped`。
-- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1675 passed, 10 skipped`，用时 `247.69s`；运行时显式关闭外部评测和模型费用。
+- 当前一键演示与 EvalOps CLI 定向验证：`28 passed, 1 skipped`；skip 为未授权的真实 Codex smoke。
+- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1677 passed, 10 skipped`，用时 `405.77s`；运行时显式关闭外部评测和模型费用。
+- `rook-agent 0.2.0` wheel 已实际构建、安装并从 console script 跑通 `rook eval demo`；打包资源、仓库祖先隔离和双目标回滚均通过。
 - GitHub Actions Python 3.11 双平台门禁 [run 29583269292](https://github.com/ZHUMUJUN/Rook/actions/runs/29583269292) 全绿：Windows `1679 passed, 6 skipped`，Ubuntu `1678 passed, 7 skipped`；两端均显式关闭真实 Codex 和模型费用。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
@@ -89,12 +92,12 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 审阅并合并 `feature/rook-forge`。
+1. 完成 v0.2.0 PR 的 Windows/Linux 远端 CI，合并后创建 `v0.2.0` 标签。
 2. 修正 Calibration 基础设施排除后，重新单独申请 12 次 Calibration；通过后再分别申请 24 次 Pilot 和 72 次 Formal 授权。
 3. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
 ## 当前停点
 
-Rook Forge 产品闭环已经形成：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
+Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
 手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。现有 Calibration 已如实记录但因基础设施排除被隔离；最终简历成功率、Token 和时延仍必须等待 72-call Formal，成本在 Codex 不提供费用字段时继续写 `not observed`。

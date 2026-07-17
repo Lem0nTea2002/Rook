@@ -32,16 +32,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install project and test dependencies
         run: python -m pip install --upgrade pip ".[dev]"
+
+      - name: Smoke test installed CLI and offline Forge demo
+        run: |
+          rook --help
+          rook eval demo --output .rook/ci-demo
 
       - name: Run offline test suite
         run: python -m pytest -q --ignore=tests/test_evalplus_benchmark.py
