@@ -130,6 +130,24 @@ class EvalOpsService:
             report_json_ref=artifacts.json_ref,
             report_markdown_ref=artifacts.markdown_ref,
         )
+        summary = replace(
+            summary,
+            targets=tuple(
+                replace(
+                    item,
+                    decision=(
+                        None
+                        if item.decision is None
+                        else replace(
+                            item.decision,
+                            evaluation_id=summary.evaluation_id,
+                            report_ref=artifacts.markdown_ref,
+                        )
+                    ),
+                )
+                for item in summary.targets
+            ),
+        )
 
         if not record_decisions:
             return summary

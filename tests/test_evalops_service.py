@@ -482,6 +482,7 @@ def test_fake_agent_service_runs_candidate_to_registry_without_network(tmp_path:
     summary = service.evaluate_candidate(_candidate(), suite, (_target(),))
 
     assert summary.targets[0].decision.status is PromotionStatus.PROMOTED
-    assert registry.active_version("service-skill", AgentType.ROOK) == 1
+    assert registry.eligible_version("service-skill", AgentType.ROOK) == 1
+    assert registry.active_version("service-skill", AgentType.ROOK) is None
     assert (tmp_path / "artifacts" / summary.report_json_ref).is_file()
     assert (tmp_path / "artifacts" / summary.report_markdown_ref).is_file()

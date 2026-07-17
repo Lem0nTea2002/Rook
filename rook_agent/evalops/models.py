@@ -79,6 +79,17 @@ class PromotionStatus(StrEnum):
     ROLLED_BACK = "rolled_back"
 
 
+class ReleaseAction(StrEnum):
+    DEPLOY = "deploy"
+    ROLLBACK = "rollback"
+
+
+class ReleaseStatus(StrEnum):
+    DEPLOYED = "deployed"
+    ROLLED_BACK = "rolled_back"
+    FAILED = "failed"
+
+
 class FastGateStatus(StrEnum):
     CONTINUE_FULL = "continue_full"
     REJECTED = "rejected"
@@ -439,6 +450,51 @@ class PromotionDecision:
     suite_fingerprint: str | None = None
     policy_fingerprint: str | None = None
     normalizer_fingerprint: str | None = None
+    evaluation_id: str | None = None
+    report_ref: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalRecord:
+    approval_id: str
+    decision_id: str
+    skill_name: str
+    skill_version: int
+    target: AgentTarget
+    approver: str
+    reason: str
+    created_at: str
+    skill_content_hash: str
+    suite_fingerprint: str
+    policy_fingerprint: str
+    normalizer_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class DeploymentReceipt:
+    destination: str
+    content_hash: str
+    deployment_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseRecord:
+    release_id: str
+    action: ReleaseAction
+    status: ReleaseStatus
+    skill_name: str
+    from_version: int | None
+    to_version: int
+    target: AgentTarget
+    approver: str
+    reason: str
+    created_at: str
+    approval_id: str | None
+    decision_id: str
+    destination: str
+    skill_content_hash: str
+    deployment_hash: str
+    error_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,6 +11,7 @@ from rook_agent.context.identity import content_fingerprint, stable_json_hash
 class SkillSource(StrEnum):
     PROJECT_MARKDOWN = "project_markdown"
     PROJECT_AGENT_SKILL = "project_agent_skill"
+    PROJECT_MANAGED = "project_managed"
     GLOBAL_MARKDOWN = "global_markdown"
     GLOBAL_AGENT_SKILL = "global_agent_skill"
 
@@ -23,10 +24,16 @@ class SkillDefinition:
     root: str
     description: str = ""
     triggers: tuple[str, ...] = ()
+    version: int | None = None
+    content_hash: str | None = None
 
     @property
     def scope(self) -> str:
-        if self.source in {SkillSource.PROJECT_MARKDOWN, SkillSource.PROJECT_AGENT_SKILL}:
+        if self.source in {
+            SkillSource.PROJECT_MARKDOWN,
+            SkillSource.PROJECT_AGENT_SKILL,
+            SkillSource.PROJECT_MANAGED,
+        }:
             return "project"
         return "global"
 
@@ -80,6 +87,8 @@ class SkillCatalog:
                         "root": skill.root,
                         "description": skill.description,
                         "triggers": list(skill.triggers),
+                        "version": skill.version,
+                        "content_hash": skill.content_hash,
                     }
                     for skill in self.skills
                 ],

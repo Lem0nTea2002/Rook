@@ -8,6 +8,7 @@ from rook_agent.evalops import (
     AgentRun,
     AgentTarget,
     AgentType,
+    ApprovalRecord,
     CandidateOrigin,
     CandidateStatus,
     CaseCategory,
@@ -24,6 +25,10 @@ from rook_agent.evalops import (
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
+    DeploymentReceipt,
+    ReleaseAction,
+    ReleaseRecord,
+    ReleaseStatus,
     RunSpec,
     RunStatus,
     ScoreCard,
@@ -87,6 +92,11 @@ def test_evalops_protocol_has_stable_status_values() -> None:
     assert PromotionStatus.PROMOTED.value == "promoted"
     assert PromotionStatus.REJECTED.value == "rejected"
     assert PromotionStatus.QUARANTINED.value == "quarantined"
+    assert ReleaseAction.DEPLOY.value == "deploy"
+    assert ReleaseAction.ROLLBACK.value == "rollback"
+    assert ReleaseStatus.DEPLOYED.value == "deployed"
+    assert ReleaseStatus.ROLLED_BACK.value == "rolled_back"
+    assert ReleaseStatus.FAILED.value == "failed"
     assert PromotionStatus.STALE.value == "stale"
     assert PromotionStatus.ROLLED_BACK.value == "rolled_back"
 
@@ -247,6 +257,39 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "skill_content_hash",
             "normalizer_fingerprint",
         ),
+        ApprovalRecord: (
+            "approval_id",
+            "decision_id",
+            "skill_name",
+            "skill_version",
+            "target",
+            "approver",
+            "reason",
+            "created_at",
+            "skill_content_hash",
+            "suite_fingerprint",
+            "policy_fingerprint",
+            "normalizer_fingerprint",
+        ),
+        DeploymentReceipt: ("destination", "content_hash", "deployment_hash"),
+        ReleaseRecord: (
+            "release_id",
+            "action",
+            "status",
+            "skill_name",
+            "from_version",
+            "to_version",
+            "target",
+            "approver",
+            "reason",
+            "created_at",
+            "approval_id",
+            "decision_id",
+            "destination",
+            "skill_content_hash",
+            "deployment_hash",
+            "error_code",
+        ),
         PromotionDecision: (
             "skill_name",
             "skill_version",
@@ -263,6 +306,8 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "suite_fingerprint",
             "policy_fingerprint",
             "normalizer_fingerprint",
+            "evaluation_id",
+            "report_ref",
         ),
         EvaluationResult: (
             "status",

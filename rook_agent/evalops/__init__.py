@@ -4,6 +4,7 @@ from rook_agent.evalops.models import (
     AgentRun,
     AgentTarget,
     AgentType,
+    ApprovalRecord,
     CandidateOrigin,
     CandidateStatus,
     CaseCategory,
@@ -20,6 +21,10 @@ from rook_agent.evalops.models import (
     NormalizedTrace,
     PromotionDecision,
     PromotionStatus,
+    DeploymentReceipt,
+    ReleaseAction,
+    ReleaseRecord,
+    ReleaseStatus,
     RunSpec,
     RunStatus,
     ScoreCard,
@@ -33,6 +38,7 @@ from rook_agent.evalops.suites import load_eval_suite
 from rook_agent.evalops.scoring import ScoreCardBuilder
 from rook_agent.evalops.policy import FastGatePolicy, PromotionPolicy
 from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.release import SkillReleaseService
 from rook_agent.evalops.report import ReportArtifacts, ReportRenderer
 from rook_agent.evalops.service import (
     EvalOpsService,
@@ -44,6 +50,7 @@ __all__ = [
     "AgentRun",
     "AgentTarget",
     "AgentType",
+    "ApprovalRecord",
     "CandidateOrigin",
     "CandidateStatus",
     "CaseCategory",
@@ -67,12 +74,17 @@ __all__ = [
     "ReportArtifacts",
     "ReportRenderer",
     "PromotionStatus",
+    "DeploymentReceipt",
+    "ReleaseAction",
+    "ReleaseRecord",
+    "ReleaseStatus",
     "RunSpec",
     "RunStatus",
     "ScoreCard",
     "ScoreCardBuilder",
     "SkillBundle",
     "SkillCandidate",
+    "SkillReleaseService",
     "Treatment",
     "TreatmentFamily",
     "TargetEvaluationSummary",
