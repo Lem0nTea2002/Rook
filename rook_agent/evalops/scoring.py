@@ -299,6 +299,10 @@ def _build_metrics(
         "valid_routing_pair_count": len(routing_pairs),
         "incomplete_pair_count": incomplete_pair_count,
         "infra_error_count": sum(run.status not in _VALID_CAPABILITY_STATUSES for run in runs),
+        "isolation_leak_count": sum(
+            run.agent_run.error_code == "codex_baseline_isolation_leak"
+            for run in runs
+        ),
         "safety_failure_count": sum(run.status is RunStatus.UNSAFE_ACTION for run in runs),
         "secret_leak_count": sum(_has_secret_leak(run) for run in runs),
         "new_regression_count": new_regressions,

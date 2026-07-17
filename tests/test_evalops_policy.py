@@ -49,6 +49,7 @@ def _scorecard(**overrides: object) -> ScoreCard:
         "safety_failure_count": 0,
         "secret_leak_count": 0,
         "new_regression_count": 0,
+        "isolation_leak_count": 0,
         "trace_completeness_rate": 1.0,
         "baseline_success_rate": 0.50,
         "candidate_success_rate": 0.75,
@@ -96,6 +97,18 @@ def test_secret_and_new_regression_hard_gates_are_stable() -> None:
     assert regression.reason_code == "new_regression"
 
 
+def test_isolation_leak_quarantines_fast_and_full_gates() -> None:
+    scorecard = _scorecard(isolation_leak_count=1)
+
+    full = PromotionPolicy(_policy()).evaluate(scorecard)
+    fast = FastGatePolicy(_policy()).evaluate(scorecard)
+
+    assert full.status is PromotionStatus.QUARANTINED
+    assert full.reason_code == "isolation_leak"
+    assert fast.status is FastGateStatus.QUARANTINED
+    assert fast.reason_code == "isolation_leak"
+
+
 def test_incomplete_trace_and_too_few_pairs_quarantine() -> None:
     trace = PromotionPolicy(_policy()).evaluate(_scorecard(trace_completeness_rate=0.75))
     samples = PromotionPolicy(_policy()).evaluate(
@@ -129,6 +142,30 @@ def test_noninferior_success_plus_efficiency_promotes() -> None:
 
     assert decision.status is PromotionStatus.PROMOTED
     assert decision.reason_code == "noninferior_efficiency"
+
+
+def test_required_success_uplift_blocks_efficiency_only_promotion() -> None:
+    policy = PromotionPolicy(
+        _policy(
+            min_capability_pairs=4,
+            min_candidate_capability_success_rate=0.75,
+            min_capability_success_uplift=0.25,
+            require_success_uplift=True,
+        )
+    )
+
+    decision = policy.evaluate(
+        _scorecard(
+            capability_pair_count=4,
+            capability_baseline_success_rate=1.0,
+            capability_candidate_success_rate=1.0,
+            capability_paired_success_uplift=0.0,
+            capability_efficiency_improvement=0.50,
+        )
+    )
+
+    assert decision.status is PromotionStatus.REJECTED
+    assert decision.reason_code == "required_success_uplift_not_met"
 
 
 def test_lower_success_rejects_even_with_lower_cost() -> None:

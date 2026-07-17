@@ -122,6 +122,7 @@ def _evaluated_run(
     cost_usd: Decimal | None = None,
     trace: NormalizedTrace | None = None,
     routing_relevant: bool | None = None,
+    error_code: str | None = None,
 ) -> EvaluatedRun:
     skill = None if treatment is Treatment.BASELINE else _candidate()
     spec = RunSpec(
@@ -160,6 +161,7 @@ def _evaluated_run(
         cost_usd=cost_usd,
         latency_ms=latency_ms,
         trace_complete=normalized.trace_complete,
+        error_code=error_code,
     )
     return EvaluatedRun(
         spec=spec,
@@ -480,3 +482,31 @@ def test_capability_metrics_exclude_preservation_and_infrastructure_runs() -> No
     assert metrics["infra_exclusion_count"] == 1
     assert metrics["infra_exclusion_rate"] == 0.25
     assert metrics["cost_observed"] is False
+
+
+def test_scorecard_counts_baseline_isolation_leaks() -> None:
+    target = _target(AgentType.CODEX)
+    case = _case("direct", CaseCategory.DIRECT)
+    runs = (
+        _evaluated_run(
+            target=target,
+            case=case,
+            pair_id="leaked",
+            treatment=Treatment.BASELINE,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.INFRA_ERROR,
+            error_code="codex_baseline_isolation_leak",
+        ),
+        _evaluated_run(
+            target=target,
+            case=case,
+            pair_id="leaked",
+            treatment=Treatment.FORCED_SKILL,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.PASSED,
+        ),
+    )
+
+    metrics = ScoreCardBuilder().build(_record(target, runs)).metrics
+
+    assert metrics["isolation_leak_count"] == 1

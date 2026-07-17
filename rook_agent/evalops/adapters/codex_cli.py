@@ -87,6 +87,14 @@ _AUTH_FAILURE_MARKERS = (
     "not logged in",
     "unauthorized",
 )
+_BASELINE_ISOLATION_MARKERS = (
+    ".agents/skills/",
+    ".agents\\skills\\",
+    "evals/candidates/",
+    "evals\\candidates\\",
+    "/validators/validate_rm2.py",
+    "\\validators\\validate_rm2.py",
+)
 
 
 class ProcessRunnerLike(Protocol):
@@ -339,6 +347,12 @@ class CodexCliAdapter:
                 trace,
                 cancelled=token.is_cancelled,
             )
+            if (
+                prepared.spec.treatment is Treatment.BASELINE
+                and _contains_baseline_isolation_marker(sanitized_events)
+            ):
+                status = RunStatus.INFRA_ERROR
+                error_code = "codex_baseline_isolation_leak"
             return self._result(
                 prepared,
                 status=status,
@@ -580,6 +594,20 @@ def _run_status(
 def _looks_like_auth_failure(stdout: str, stderr: str) -> bool:
     combined = f"{stdout}\n{stderr}".casefold()
     return any(marker in combined for marker in _AUTH_FAILURE_MARKERS)
+
+
+def _contains_baseline_isolation_marker(events: object) -> bool:
+    if isinstance(events, str):
+        text = events.casefold()
+        return any(marker in text for marker in _BASELINE_ISOLATION_MARKERS)
+    if isinstance(events, Mapping):
+        return any(
+            _contains_baseline_isolation_marker(value)
+            for value in events.values()
+        )
+    if isinstance(events, tuple | list):
+        return any(_contains_baseline_isolation_marker(value) for value in events)
+    return False
 
 
 def _first_nonempty_line(value: str) -> str | None:

@@ -576,6 +576,35 @@ def test_codex_top_level_stream_error_blocks_apparent_completion(
     assert run.error_code == "codex_stream_error"
 
 
+@pytest.mark.parametrize(
+    "command",
+    (
+        "git show HEAD:evals/candidates/release-manifest-v2/effective.toml",
+        "git show HEAD:evals/suites/release-manifest-v2/validators/validate_rm2.py",
+    ),
+)
+def test_codex_baseline_hidden_read_is_an_isolation_error(
+    tmp_path: Path,
+    command: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    stdout = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").replace(
+        "python -m pytest -q",
+        command,
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(exec_result=_process_result(stdout=stdout)),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.trace_complete is True
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_baseline_isolation_leak"
+
+
 def test_codex_parsed_turn_failure_is_not_an_adapter_schema_error(
     tmp_path: Path,
 ) -> None:

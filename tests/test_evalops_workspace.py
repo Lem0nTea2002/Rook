@@ -17,6 +17,14 @@ def _write_fixture(root: Path) -> None:
     (root / "nested" / "data.bin").write_bytes(b"\x00\x01")
 
 
+def test_workspace_manager_rejects_git_repository_ancestor(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    (repository / ".git").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="Git repository ancestor"):
+        WorkspaceManager(repository / ".rook" / "evalops")
+
+
 def test_workspace_pair_starts_identical_and_does_not_share_writes(tmp_path: Path) -> None:
     fixture = tmp_path / "fixture"
     _write_fixture(fixture)

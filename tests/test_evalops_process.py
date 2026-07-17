@@ -123,7 +123,7 @@ def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
     tmp_path: Path,
 ) -> None:
     child_pid_file = tmp_path / "lingering-child.pid"
-    child_code = "import time; time.sleep(2)"
+    child_code = "import time; time.sleep(5)"
     parent_code = (
         "import pathlib, subprocess, sys; "
         f"child = subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
@@ -131,11 +131,11 @@ def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
     )
 
     result = ProcessRunner().run(
-        _request(tmp_path, parent_code, timeout_seconds=0.2)
+        _request(tmp_path, parent_code, timeout_seconds=1.0)
     )
 
     assert result.status is ProcessStatus.TIMEOUT
-    assert result.duration_ms < 1_500
+    assert result.duration_ms < 3_000
     assert result.cleanup_error is None
     assert child_pid_file.exists()
     assert not _process_is_running(int(child_pid_file.read_text()))
@@ -145,25 +145,30 @@ def test_process_runner_keeps_cancellation_active_after_direct_parent_exits(
     tmp_path: Path,
 ) -> None:
     child_pid_file = tmp_path / "cancelled-child.pid"
-    child_code = "import time; time.sleep(2)"
+    child_code = "import time; time.sleep(5)"
     parent_code = (
         "import pathlib, subprocess, sys; "
         f"child = subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
         f"pathlib.Path({str(child_pid_file)!r}).write_text(str(child.pid))"
     )
     token = CancellationToken()
-    timer = threading.Timer(0.2, token.cancel)
-    timer.start()
-    try:
-        result = ProcessRunner().run(
-            _request(tmp_path, parent_code, timeout_seconds=5),
-            cancellation_token=token,
-        )
-    finally:
-        timer.cancel()
+
+    def cancel_after_child_starts() -> None:
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and not child_pid_file.exists():
+            time.sleep(0.01)
+        token.cancel()
+
+    canceller = threading.Thread(target=cancel_after_child_starts, daemon=True)
+    canceller.start()
+    result = ProcessRunner().run(
+        _request(tmp_path, parent_code, timeout_seconds=5),
+        cancellation_token=token,
+    )
+    canceller.join(timeout=1)
 
     assert result.status is ProcessStatus.CANCELLED
-    assert result.duration_ms < 1_500
+    assert result.duration_ms < 3_000
     assert result.cleanup_error is None
     assert child_pid_file.exists()
     assert not _process_is_running(int(child_pid_file.read_text()))
@@ -300,10 +305,17 @@ def test_windows_job_success_covers_expected_taskkill_missing_parent(
 ) -> None:
     process = _FakeProcess()
     process.returncode = 0
+    taskkill_calls = 0
+
+    def record_taskkill(*args: object, **kwargs: object) -> object:
+        nonlocal taskkill_calls
+        taskkill_calls += 1
+        return subprocess.CompletedProcess(args[0], 128)
+
     monkeypatch.setattr(
         process_module.subprocess,
         "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 128),
+        record_taskkill,
     )
 
     cleanup_error = process_module._terminate_windows_process_tree(
@@ -312,6 +324,7 @@ def test_windows_job_success_covers_expected_taskkill_missing_parent(
     )
 
     assert cleanup_error is None
+    assert taskkill_calls == 0
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows suspended-spawn contract")

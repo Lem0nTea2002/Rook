@@ -49,6 +49,8 @@ def test_rm2_manifests_are_strict_versioned_and_bounded() -> None:
     assert all(case.network_policy.value == "disabled" for case in full.cases)
     assert full.policy.data["min_capability_pairs"] == 18
     assert full.policy.data["require_positive_capability_uplift_ci"] is True
+    assert full.policy.data["require_success_uplift"] is True
+    assert calibration.policy.data["require_success_uplift"] is True
 
 
 def test_rm2_content_only_call_counts_are_exact() -> None:

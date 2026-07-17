@@ -40,6 +40,10 @@ class WorkspaceManager:
 
     def __init__(self, root: Path) -> None:
         self.root = Path(root).resolve()
+        if _has_git_repository_ancestor(self.root):
+            raise ValueError(
+                "EvalOps workspace root must not have a Git repository ancestor"
+            )
         self.workspaces_root = self.root / "workspaces"
 
     def create_pair(self, fixture: Path, pair_id: str) -> WorkspacePair:
@@ -106,6 +110,10 @@ class WorkspaceManager:
         if pair_root == resolved_workspaces or resolved_workspaces not in pair_root.parents:
             raise ValueError("pair_id escapes the workspace root")
         return pair_root
+
+
+def _has_git_repository_ancestor(path: Path) -> bool:
+    return any((ancestor / ".git").exists() for ancestor in (path, *path.parents))
 
 
 def hash_workspace(root: Path) -> str:

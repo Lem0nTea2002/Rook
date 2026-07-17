@@ -485,27 +485,7 @@ def _terminate_windows_process_tree(
     process: _ProcessLike,
     windows_job: _WindowsJob | None,
 ) -> str | None:
-    taskkill_errors: list[str] = []
     job_errors: list[str] = []
-    system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-    taskkill = system_root / "System32" / "taskkill.exe"
-    try:
-        completed = subprocess.run(
-            (str(taskkill), "/PID", str(process.pid), "/T", "/F"),
-            shell=False,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=1,
-        )
-        if completed.returncode != 0:
-            taskkill_errors.append(f"taskkill_exit_{completed.returncode}")
-    except subprocess.TimeoutExpired:
-        taskkill_errors.append("taskkill_timeout")
-    except Exception as exc:
-        taskkill_errors.append(f"taskkill_{type(exc).__name__}")
-
     job_covered = False
     if windows_job is not None:
         terminate_error = windows_job.terminate()
@@ -516,7 +496,24 @@ def _terminate_windows_process_tree(
 
     errors = list(job_errors)
     if not job_covered:
-        errors.extend(taskkill_errors)
+        system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+        taskkill = system_root / "System32" / "taskkill.exe"
+        try:
+            completed = subprocess.run(
+                (str(taskkill), "/PID", str(process.pid), "/T", "/F"),
+                shell=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=1,
+            )
+            if completed.returncode != 0:
+                errors.append(f"taskkill_exit_{completed.returncode}")
+        except subprocess.TimeoutExpired:
+            errors.append("taskkill_timeout")
+        except Exception as exc:
+            errors.append(f"taskkill_{type(exc).__name__}")
     if process.poll() is None and errors:
         _direct_kill(process, errors)
     errors.extend(_finish_direct_process(process))

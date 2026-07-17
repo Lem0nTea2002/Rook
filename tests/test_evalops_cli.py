@@ -11,6 +11,7 @@ from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
 from rook_agent.evalops.cli import (
     EvalOpsCliDependencies,
+    _external_workspace_root,
     _proxy_environment,
     _target_for,
     run_evalops_command,
@@ -156,6 +157,31 @@ def test_proxy_environment_keeps_only_explicit_proxy_keys() -> None:
 def test_proxy_environment_rejects_non_proxy_urls() -> None:
     with pytest.raises(ValueError, match="invalid proxy URL"):
         _proxy_environment({"HTTPS_PROXY": "file:///tmp/not-a-proxy"})
+
+
+def test_live_workspace_root_is_stable_and_outside_project(tmp_path: Path) -> None:
+    project = (tmp_path / "checkout").resolve()
+    temp_root = (tmp_path / "system-temp").resolve()
+
+    first = _external_workspace_root(project, temp_root=temp_root, process_id=1234)
+    second = _external_workspace_root(project, temp_root=temp_root, process_id=1234)
+
+    assert first == second
+    assert temp_root in first.parents
+    assert project not in first.parents
+    assert first not in project.parents
+    assert first.name.startswith("1234-")
+
+
+def test_live_workspace_root_rejects_temp_inside_project(tmp_path: Path) -> None:
+    project = (tmp_path / "checkout").resolve()
+
+    with pytest.raises(ValueError, match="outside the project"):
+        _external_workspace_root(
+            project,
+            temp_root=project / ".temp",
+            process_id=1234,
+        )
 
 
 def test_main_dispatches_evalops_before_message_handling(tmp_path: Path) -> None:

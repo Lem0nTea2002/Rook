@@ -8,9 +8,12 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
+import tempfile
 from urllib.parse import urlsplit
+import uuid
 
 from rook_agent.config import load_config
+from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.adapters.base import AgentAdapter, AgentCapabilities
 from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
 from rook_agent.evalops.adapters.rook import RookEvalAdapter
@@ -40,6 +43,7 @@ _EVALUATION_ID = re.compile(r"evaluation-[0-9a-f]{32}\Z")
 _PROXY_ENV_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy", "no_proxy"})
 _PROXY_ENDPOINT_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy"})
 _PROXY_SCHEMES = frozenset({"http", "https", "socks5", "socks5h"})
+_WORKSPACE_PROCESS_NONCE = uuid.uuid4().hex[:12]
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +92,7 @@ def create_evalops_dependencies(project_root: Path) -> EvalOpsCliDependencies:
     }
     runner = ExperimentRunner(
         adapters=adapters,
-        workspace_manager=WorkspaceManager(project / ".rook" / "evalops"),
+        workspace_manager=WorkspaceManager(_external_workspace_root(project)),
         materializer=SkillMaterializer(),
         artifact_store=artifact_store,
     )
@@ -108,6 +112,38 @@ def create_evalops_dependencies(project_root: Path) -> EvalOpsCliDependencies:
         adapters=adapters,
         service=service,
     )
+
+
+def _external_workspace_root(
+    project_root: Path,
+    *,
+    temp_root: Path | None = None,
+    process_id: int | None = None,
+) -> Path:
+    """Return a process-scoped workspace root outside the project checkout."""
+
+    project = Path(project_root).resolve()
+    base = Path(tempfile.gettempdir() if temp_root is None else temp_root).resolve()
+    namespace = stable_json_hash(
+        {"project_root": os.path.normcase(str(project))},
+        length=16,
+    )
+    pid = os.getpid() if process_id is None else process_id
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        raise ValueError("process_id must be a positive integer")
+    workspace_root = (
+        base
+        / "rook-evalops"
+        / namespace
+        / f"{pid}-{_WORKSPACE_PROCESS_NONCE}"
+    ).resolve()
+    if (
+        workspace_root == project
+        or project in workspace_root.parents
+        or workspace_root in project.parents
+    ):
+        raise ValueError("EvalOps workspace root must be outside the project")
+    return workspace_root
 
 
 def run_eval_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:

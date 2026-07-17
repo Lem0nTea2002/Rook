@@ -11,3 +11,4 @@ min_candidate_capability_success_rate = 0.75
 min_capability_success_uplift = 0.25
 max_infra_exclusion_rate = 0.0
 require_positive_capability_uplift_ci = false
+require_success_uplift = true

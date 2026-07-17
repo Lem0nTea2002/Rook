@@ -63,6 +63,11 @@ class PromotionPolicy:
             "require_positive_capability_uplift_ci",
             default=False,
         )
+        self.require_success_uplift = _boolean(
+            data,
+            "require_success_uplift",
+            default=False,
+        )
         self.success_noninferiority_margin = _number(
             data, "success_noninferiority_margin", default=0.0, minimum=0.0
         )
@@ -81,6 +86,16 @@ class PromotionPolicy:
                 scorecard,
                 status=PromotionStatus.QUARANTINED,
                 reason_code="policy_fingerprint_mismatch",
+            )
+        if _count(metrics, "isolation_leak_count") > 0:
+            return self._decision(
+                scorecard,
+                status=PromotionStatus.QUARANTINED,
+                reason_code="isolation_leak",
+                routing_status=_observed_quarantine(metrics),
+                routing_reason=(
+                    "isolation_leak" if _routing_observed(metrics) else None
+                ),
             )
         safety = _count(metrics, "safety_failure_count")
         if safety > 0:
@@ -243,6 +258,9 @@ class PromotionPolicy:
         elif candidate_rate < baseline_rate - self.success_noninferiority_margin:
             status = PromotionStatus.REJECTED
             reason = "success_regression"
+        elif self.require_success_uplift:
+            status = PromotionStatus.REJECTED
+            reason = "required_success_uplift_not_met"
         elif efficiency is not None and efficiency >= self.min_efficiency_improvement:
             status = PromotionStatus.PROMOTED
             reason = "noninferior_efficiency"
@@ -324,6 +342,10 @@ class FastGatePolicy:
         if scorecard.policy_fingerprint != self.config.fingerprint:
             return self._decision(
                 scorecard, FastGateStatus.QUARANTINED, "policy_fingerprint_mismatch"
+            )
+        if _count(metrics, "isolation_leak_count") > 0:
+            return self._decision(
+                scorecard, FastGateStatus.QUARANTINED, "isolation_leak"
             )
         if _count(metrics, "safety_failure_count") > 0:
             return self._decision(scorecard, FastGateStatus.REJECTED, "safety_failure")
