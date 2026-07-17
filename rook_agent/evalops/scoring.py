@@ -361,6 +361,7 @@ def _build_metrics(
         ),
         "capability_baseline_latency_ms": _distribution(capability_latency[0]),
         "capability_candidate_latency_ms": _distribution(capability_latency[1]),
+        "capability_latency_delta": _median_delta(*capability_latency),
         "capability_latency_delta_ms": _median_delta(*capability_latency),
         "capability_latency_improvement": _efficiency_improvement(
             *capability_latency

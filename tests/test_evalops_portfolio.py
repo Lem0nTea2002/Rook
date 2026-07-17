@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
+import importlib.util
+import json
 from pathlib import Path
 
 from rook_agent.evalops.adapters.fake import FakeAgentAdapter, FakeAgentScript
@@ -12,8 +15,10 @@ from rook_agent.evalops.models import (
     CandidateOrigin,
     CandidateStatus,
     CaseCategory,
+    EvaluationMode,
     PromotionStatus,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
 from rook_agent.evalops.report import ReportRenderer
@@ -28,6 +33,8 @@ from rook_agent.evalops.workspace import WorkspaceManager
 _ROOT = Path(__file__).parents[1]
 _SUITE = _ROOT / "evals" / "suites" / "release-manifest" / "suite.toml"
 _CANDIDATES = _ROOT / "evals" / "candidates" / "release-manifest"
+_RM2_SUITE_ROOT = _ROOT / "evals" / "suites" / "release-manifest-v2"
+_RM2_CANDIDATES = _ROOT / "evals" / "candidates" / "release-manifest-v2"
 
 
 def test_portfolio_suite_has_three_isolated_cases_per_category() -> None:
@@ -95,6 +102,62 @@ def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tm
         assert (artifact_root / summary.report_markdown_ref).is_file()
 
 
+def test_rm2_fake_controls_separate_effect_preservation_and_safety(tmp_path: Path) -> None:
+    formal_suite = load_eval_suite(_RM2_SUITE_ROOT / "suite.toml")
+    calibration_policy = load_eval_suite(
+        _RM2_SUITE_ROOT / "calibration.toml"
+    ).policy
+    suite = replace(formal_suite, policy=calibration_policy)
+    store = CandidateStore(tmp_path / ".rook" / "skill-registry")
+    candidates = {
+        profile: store.create(
+            load_skill_bundle(_RM2_CANDIDATES / f"{profile}.toml"),
+            origin=CandidateOrigin.IMPORTED,
+            status=CandidateStatus.QUARANTINED,
+        )
+        for profile in ("effective", "neutral", "unsafe")
+    }
+    registry = PromotionRegistry(tmp_path)
+    target = AgentTarget(
+        type=AgentType.ROOK,
+        executable="fake-rook",
+        version="rm2-control-1",
+        model="fake-model",
+        adapter_version="1",
+    )
+    summaries = {
+        profile: _service(
+            tmp_path / profile,
+            registry,
+            _rm2_scripts(suite, profile),
+        ).evaluate_candidate(
+            candidate,
+            suite,
+            (target,),
+            families=(TreatmentFamily.CONTENT,),
+            mode=EvaluationMode.FULL,
+        )
+        for profile, candidate in candidates.items()
+    }
+
+    effective = summaries["effective"].targets[0]
+    neutral = summaries["neutral"].targets[0]
+    unsafe = summaries["unsafe"].targets[0]
+    assert effective.decision.status is PromotionStatus.PROMOTED
+    assert effective.decision.reason_code == "capability_success_uplift"
+    assert effective.full_scorecard.metrics["capability_candidate_success_rate"] == 1.0
+    assert effective.full_scorecard.metrics["preservation_rate"] == 1.0
+    assert effective.full_scorecard.metrics["new_regression_count"] == 0
+    assert neutral.decision.status is PromotionStatus.REJECTED
+    assert neutral.full_scorecard.metrics["capability_paired_success_uplift"] == 0.0
+    assert unsafe.decision.status is PromotionStatus.REJECTED
+    assert unsafe.decision.reason_code == "new_regression"
+    assert unsafe.full_scorecard.metrics["new_regression_count"] == 3
+    assert registry.active_version("release-manifest-v2-normalizer", target) == candidates[
+        "effective"
+    ].version
+
+
 def _stage(store: CandidateStore, filename: str):
     return store.create(
         load_skill_bundle(_CANDIDATES / filename),
@@ -137,5 +200,35 @@ def _scripts(suite, profile: str):
                 writes.update(expected_outputs)
                 if treatment is not Treatment.BASELINE and profile == "unsafe":
                     writes["danger.txt"] = "unsafe control output\n"
+            scripts[(case.id, treatment)] = FakeAgentScript(writes=writes)
+    return scripts
+
+
+def _rm2_scripts(suite, profile: str):
+    validator_path = _RM2_SUITE_ROOT / "validators" / "validate_rm2.py"
+    spec = importlib.util.spec_from_file_location("rook_rm2_portfolio_validator", validator_path)
+    assert spec is not None and spec.loader is not None
+    validator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(validator)
+    scripts: dict[tuple[str, Treatment], FakeAgentScript] = {}
+    capability = {CaseCategory.DIRECT, CaseCategory.TRANSFER}
+    for case in suite.cases:
+        output: dict[str, str] = {}
+        if case.category in capability or case.category is CaseCategory.ADVERSARIAL:
+            payload = validator.reference_payload(case.fixture, case.id)
+            output = {"release.json": json.dumps(payload, indent=2) + "\n"}
+        for treatment in (Treatment.BASELINE, Treatment.FORCED_SKILL):
+            writes: dict[str, str] = {}
+            if case.category is CaseCategory.ADVERSARIAL:
+                writes.update(output)
+            elif case.category in capability and treatment is Treatment.FORCED_SKILL:
+                if profile != "neutral":
+                    writes.update(output)
+            if (
+                profile == "unsafe"
+                and treatment is Treatment.FORCED_SKILL
+                and case.category is CaseCategory.ADVERSARIAL
+            ):
+                writes["danger.txt"] = "unsafe synthetic control\n"
             scripts[(case.id, treatment)] = FakeAgentScript(writes=writes)
     return scripts

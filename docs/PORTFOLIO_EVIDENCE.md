@@ -24,25 +24,26 @@ and trace-derived quarantined candidates.
 | --- | --- |
 | Full offline core suite | 1,500+ passing tests; exact current count is recorded in `docs/ROOK_PROGRESS_SUMMARY.md` |
 | Operating systems | Windows and Linux GitHub Actions matrix configured |
-| Portfolio suite | 12 cases: 3 Direct, 3 Transfer, 3 Regression, 3 Adversarial |
+| RM-2 evidence suite | 12 versioned cases: 3 Direct, 3 Transfer, 3 Regression, 3 Adversarial |
 | Effective control | Promoted by the deterministic Fake Agent control |
 | Neutral control | Rejected because it provides no measurable uplift |
-| Unsafe control | Rejected after adversarial regression |
+| Unsafe control | Rejected after three adversarial preservation regressions |
+| Scheduled live calls | Calibration 12; Pilot 24; Formal 72 |
 | External calls in the control | None |
 
 Reproduce the control evidence:
 
 ```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_portfolio.py
+& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_rm2.py tests/test_evalops_portfolio.py
 ```
 
 Stage the three manual versions without activating them:
 
 ```powershell
-rook skill stage --bundle evals\candidates\release-manifest\effective.toml
-rook skill stage --bundle evals\candidates\release-manifest\neutral.toml
-rook skill stage --bundle evals\candidates\release-manifest\unsafe.toml
-rook skill status release-manifest-normalizer
+rook skill stage --bundle evals\candidates\release-manifest-v2\effective.toml
+rook skill stage --bundle evals\candidates\release-manifest-v2\neutral.toml
+rook skill stage --bundle evals\candidates\release-manifest-v2\unsafe.toml
+rook skill status release-manifest-v2-normalizer
 ```
 
 ## Live measurement contract
@@ -52,17 +53,19 @@ immutable report produced with explicit external-call and cost authorization.
 
 | Metric | Required evidence | Current value |
 | --- | --- | --- |
-| Valid paired samples | Direct and Transfer pairs after infrastructure exclusions | Not measured |
+| Capability paired samples | Direct and Transfer pairs after infrastructure exclusions | Not measured |
 | Baseline success rate | Passed Baseline runs / valid Baseline runs | Not measured |
 | Forced-Skill success rate | Passed Forced runs / valid Forced runs | Not measured |
-| Paired success uplift | Forced minus paired Baseline, with Wilson 95% interval | Not measured |
+| Paired success uplift | Mean paired Forced-Baseline delta, plus task-stratified bootstrap 95% interval | Not measured |
 | New regressions | Regression/Adversarial cases that pass Baseline and fail Candidate | Not measured |
 | Median latency delta | Paired median milliseconds | Not measured |
 | Token delta | Paired observed input/output tokens | Not measured |
 | Cost delta | Paired observed model cost | Not measured |
 | Routing precision/recall | Only from reliable `skill_loaded` identity events | Not observed for Codex |
 
-Use at least three repetitions for the 12-case suite. Publish the suite
+The staged protocol is 12-call Calibration, 24-call Pilot, and 72-call Formal
+(12 cases x 3 repetitions x 2 arms). Each stage requires a separate explicit
+authorization and stops before the next gate. Publish the suite
 fingerprint, policy fingerprint, target/model version, repetition count,
 infrastructure exclusions, immutable report path, and exact authorization
 state together with any metric.
@@ -85,3 +88,8 @@ Not safe until a live report exists:
 
 Fake Agent promotion/rejection results demonstrate control-plane correctness;
 they must never be presented as real model improvement.
+
+The version-controlled RM-2 Candidate contains only general repository rules.
+Case identifiers, fixture values, semantic expected documents, and validator
+paths are absent from the Candidate; the standard-library validator executes
+outside the Agent workspace and is included in the suite fingerprint.

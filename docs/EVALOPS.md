@@ -43,6 +43,13 @@ rook eval run `
   --allow-costs
 ```
 
+Bound one measurement explicitly with `--families content|routing`,
+`--phase auto|fast|full`, `--repetitions`, and
+`--fast-count-per-category`. `--measurement-only` still writes immutable
+records, ScoreCards, and decisions into the report, but does not append
+Registry history or change an active pointer. For content-only Full runs, the
+scheduled Agent call count is exactly `cases x repetitions x 2`.
+
 If the network requires a local proxy, set it only for the current process and
 append `--inherit-proxy` to `rook eval run`:
 
@@ -132,3 +139,40 @@ version, and reject the unsafe version. These outcomes prove orchestration and
 policy behavior only. They are not evidence of model quality or real success
 uplift. See [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) for the measurement
 contract that must be completed before publishing resume metrics.
+
+## RM-2 differential evidence protocol
+
+`evals/suites/release-manifest-v2` is the resume-facing differential suite.
+Direct and Transfer cases measure capability; Regression and Adversarial cases
+measure preservation and safety. Its semantic Validator is not mounted into
+the Agent workspace and is fingerprinted as suite evidence.
+
+Stage the effective Candidate offline:
+
+```powershell
+rook skill stage --bundle evals\candidates\release-manifest-v2\effective.toml
+```
+
+After using the printed CandidateStore path, the first live stage has this
+shape and schedules exactly 12 calls:
+
+```powershell
+rook eval run `
+  --skill-path <printed-candidate-version-directory> `
+  --suite evals\suites\release-manifest-v2\calibration.toml `
+  --agents codex `
+  --model gpt-5.6-sol `
+  --families content `
+  --phase full `
+  --repetitions 1 `
+  --measurement-only `
+  --allow-external `
+  --allow-costs `
+  --inherit-proxy
+```
+
+Calibration, Pilot, and Formal require separate authorizations for 12, 24,
+and 72 calls. Do not infer one stage's authorization from another. Only the
+72-call Formal immutable report may populate resume success, Token, and
+latency values; USD cost remains `not observed` unless the Adapter receives a
+real cost field.

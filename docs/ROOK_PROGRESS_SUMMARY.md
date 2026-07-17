@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-16
+更新时间：2026-07-17
 
 ## 项目定位
 
@@ -16,7 +16,7 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 
 - 分支：`feature/rook-forge`
 - 工作树：`Rook/.worktrees/rook-forge`
-- 最新简历证据套件提交：`b085dea test: add portfolio EvalOps evidence suite`
+- 最新 RM-2 套件提交：`6d41dd9 feat: add RM-2 differential Skill benchmark`
 
 ## 已完成功能
 
@@ -39,6 +39,9 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 17. Windows/Linux 双平台离线 CI，显式关闭真实外部评测和模型费用。
 18. 严格人工 Skill bundle loader 与 `rook skill stage`，导入结果默认保持 `imported/quarantined`。
 19. 12-case 简历证据 suite，以及有效、中性、危险三类控制 Candidate 的准入/拒绝证明。
+20. `content/routing/both` 实验选择、`auto/fast/full` 阶段控制和不修改 Registry 的 measurement-only 模式。
+21. Direct/Transfer 能力指标与 Regression/Adversarial 保持性指标分层，包含 Wilson 区间和固定种子的任务分层 bootstrap。
+22. RM-2 差异化正式套件、隐藏语义 Validator、12/24/72 调用边界及 Calibration/Formal 策略。
 
 ## 关键提交
 
@@ -57,15 +60,20 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 - `a94a531`：增加 Windows/Linux 完整离线测试门禁。
 - `fba8b68`：增加严格人工 Skill bundle staging，默认非活动隔离存储。
 - `b085dea`：增加 12-case EvalOps 简历证据套件和三类控制 Candidate。
+- `b7c246b`：增加有界实验 family、phase 和 measurement-only 控制。
+- `4dee29f`：增加能力/保持性分层 ScoreCard 与正式门禁。
+- `6d41dd9`：增加 RM-2 差异化 Skill 基准、隐藏 Validator 和分阶段策略。
 
 ## 当前验证结果
 
-- 当前全部 EvalOps + evolution 专项：`585 passed, 7 skipped`。
+- 当前全部 EvalOps + evolution 专项：`626 passed, 7 skipped`。
+- 当前全部 EvalOps 专项：`383 passed, 7 skipped`。
 - Task 14 新增与直接依赖专项：`323 passed`。
 - Windows/安全硬化专项：`295 passed, 3 skipped`。
 - 历史失败维护直接回归：`131 passed`。
 - 完整核心基线（排除可选 EvalPlus）：`1596 passed, 10 skipped`，零失败。
-- 简历证据控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate `rejected`；仅证明控制面，不作为真实模型效果。
+- RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
+- RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
 - Codex Adapter 提交后专项验证：`58 passed, 1 skipped`。
 - 默认测试全部使用 Fake Process/Fake Provider，不会调用真实 Codex API，也不会产生模型费用。
@@ -75,13 +83,13 @@ Rook 是一个面向 Skill 的 Agent EvalOps 框架。它通过隔离执行、�
 ## 下一阶段计划
 
 1. 推送分支，让新增的 Windows/Linux GitHub Actions 门禁完成远端首跑。
-2. 在单独获得外部调用与费用授权后，对 12-case suite 至少重复 3 次，填写真实成功率、Wilson 区间、回归、时延、Token 和成本。
+2. 单独获得 12 次外部调用与费用授权后运行 RM-2 Calibration；通过后再分别申请 24 次 Pilot 和 72 次 Formal 授权。
 3. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 4. 审阅并合并 `feature/rook-forge`。
 5. 合并后再独立评估 Candidate 蒸馏后台队列，避免把额外并发复杂度带入当前 MVP。
 
 ## 当前停点
 
-Task 16、离线历史失败维护和简历证据包均已完成。工程闭环已经具备可验证表述；真实 Agent 成功率与成本仍停在显式授权评测前，当前没有用 Fake 结果填充这些指标。
+RM-2 的代码、隐藏 Validator、分层 ScoreCard、正式门禁和零成本控制均已完成。工程闭环已经具备可验证表述；真实 Agent 成功率、Token、时延与成本仍停在 12 次 Calibration 的单独显式授权前，当前没有用 Fake 结果填充这些指标。
 
 手工与自动 Candidate 均已接入 Candidate → A/B → ScoreCard → Decision → Registry → Report → Rollback 的同一闭环。自动生成结果保持 quarantined，必须显式执行评测；当前没有旁路准入机制。完整验证证据见 `docs/superpowers/reports/2026-07-16-rook-agent-evalops-verification.md`。

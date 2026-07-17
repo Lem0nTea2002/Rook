@@ -61,6 +61,20 @@ def _scorecard(target: AgentTarget) -> ScoreCard:
         "efficiency_improvement": None,
         "secret_leak_count": 0,
         "token_improvement": None,
+        "capability_pair_count": 18,
+        "capability_baseline_success_rate": 0.5,
+        "capability_candidate_success_rate": 1.0,
+        "capability_paired_success_uplift": 0.5,
+        "capability_paired_uplift_ci95": {"lower": 0.2, "upper": 0.8},
+        "capability_baseline_tokens": {"count": 18, "median": 1000.0},
+        "capability_candidate_tokens": {"count": 18, "median": 1250.0},
+        "capability_token_delta": 250.0,
+        "capability_latency_delta": -400.0,
+        "preservation_pair_count": 18,
+        "new_regression_count": 0,
+        "infra_exclusion_count": 0,
+        "infra_exclusion_rate": 0.0,
+        "cost_observed": False,
         "secret_note": "Bearer report-secret-value",
     }
     return ScoreCard(
@@ -154,6 +168,9 @@ def test_json_report_is_stable_explicit_and_redacted() -> None:
     assert payload["targets"][0]["decision"]["routing_status"] is None
     assert payload["targets"][0]["metrics"]["secret_leak_count"] == 0
     assert payload["targets"][0]["metrics"]["token_improvement"] is None
+    assert payload["targets"][0]["metrics"]["capability_pair_count"] == 18
+    assert payload["targets"][0]["metrics"]["capability_token_delta"] == 250.0
+    assert payload["targets"][0]["metrics"]["cost_observed"] is False
     assert "report-secret-value" not in rendered
     assert "[REDACTED]" in rendered
 
@@ -166,6 +183,9 @@ def test_markdown_report_labels_missing_metrics_as_not_observed() -> None:
     assert "## rook" in rendered
     assert rendered.index("## codex") < rendered.index("## rook")
     assert "routing_precision | not observed" in rendered
+    assert "capability_paired_uplift_ci95" in rendered
+    assert "capability_token_delta | 250" in rendered
+    assert "cost_observed | False" in rendered
     assert "success_uplift" in rendered
     assert "file_state_mismatch" in rendered
     assert "report-secret-value" not in rendered

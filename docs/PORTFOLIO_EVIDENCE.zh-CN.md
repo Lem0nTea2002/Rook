@@ -14,25 +14,26 @@
 | --- | --- |
 | 完整离线核心测试 | 1,500+ 通过；精确数字记录在 `docs/ROOK_PROGRESS_SUMMARY.md` |
 | 操作系统 | 已配置 Windows/Linux GitHub Actions 矩阵 |
-| 简历证据 suite | 12 个案例：Direct、Transfer、Regression、Adversarial 各 3 个 |
+| RM-2 证据 suite | 12 个版本化案例：Direct、Transfer、Regression、Adversarial 各 3 个 |
 | 有效控制 Candidate | 确定性 Fake Agent 控制实验中 promoted |
 | 中性控制 Candidate | 因无可测提升被 rejected |
-| 危险控制 Candidate | 因 adversarial 回归被 rejected |
+| 危险控制 Candidate | 因 3 个 adversarial 保持性回归被 rejected |
+| 真实调用计划 | Calibration 12 次；Pilot 24 次；Formal 72 次 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
 
 ```powershell
-& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_portfolio.py
+& '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_rm2.py tests/test_evalops_portfolio.py
 ```
 
 将三个手工版本放入隔离区，但不激活：
 
 ```powershell
-rook skill stage --bundle evals\candidates\release-manifest\effective.toml
-rook skill stage --bundle evals\candidates\release-manifest\neutral.toml
-rook skill stage --bundle evals\candidates\release-manifest\unsafe.toml
-rook skill status release-manifest-normalizer
+rook skill stage --bundle evals\candidates\release-manifest-v2\effective.toml
+rook skill stage --bundle evals\candidates\release-manifest-v2\neutral.toml
+rook skill stage --bundle evals\candidates\release-manifest-v2\unsafe.toml
+rook skill status release-manifest-v2-normalizer
 ```
 
 ## 真实评测填写合同
@@ -41,17 +42,17 @@ rook skill status release-manifest-normalizer
 
 | 指标 | 必需证据 | 当前值 |
 | --- | --- | --- |
-| 有效配对样本数 | 排除基础设施失败后的 Direct/Transfer 配对 | 未测量 |
+| 能力配对样本数 | 排除基础设施失败后的 Direct/Transfer 配对 | 未测量 |
 | Baseline 成功率 | Baseline passed / 有效 Baseline | 未测量 |
 | Forced Skill 成功率 | Forced passed / 有效 Forced | 未测量 |
-| 配对成功率提升 | Forced 减配对 Baseline，并附 Wilson 95% 区间 | 未测量 |
+| 配对成功率提升 | Forced-Baseline 的配对均值，并附任务分层 bootstrap 95% 区间 | 未测量 |
 | 新增回归 | Baseline 通过但 Candidate 失败的 Regression/Adversarial 案例 | 未测量 |
 | 中位时延变化 | 配对毫秒中位数 | 未测量 |
 | Token 变化 | 可观测输入/输出 Token 配对值 | 未测量 |
 | 成本变化 | 可观测模型费用配对值 | 未测量 |
 | 路由 precision/recall | 只能来自可靠的 `skill_loaded` 身份事件 | Codex 未观测 |
 
-12 个案例至少重复 3 次。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
+真实协议分为 12 次 Calibration、24 次 Pilot 和 72 次 Formal（12 案例 x 3 次重复 x 2 个实验臂）。每一阶段都需要单独显式授权，并在进入下一阶段前暂停。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
 
 正式执行使用 `rook eval run --model <model>` 显式指定 Codex 模型；可选 live smoke 使用 `ROOK_CODEX_EVAL_MODEL`。模型会进入目标指纹，不能依赖被隔离执行忽略的用户配置。
 
@@ -66,3 +67,5 @@ rook skill status release-manifest-normalizer
 > 真实 Agent 任务成功率提升 X%，成本下降 Y%。
 
 Fake Agent 的准入/拒绝只证明控制面正确，不能作为真实模型效果。
+
+版本化 RM-2 Candidate 只包含通用仓库规则，不含 case ID、fixture 值、期望 JSON 或 Validator 路径。标准库隐藏 Validator 在 Agent 工作区之外执行，其内容哈希进入 suite fingerprint。
