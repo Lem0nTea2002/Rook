@@ -56,9 +56,11 @@ def test_portfolio_docs_keep_fake_controls_separate_from_live_metrics() -> None:
     chinese = (_ROOT / "docs" / "PORTFOLIO_EVIDENCE.zh-CN.md").read_text(encoding="utf-8")
 
     assert "Fake Agent promotion/rejection results" in english
-    assert "Not measured" in english
+    assert "Completed Calibration (not a Formal result)" in english
+    assert "Formal not measured" in english
     assert "不能作为真实模型效果" in chinese
-    assert "未测量" in chinese
+    assert "已完成的 Calibration（不能作为 Formal 结论）" in chinese
+    assert "Formal 未测量" in chinese
 
 
 def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tmp_path: Path) -> None:
@@ -89,7 +91,8 @@ def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tm
     assert effective_summary.targets[0].decision.status is PromotionStatus.PROMOTED
     assert neutral_summary.targets[0].decision.status is PromotionStatus.REJECTED
     assert unsafe_summary.targets[0].decision.status is PromotionStatus.REJECTED
-    assert registry.active_version("release-manifest-normalizer", target) == effective.version
+    assert registry.eligible_version("release-manifest-normalizer", target) == effective.version
+    assert registry.active_version("release-manifest-normalizer", target) is None
     for summary, profile in (
         (effective_summary, "effective"),
         (neutral_summary, "neutral"),
@@ -153,9 +156,10 @@ def test_rm2_fake_controls_separate_effect_preservation_and_safety(tmp_path: Pat
     assert unsafe.decision.status is PromotionStatus.REJECTED
     assert unsafe.decision.reason_code == "new_regression"
     assert unsafe.full_scorecard.metrics["new_regression_count"] == 3
-    assert registry.active_version("release-manifest-v2-normalizer", target) == candidates[
+    assert registry.eligible_version("release-manifest-v2-normalizer", target) == candidates[
         "effective"
     ].version
+    assert registry.active_version("release-manifest-v2-normalizer", target) is None
 
 
 def _stage(store: CandidateStore, filename: str):

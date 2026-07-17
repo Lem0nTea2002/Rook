@@ -1,6 +1,8 @@
 # Rook Agent EvalOps：Skill 纵向评测与演化准入设计
 
-- 状态：已批准，Codex-only MVP 实施中
+> 历史设计说明：本文记录 2026-07-15 的原始 EvalOps 方案。当前产品定义和发布语义已由 Registry v2 / Rook Forge 实现取代：Rook 是本地 Python Coding Agent，Rook Forge 是内置 Skill 治理控制面；`promoted` 仅表示具备人工审批资格，只有按目标执行 `rook skill approve` 后才会部署。当前操作与验收口径以 [`docs/EVALOPS.md`](../../EVALOPS.md) 为准。
+
+- 状态：历史基线，发布语义已由 Rook Forge Registry v2 取代
 - 日期：2026-07-15
 - 产品定位：面向自适应 LLM Agent 的 Skill 纵向评测与演化准入框架
 - 首批被测 Agent：Rook、Codex CLI

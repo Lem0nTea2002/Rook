@@ -27,8 +27,8 @@ Read in this order if you are new to the codebase:
    provider projection, compaction, and task boundaries.
 6. [Providers Design](PROVIDERS_DESIGN.md) and [Skill System Design](SKILL_SYSTEM_DESIGN.md)
    — the two main extension seams.
-7. [Codex-only Skill EvalOps](EVALOPS.md) — isolated paired evaluation,
-   promotion, reporting, and rollback.
+7. [Rook Forge Skill Governance](EVALOPS.md) — isolated paired exams,
+   automatic gates, human approval, target deployment, and rollback.
 8. [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) — reproducible control cases,
    contribution boundary, and the claims that still require live measurements.
 

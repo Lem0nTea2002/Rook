@@ -5,7 +5,7 @@
 <h1 align="center">Rook</h1>
 
 <p align="center">
-  <strong>A local Python coding agent with Skill EvalOps, safety gates, and rollback.</strong>
+  <strong>A local Python coding agent with Rook Forge Skill exams, approval, deployment, and rollback.</strong>
 </p>
 
 <p align="center">
@@ -23,33 +23,36 @@
 
 ---
 
-Rook is a real, runnable local coding agent and a Codex-only Skill EvalOps framework. The runtime provides a Textual TUI, tool calling, permissions, sessions, and context compaction; EvalOps adds isolated paired experiments, deterministic evaluation, promotion policy, and rollback for generated or manually authored Skills.
+Rook is a real, runnable local Python coding agent. **Rook Forge** is its built-in Skill governance control plane: generated or manually authored Skills are examined with isolated paired experiments, held behind automatic safety gates, explicitly approved by a human, deployed independently to Rook or the current Codex repository, and rolled back through an immutable audit trail. The implementation package remains `rook_agent.evalops`.
 
 If you want to understand how coding agents actually work, Rook keeps the moving parts visible instead of hiding them behind a black box.
 
-- Evaluate whether a Skill improves an Agent before it can be promoted or exported.
+- Evaluate whether a Skill improves an Agent before it can be approved or deployed.
 - Learn the agent loop, tool calling, permissions, sessions, and context handling.
 - Build on a small Python codebase with clear module boundaries.
 - Use a local coding agent while still being able to inspect how it works.
 
 ![Rook planning, requesting permission, and completing a local task](docs/images/rook-demo.gif)
 
-## Skill EvalOps
+## Rook Forge
 
-Rook treats a Skill as a versioned change that must earn promotion. Manual bundles and trace-derived output enter an inactive quarantine, then run through isolated Baseline/Forced and Baseline/Routed pairs. Deterministic evaluators produce ScoreCards; safety, regression, sample-size, and effect gates decide promotion independently for each Agent target.
+Rook treats a Skill as a versioned change that must pass an exam and a release review. Manual bundles and trace-derived output enter an inactive quarantine, then run through isolated Baseline/Forced and Baseline/Routed pairs. Deterministic evaluators produce ScoreCards; safety, regression, sample-size, and effect gates decide eligibility independently for each Agent target. A passing gate remains inactive until an explicit, auditable `rook skill approve` deploys it.
 
 ```mermaid
 flowchart LR
     A["Task trace or manual bundle"] --> B["Quarantined Candidate"]
     B --> C["Isolated Baseline / Forced / Routed runs"]
     C --> D["Evaluator + ScoreCard"]
-    D --> E{"Promotion policy"}
-    E -->|pass| F["Immutable registry + staged export"]
+    D --> E{"Automatic gate"}
+    E -->|pass| F["Eligible; awaiting approval"]
     E -->|fail| G["Rejected or quarantined"]
-    F --> H["Atomic rollback"]
+    F --> H{"Human approval per target"}
+    H --> I["Deploy to Rook or repo Codex"]
+    I --> J["Stale / drift detection"]
+    J --> K["Atomic rollback"]
 ```
 
-The version-controlled portfolio suite contains 12 Direct, Transfer, Regression, and Adversarial cases plus effective, neutral, and unsafe control candidates. Its Fake Agent results prove control-plane behavior only; real success, latency, token, and cost metrics remain unpublished until an explicitly authorized live evaluation exists.
+The version-controlled portfolio suite contains 12 Direct, Transfer, Regression, and Adversarial cases plus effective, neutral, and unsafe controls. Fake Agent results prove the control plane only. An authorized five-pair Codex Calibration observed +80 percentage points success, 27.4% lower median latency, and 17.2% more median tokens among complete observations, but the gate quarantined that run for excessive infrastructure exclusions. It is calibration evidence, not a Formal release or resume conclusion.
 
 - [EvalOps usage](docs/EVALOPS.md)
 - [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
@@ -123,7 +126,7 @@ rook --interactive
 - Tool calling with permission checks before risky actions
 - Session persistence, resume flow, and context compaction
 - Skills, provider adapters, and clean modules for study and modification
-- Skill candidate quarantine, isolated A/B evaluation, ScoreCards, promotion, reporting, and rollback
+- Rook Forge Skill quarantine, isolated A/B exams, ScoreCards, human approval, target-specific deployment, and rollback
 
 ## Configuration
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rook-agent"
 version = "0.1.2"
-description = "Rook is a local coding agent with a Textual TUI."
+description = "Rook is a local coding agent with Rook Forge Skill governance."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

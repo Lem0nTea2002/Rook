@@ -5,7 +5,7 @@
 <h1 align="center">Rook</h1>
 
 <p align="center">
-  <strong>带 Skill EvalOps、安全门禁和回滚能力的本地 Python Coding Agent。</strong>
+  <strong>内置 Rook Forge Skill 考试、审批、部署与回滚的本地 Python Coding Agent。</strong>
 </p>
 
 <p align="center">
@@ -23,33 +23,36 @@
 
 ---
 
-Rook 是一个能真实运行的本地 Coding Agent，也是一个 Codex-only Skill EvalOps 框架。Runtime 提供 Textual TUI、工具调用、权限系统、会话持久化和上下文压缩；EvalOps 为自动生成或人工编写的 Skill 增加隔离配对实验、确定性评测、准入策略和回滚。
+Rook 是一个能真实运行的本地 Python Coding Agent。**Rook Forge** 是它内置的 Skill 治理控制面：自动生成或人工编写的 Skill 先接受隔离配对考试和自动安全门禁，再经人工显式审批，按 Rook/Codex 目标独立部署，并通过不可变审计记录完成失效检测和回滚。实现包继续使用 `rook_agent.evalops`。
 
 如果你想真正理解 coding agent 是怎么工作的，Rook 会尽量把关键环节展示出来，而不是把它们藏在黑盒后面。
 
-- 在 Skill 获准导出或激活前，客观评测它是否真正改善 Agent。
+- 在 Skill 获准部署前，客观评测它是否真正改善 Agent。
 - 学习 agent loop、工具调用、权限系统、session 和上下文处理。
 - 基于一个模块边界清晰的小型 Python 代码库继续改造。
 - 一边使用本地 coding agent，一边读懂它的内部机制。
 
 ![Rook 规划、请求权限并完成本地任务](docs/images/rook-demo.gif)
 
-## Skill EvalOps
+## Rook Forge
 
-Rook 将 Skill 视为必须经过准入的版本化变更。人工 bundle 和轨迹生成结果先进入非活动隔离区，再执行 Baseline/Forced 与 Baseline/Routed 隔离配对实验；确定性 Evaluator 生成 ScoreCard，安全、回归、有效样本数和效果门槛按 Agent 目标独立决定是否准入。
+Rook 将 Skill 视为必须经过考试和发布复核的版本化变更。人工 bundle 和轨迹生成结果先进入非活动隔离区，再执行 Baseline/Forced 与 Baseline/Routed 隔离配对实验；确定性 Evaluator 生成 ScoreCard，安全、回归、有效样本数和效果门槛按 Agent 目标独立决定是否具备审批资格。门禁通过后仍保持非活动，只有显式执行 `rook skill approve` 才会部署。
 
 ```mermaid
 flowchart LR
     A["任务轨迹或人工 bundle"] --> B["Quarantined Candidate"]
     B --> C["隔离 Baseline / Forced / Routed 实验"]
     C --> D["Evaluator + ScoreCard"]
-    D --> E{"准入策略"}
-    E -->|通过| F["不可变 Registry + 分阶段导出"]
+    D --> E{"自动门禁"}
+    E -->|通过| F["具备资格，等待人工审批"]
     E -->|未通过| G["Rejected 或 Quarantined"]
-    F --> H["原子回滚"]
+    F --> H{"按目标人工审批"}
+    H --> I["部署到 Rook 或仓库级 Codex"]
+    I --> J["stale / drift 检测"]
+    J --> K["原子回滚"]
 ```
 
-仓库内置 12 个版本化简历证据案例，覆盖 Direct、Transfer、Regression、Adversarial，并提供有效、中性、危险三个控制 Candidate。Fake Agent 结果只证明控制面正确；真实成功率、时延、Token 和成本指标在获得授权并生成真实不可变报告前不会发布。
+仓库内置 12 个版本化简历证据案例，覆盖 Direct、Transfer、Regression、Adversarial，并提供有效、中性、危险三个控制 Candidate。Fake Agent 结果只证明控制面正确。一次获授权的 Codex Calibration 在 5 个完整可比配对中观测到成功率提升 80 个百分点、中位时延降低 27.4%、完整 Token 观测的中位数增加 17.2%；但该轮因基础设施排除率超限被门禁隔离，只能作为校准证据，不能作为 Formal 上线或最终简历结论。
 
 - [EvalOps 使用说明](docs/EVALOPS.md)
 - [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
@@ -123,7 +126,7 @@ rook --interactive
 - 对危险操作先做权限确认的工具调用流程
 - 会话持久化、恢复和上下文压缩
 - 适合学习和二次开发的 skills、provider 和清晰模块结构
-- Skill Candidate 隔离、A/B 评测、ScoreCard、准入、报告和回滚
+- Rook Forge Skill 隔离、A/B 考试、ScoreCard、人工审批、双目标部署和回滚
 
 ## 配置
 

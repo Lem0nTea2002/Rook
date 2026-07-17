@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f6f1" />
-    <title>Rook — 看得懂的本地 Coding Agent</title>
-    <meta name="description" content="Rook 是一个真实可运行、可阅读、可扩展的本地 Python Coding Agent。" />
+    <title>Rook + Rook Forge — Coding Agent 与 Skill 上线治理</title>
+    <meta name="description" content="Rook 是本地 Python Coding Agent；Rook Forge 为 Skill 提供考试、人工审批、部署、失效检测与回滚。" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -22,6 +22,7 @@
       <nav aria-label="主导航">
         <a href="#why">为什么是它</a>
         <a href="#mechanics">运行机制</a>
+        <a href="#forge">Rook Forge</a>
         <a href="#start">开始使用</a>
       </nav>
       <a class="github-link" href="https://github.com/KomorGiaoGiao/Rook" target="_blank" rel="noreferrer">GitHub <span>↗</span></a>
@@ -32,7 +33,7 @@
         <div class="hero-copy reveal">
           <p class="eyebrow"><i></i> LOCAL PYTHON CODING AGENT</p>
           <h1>写代码之外，<br /><em>把 Agent 怎么工作</em><br />也看明白。</h1>
-          <p class="lede">Rook 是一个真实可运行的本地 Coding Agent：它会调用工具、确认权限、保存会话、管理长上下文；这些都不是黑箱。</p>
+          <p class="lede">Rook 是一个真实可运行的本地 Coding Agent；Rook Forge 则给 Skill 设置考试、人工审批、部署和回滚。Agent 怎么执行、Skill 为什么上线，都不是黑箱。</p>
           <div class="actions">
             <a class="button button-primary" href="https://github.com/KomorGiaoGiao/Rook" target="_blank" rel="noreferrer">查看源码 <span>↗</span></a>
             <a class="button button-quiet" href="#why">了解它能做什么 <span>↓</span></a>
@@ -109,6 +110,29 @@
         <div class="runtime-note reveal"><span>GUARD</span><h3>每轮都有明确终点</h3><p>任务会完成、等待确认，或触发保护上限；不会无限转圈，主打一个“到点下班”。</p></div>
       </section>
 
+      <section class="feature-intro shell" id="forge">
+        <div class="section-head reveal"><p class="eyebrow">ROOK FORGE · SKILL GOVERNANCE</p><h2>Skill 不是写完就上线，<br />先考试，再审批。</h2></div>
+        <p class="section-summary reveal">Candidate 先留在隔离区，接受 Baseline / Forced / Routed 配对考试。自动门禁只判断是否具备资格；只有不可变的人工审批，才会按 Rook 或 Codex 目标独立部署。</p>
+      </section>
+
+      <section class="capabilities shell" aria-label="Rook Forge 治理流程">
+        <article class="capability capability-loop reveal">
+          <div class="capability-number">F1</div>
+          <div class="capability-copy"><p class="eyebrow">EXAM · <code>evalops/</code></p><h3>隔离配对实验，<br />让提升可以被验证。</h3><p>确定性 Evaluator 检查文件结果、命令、工具轨迹和安全边界，ScoreCard 分开统计成功率、时延、Token、保持性和基础设施排除。</p></div>
+          <div class="loop-diagram" aria-hidden="true"><span>Baseline</span><i>↔</i><span>Forced</span><i>+</i><span>Routed</span></div>
+        </article>
+        <article class="capability capability-permissions reveal">
+          <div class="capability-number">F2</div>
+          <div class="capability-copy"><p class="eyebrow">APPROVE · <code>rook skill approve</code></p><h3>门禁通过，<br />仍然不会自动激活。</h3><p>审批会重新核对 Agent、模型、Adapter、Normalizer、Suite、Policy 和内容哈希。安全失败、秘密泄漏、新增回归或 stale 证据不能被人工绕过。</p></div>
+          <div class="loop-diagram" aria-hidden="true"><span>Gate</span><i>→</i><span>Human</span><i>→</i><span>Deploy</span></div>
+        </article>
+        <article class="capability capability-context reveal">
+          <div class="capability-number">F3</div>
+          <div class="capability-copy"><p class="eyebrow">RELEASE · <code>rook skill rollback</code></p><h3>Rook 与 Codex，<br />独立部署、独立回滚。</h3><p>Codex 只安装到当前仓库的 <code>.agents/skills</code>，拒绝覆盖用户目录；Rook 只发现已批准版本。所有 gate、approval、release 和 rollback 都保留不可变记录。</p></div>
+          <div class="loop-diagram" aria-hidden="true"><span>v1</span><i>→</i><span>v2</span><i>↺</i><span>v1</span></div>
+        </article>
+      </section>
+
       <section class="sessions shell split-section">
         <figure class="session-screen reveal"><img src="assets/resume-session.gif" alt="Rook 输入 /resume 后恢复已有会话的真实运行过程" /></figure>
         <div class="sessions-copy reveal"><p class="eyebrow">05 / CONTINUE LATER · <code>session/</code></p><h2>离开终端，<br />任务也能从原处继续。</h2><p>每个项目的消息、工具调用、授权和结果都会追加为本地事件流。你可以恢复最近会话、选择旧会话、改名或分叉新思路；压缩之后，仍能重建可读记录。</p><div class="event-stream"><span>message</span><i></i><span>tool call</span><i></i><span>approval</span><i></i><span>result</span></div></div>
@@ -153,6 +177,7 @@
           <details><summary>关闭终端以后，怎么继续上一次工作？<span>+</span></summary><p>会话以事件流保存消息、工具调用、授权和结果。使用 <code>/resume</code> 选择已有会话即可继续；也可以用 <code>/fork</code> 从当前会话复制一条新分支，或用 <code>/rename</code> 整理会话标题。</p></details>
           <details><summary>模型和密钥怎么配置？<span>+</span></summary><p>模型配置可放在全局 <code>~/.config/rook/config.toml</code> 或项目级 <code>./rook.toml</code>；密钥通过如 <code>ROOK_API_KEY</code> 的环境变量提供，不需要写进项目代码。</p></details>
           <details><summary>能接自己的模型、Skill 或 MCP 吗？<span>+</span></summary><p>可以。Provider Adapter 负责把不同模型协议收敛到运行时；项目与全局 Skill 可被发现、加载并写入审计事件；stdio MCP 与外部能力通过统一工具协议接入。具体可用性取决于当前 Provider 配置和已安装服务。</p></details>
+          <details><summary>Rook Forge 会自动把通过考试的 Skill 上线吗？<span>+</span></summary><p>不会。自动门禁只产生“具备审批资格”的结论；必须用 <code>rook skill approve</code> 提供审批人和理由，重新验证全部证据指纹后才会按 Rook 或 Codex 目标部署。</p></details>
           <details><summary>本地数据与工具访问范围怎么控制？<span>+</span></summary><p>默认策略会按工具和路径请求权限，标准模式限制在项目范围内；会话、归档和配置都由本地工作流管理。切换到更宽松模式会改变访问范围，因此应只在你明确理解影响时使用。</p></details>
         </div>
       </section>
