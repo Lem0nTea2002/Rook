@@ -290,6 +290,10 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "plugins",
         "--disable",
         "memories",
+        "-c",
+        'web_search="disabled"',
+        "-c",
+        "sandbox_workspace_write.network_access=false",
         "--sandbox",
         "workspace-write",
         "--skip-git-repo-check",
@@ -307,6 +311,37 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_disabled_network_web_search_is_a_policy_violation(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-policy"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    lines.insert(
+        -1,
+        '{"type":"item.started","item":{"id":"item_6","type":"web_search",'
+        '"id":"ws_duplicate","query":"unexpected"}}',
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.UNSAFE_ACTION
+    assert run.error_code == "codex_web_search_policy_violation"
+    assert run.trace_complete is False
+    assert run.trace is not None
+    assert "codex_web_search_policy_violation" in run.trace.diagnostics
+    persisted = (tmp_path / "artifacts" / run.raw_event_refs[0]).read_text(
+        encoding="utf-8"
+    )
+    assert "unexpected" not in persisted
 
 
 def test_codex_prepare_does_not_set_windows_backend_on_linux(tmp_path: Path) -> None:

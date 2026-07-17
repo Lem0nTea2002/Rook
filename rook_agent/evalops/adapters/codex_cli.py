@@ -22,12 +22,16 @@ from rook_agent.evalops.models import (
     AgentRun,
     AgentType,
     NormalizedTrace,
+    NetworkPolicy,
     RunSpec,
     RunStatus,
     Treatment,
     TreatmentFamily,
 )
-from rook_agent.evalops.normalizers.codex import CodexTraceNormalizer
+from rook_agent.evalops.normalizers.codex import (
+    NORMALIZER_VERSION,
+    CodexTraceNormalizer,
+)
 from rook_agent.evalops.process import (
     ProcessRequest,
     ProcessResult,
@@ -215,6 +219,7 @@ class CodexCliAdapter:
             supports_budget_limit=False,
             supports_sandbox=supported,
             supported_treatments=tuple(Treatment) if supported else (),
+            normalizer_version=NORMALIZER_VERSION if supported else None,
             event_types=(
                 "run_started",
                 "turn_started",
@@ -263,6 +268,7 @@ class CodexCliAdapter:
             windows_sandbox=(
                 "unelevated" if self._platform_name == "win32" else None
             ),
+            network_policy=spec.case.network_policy,
         )
         run_id = "codex-" + stable_json_hash(
             {
@@ -310,7 +316,10 @@ class CodexCliAdapter:
                 ),
                 cancellation_token=token,
             )
-            sanitized_events = _sanitize_stdout_jsonl(result.stdout)
+            sanitized_events = _sanitize_stdout_jsonl(
+                result.stdout,
+                network_policy=prepared.spec.case.network_policy,
+            )
             sanitized_stderr = redact_sensitive_text(result.stderr)
             stdout_ref = self._artifacts.write_jsonl(
                 Path("raw-events") / f"{prepared.run_id}.jsonl",
@@ -499,6 +508,7 @@ def _command(
     model: str | None,
     include_skill_instructions: bool,
     windows_sandbox: str | None,
+    network_policy: NetworkPolicy,
 ) -> tuple[str, ...]:
     command = [
         executable_path,
@@ -512,6 +522,18 @@ def _command(
         "--disable",
         "memories",
     ]
+    if network_policy is not NetworkPolicy.DISABLED:
+        raise ValueError(
+            "Codex EvalOps currently supports only disabled Agent network access"
+        )
+    command.extend(
+        (
+            "-c",
+            'web_search="disabled"',
+            "-c",
+            "sandbox_workspace_write.network_access=false",
+        )
+    )
     if not include_skill_instructions:
         command.extend(("-c", "skills.include_instructions=false"))
     command.extend(
@@ -573,6 +595,8 @@ def _run_status(
         return RunStatus.INFRA_ERROR, "codex_process_failed"
     if "codex_normalizer_error" in trace.diagnostics:
         return RunStatus.ADAPTER_ERROR, "codex_normalizer_error"
+    if "codex_web_search_policy_violation" in trace.diagnostics:
+        return RunStatus.UNSAFE_ACTION, "codex_web_search_policy_violation"
     if not trace.trace_complete:
         return RunStatus.ADAPTER_ERROR, "codex_trace_incomplete"
     terminal_types = tuple(
@@ -614,9 +638,26 @@ def _first_nonempty_line(value: str) -> str | None:
     return next((line.strip() for line in value.splitlines() if line.strip()), None)
 
 
-def _sanitize_stdout_jsonl(text: str) -> tuple[dict[str, object], ...]:
+def _sanitize_stdout_jsonl(
+    text: str,
+    *,
+    network_policy: NetworkPolicy,
+) -> tuple[dict[str, object], ...]:
     sanitized: list[dict[str, object]] = []
     for line_number, line in enumerate(text.splitlines()):
+        if (
+            network_policy is NetworkPolicy.DISABLED
+            and '"type":"web_search"' in line.replace(" ", "")
+        ):
+            sanitized.append(
+                {
+                    "type": "rook.codex.policy_violation",
+                    "line_number": line_number,
+                    "policy": "network_disabled",
+                    "violation": "web_search",
+                }
+            )
+            continue
         try:
             if not line.strip():
                 raise ValueError("blank JSONL line")

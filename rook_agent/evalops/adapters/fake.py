@@ -88,6 +88,7 @@ class FakeAgentAdapter:
             supports_budget_limit=True,
             supports_sandbox=True,
             supported_treatments=tuple(Treatment),
+            normalizer_version="fake-1",
             event_types=(
                 "run_started",
                 "assistant_message",

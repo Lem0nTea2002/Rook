@@ -36,6 +36,7 @@ class AgentCapabilities:
     supports_sandbox: bool
     supported_treatments: tuple[Treatment, ...]
     event_types: tuple[str, ...] = ()
+    normalizer_version: str | None = None
     diagnostic_code: str | None = None
 
 

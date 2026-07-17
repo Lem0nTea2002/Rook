@@ -18,7 +18,7 @@ from rook_agent.evalops.models import (
 )
 
 
-_NORMALIZER_VERSION = "codex-exec-jsonl-v1"
+NORMALIZER_VERSION = "codex-exec-jsonl-v1"
 _TOP_LEVEL_EVENTS = {
     "thread.started",
     "turn.started",
@@ -29,6 +29,7 @@ _TOP_LEVEL_EVENTS = {
     "turn.failed",
     "error",
     "rook.codex.parse_error",
+    "rook.codex.policy_violation",
 }
 
 
@@ -187,7 +188,7 @@ class CodexTraceNormalizer:
         return NormalizedTrace(
             events=tuple(state.events),
             trace_complete=not state.fatal_diagnostics,
-            normalizer_version=_NORMALIZER_VERSION,
+            normalizer_version=NORMALIZER_VERSION,
             final_answer=state.final_answer,
             usage=state.usage,
             diagnostics=diagnostics,
@@ -479,6 +480,31 @@ def _adapter_parse_error(
     )
 
 
+def _policy_violation(
+    state: _TraceState, raw: Mapping[str, object], offset: int
+) -> None:
+    if (
+        raw.get("policy") != "network_disabled"
+        or raw.get("violation") != "web_search"
+    ):
+        state.diagnose("codex_policy_violation_invalid", fatal=True)
+        return
+    line_number = raw.get("line_number")
+    if isinstance(line_number, bool) or not isinstance(line_number, int):
+        line_number = offset
+    state.diagnose("codex_web_search_policy_violation", fatal=True)
+    state.emit(
+        "policy_violation",
+        raw=raw,
+        offset=offset,
+        data={
+            "line_number": line_number,
+            "policy": "network_disabled",
+            "violation": "web_search",
+        },
+    )
+
+
 def _mark_terminal(state: _TraceState, duplicate_code: str) -> None:
     if state.terminal_seen:
         state.diagnose(duplicate_code, fatal=True)
@@ -546,9 +572,10 @@ _TOP_LEVEL_NORMALIZERS: dict[str, TopLevelHandler] = {
     "turn.failed": _turn_failed,
     "error": _stream_error,
     "rook.codex.parse_error": _adapter_parse_error,
+    "rook.codex.policy_violation": _policy_violation,
 }
 
 assert set(_TOP_LEVEL_NORMALIZERS) == _TOP_LEVEL_EVENTS
 
 
-__all__ = ["CodexTraceNormalizer"]
+__all__ = ["CodexTraceNormalizer", "NORMALIZER_VERSION"]

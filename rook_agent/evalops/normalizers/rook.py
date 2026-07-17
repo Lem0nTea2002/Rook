@@ -14,7 +14,7 @@ from rook_agent.evalops.models import (
 )
 
 
-_NORMALIZER_VERSION = "rook-session-v1"
+NORMALIZER_VERSION = "rook-session-v1"
 _KNOWN_SIMPLE_EVENTS = {
     "session_created": "run_started",
     "user_message": "user_message",
@@ -212,7 +212,7 @@ class RookTraceNormalizer:
         return NormalizedTrace(
             events=tuple(normalized),
             trace_complete=not fatal_diagnostics,
-            normalizer_version=_NORMALIZER_VERSION,
+            normalizer_version=NORMALIZER_VERSION,
             final_answer=final_answer,
             diagnostics=all_diagnostics,
         )
@@ -319,4 +319,4 @@ def _contains_redaction(value: object) -> bool:
     return False
 
 
-__all__ = ["RookTraceNormalizer"]
+__all__ = ["RookTraceNormalizer", "NORMALIZER_VERSION"]

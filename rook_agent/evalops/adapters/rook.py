@@ -34,7 +34,7 @@ from rook_agent.evalops.models import (
     Treatment,
 )
 from rook_agent.evalops.normalizers.base import TraceNormalizer
-from rook_agent.evalops.normalizers.rook import RookTraceNormalizer
+from rook_agent.evalops.normalizers.rook import NORMALIZER_VERSION, RookTraceNormalizer
 from rook_agent.evalops.workspace import hash_workspace
 from rook_agent.providers.factory import create_provider_from_config
 
@@ -82,6 +82,7 @@ class RookEvalAdapter:
             supports_budget_limit=False,
             supports_sandbox=True,
             supported_treatments=tuple(Treatment),
+            normalizer_version=NORMALIZER_VERSION,
             event_types=(
                 "run_started",
                 "assistant_message",
