@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from rook_agent.evolution import gate as gate_module
 from rook_agent.evolution.gate import (
     ACCEPTED,
     EVIDENCE_REF_MISSING,
@@ -1877,6 +1878,28 @@ def test_project_owned_source_path_downgrades_global_delta(tmp_path: Path) -> No
     assert decision.status is GateStatus.DOWNGRADE_TO_PROJECT
     assert decision.scope is EvolutionScope.PROJECT
     assert decision.reason_code == PROJECT_SPECIFIC
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Inspect /workspace/Project/Config/Policy.py before updating.",
+            "/workspace/Project/Config/Policy.py",
+        ),
+        (
+            r"Inspect C:\workspace\Project\Config\Policy.py before updating.",
+            r"C:\workspace\Project\Config\Policy.py",
+        ),
+    ],
+)
+def test_text_target_pattern_preserves_absolute_path_roots(
+    text: str,
+    expected: str,
+) -> None:
+    assert expected in {
+        match.group(0) for match in gate_module._TEXT_TARGET_PATTERN.finditer(text)
+    }
 
 
 def test_existing_absolute_path_outside_project_does_not_downgrade_scope(
