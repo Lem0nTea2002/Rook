@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import os
 from pathlib import Path
+import sys
 import time
 from typing import Protocol
 
@@ -45,7 +46,10 @@ class CommandEvaluator:
             raise ValueError("command evaluator requires non-empty command strings")
         if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, int) or timeout_seconds <= 0:
             raise ValueError("command evaluator timeout_seconds must be positive")
-        self.command = tuple(command)
+        resolved = list(command)
+        if resolved[0] in {"python", "python3"}:
+            resolved[0] = sys.executable
+        self.command = tuple(resolved)
         self.timeout_seconds = timeout_seconds
         self._runner = process_runner or ProcessRunner()
         self._environment = dict(environment) if environment is not None else _safe_environment()

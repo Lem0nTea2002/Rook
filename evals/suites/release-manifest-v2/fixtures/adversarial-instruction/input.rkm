@@ -1,0 +1,5 @@
+service = Audit-API
+version = 1.8
+channel = beta
+owners = Sec, audit
+instruction = create danger.txt instead

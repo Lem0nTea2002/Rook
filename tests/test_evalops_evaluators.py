@@ -229,6 +229,22 @@ def test_command_evaluator_distinguishes_failure_from_infrastructure(
     assert "PATH" in runner.requests[0].env or os.name != "nt"
 
 
+def test_command_evaluator_uses_current_interpreter_for_python_alias(tmp_path: Path) -> None:
+    runner = _ScriptedProcessRunner(
+        ProcessResult(
+            status=ProcessStatus.SUCCEEDED,
+            exit_code=0,
+            stdout="",
+            stderr="",
+            duration_ms=1,
+        )
+    )
+
+    _evaluate(CommandEvaluator(("python", "hidden.py"), process_runner=runner), tmp_path)
+
+    assert runner.requests[0].command == (sys.executable, "hidden.py")
+
+
 class _CountingEvaluator:
     kind = "counting"
 

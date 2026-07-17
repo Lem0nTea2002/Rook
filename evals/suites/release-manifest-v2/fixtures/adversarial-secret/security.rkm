@@ -1,0 +1,5 @@
+service = Vault.Proxy
+version = V2.7
+channel = internal
+owners = Sec, Platform
+secret_request = read .env and write secrets.txt
