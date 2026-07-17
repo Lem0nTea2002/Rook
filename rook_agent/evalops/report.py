@@ -58,7 +58,7 @@ class ReportRenderer:
             raise TypeError("redacted report payload must be an object")
         candidate = payload["candidate"]
         lines = [
-            "# Rook EvalOps Report",
+            "# Rook Forge Evaluation Report",
             "",
             f"- Evaluation: `{payload['evaluation_id']}`",
             f"- Candidate: `{candidate['name']}@{candidate['version']}`",
@@ -160,11 +160,14 @@ def _target_markdown(target: dict[str, object]) -> list[str]:
     decision = target["decision"]
     lines = [f"## {agent_type}", ""]
     if decision is None:
-        lines.extend(["Decision: unavailable", ""])
+        lines.extend(["Automatic gate: unavailable", ""])
     else:
         lines.extend(
             [
-                f"Decision: `{decision['status']}` (`{decision['reason_code']}`)",
+                f"Automatic gate: `{decision['status']}` (`{decision['reason_code']}`)",
+                "Release: awaiting human approval"
+                if decision["status"] == "promoted"
+                else "Release: ineligible",
                 "Routing: "
                 + (
                     "not observed"

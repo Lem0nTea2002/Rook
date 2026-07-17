@@ -178,7 +178,9 @@ def test_json_report_is_stable_explicit_and_redacted() -> None:
 def test_markdown_report_labels_missing_metrics_as_not_observed() -> None:
     rendered = ReportRenderer().render_markdown(_summary())
 
-    assert "# Rook EvalOps Report" in rendered
+    assert "# Rook Forge Evaluation Report" in rendered
+    assert "Automatic gate: `promoted`" in rendered
+    assert "Release: awaiting human approval" in rendered
     assert "## codex" in rendered
     assert "## rook" in rendered
     assert rendered.index("## codex") < rendered.index("## rook")

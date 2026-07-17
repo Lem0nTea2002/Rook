@@ -28,6 +28,8 @@ from rook_agent.evalops.models import (
     TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.release import SkillReleaseService, normalizer_fingerprint
+from rook_agent.evalops.suites import load_eval_suite
 
 
 @pytest.mark.parametrize(
@@ -50,9 +52,41 @@ from rook_agent.evalops.registry import PromotionRegistry
         ),
         (["eval", "report", "evaluation-1"], "eval", "report"),
         (["skill", "status", "safe-skill"], "skill", "status"),
+        (
+            [
+                "skill",
+                "approve",
+                "safe-skill",
+                "--agent",
+                "rook",
+                "--decision-id",
+                "decision-1",
+                "--suite",
+                "suite.toml",
+                "--approver",
+                "reviewer",
+                "--reason",
+                "evidence reviewed",
+            ],
+            "skill",
+            "approve",
+        ),
+        (["skill", "history", "safe-skill"], "skill", "history"),
         (["skill", "stage", "--bundle", "skill.toml"], "skill", "stage"),
         (
-            ["skill", "rollback", "safe-skill", "--agent", "codex", "--to-version", "1"],
+            [
+                "skill",
+                "rollback",
+                "safe-skill",
+                "--agent",
+                "codex",
+                "--to-version",
+                "1",
+                "--approver",
+                "reviewer",
+                "--reason",
+                "regression detected",
+            ],
             "skill",
             "rollback",
         ),
@@ -233,18 +267,26 @@ def _capabilities(
         supports_budget_limit=False,
         supports_sandbox=available,
         supported_treatments=tuple(Treatment) if available else (),
+        normalizer_version="normalizer-v1" if available else None,
         diagnostic_code=None if available else "adapter_unavailable",
     )
 
 
 def _dependencies(tmp_path: Path, adapters: dict[AgentType, object]) -> EvalOpsCliDependencies:
+    candidate_store = CandidateStore(tmp_path / ".rook" / "skill-registry")
+    registry = PromotionRegistry(tmp_path)
     return EvalOpsCliDependencies(
         project_root=tmp_path.resolve(),
         artifact_store=ArtifactStore(tmp_path / ".rook" / "evalops" / "artifacts"),
-        candidate_store=CandidateStore(tmp_path / ".rook" / "skill-registry"),
-        registry=PromotionRegistry(tmp_path),
+        candidate_store=candidate_store,
+        registry=registry,
         adapters=adapters,
         service=None,
+        release_service=SkillReleaseService(
+            project_root=tmp_path,
+            candidates=candidate_store,
+            registry=registry,
+        ),
     )
 
 
@@ -346,8 +388,7 @@ def test_export_rejects_real_codex_home_even_for_promoted_candidate(
         model=None,
         adapter_version="evalops-v1",
     )
-    deps.registry.record(
-        PromotionDecision(
+    decision = PromotionDecision(
             skill_name="export-skill",
             skill_version=candidate.version,
             target=target,
@@ -360,8 +401,19 @@ def test_export_rejects_real_codex_home_even_for_promoted_candidate(
             skill_content_hash=candidate.content_hash,
             suite_fingerprint="suite",
             policy_fingerprint="policy",
-            normalizer_fingerprint="normalizer",
-        )
+            normalizer_fingerprint=normalizer_fingerprint("normalizer-v1"),
+    )
+    deps.registry.record(decision)
+    assert deps.release_service is not None
+    deps.release_service.approve(
+        skill_name="export-skill",
+        decision_id=decision.decision_id,
+        current_target=target,
+        suite_fingerprint="suite",
+        policy_fingerprint="policy",
+        normalizer_fingerprint=normalizer_fingerprint("normalizer-v1"),
+        approver="reviewer",
+        reason="approve export test",
     )
     args = build_parser().parse_args(
         [
@@ -379,3 +431,154 @@ def test_export_rejects_real_codex_home_even_for_promoted_candidate(
 
     with pytest.raises(ValueError, match="~/.codex"):
         run_evalops_command(args, dependencies=deps)
+
+
+def test_skill_approve_status_and_history_form_an_auditable_cli_flow(
+    tmp_path: Path, capsys
+) -> None:
+    deps = _dependencies(
+        tmp_path,
+        {AgentType.ROOK: _ProbeAdapter(_capabilities(AgentType.ROOK))},
+    )
+    candidate = deps.candidate_store.create(
+        SkillBundle(
+            name="cli-release-skill",
+            description="CLI release flow.",
+            triggers=("release",),
+            procedure=("Use the reviewed procedure.",),
+            verification=("Verify the result.",),
+            pitfalls=(),
+            evidence_refs=(),
+        ),
+        status=CandidateStatus.QUARANTINED,
+    )
+    suite_path = Path(__file__).parents[1] / "evals" / "suites" / "codex-demo" / "suite.toml"
+    suite = load_eval_suite(suite_path)
+    target = _target_for(AgentType.ROOK, deps)
+    decision = PromotionDecision(
+        skill_name=candidate.bundle.name,
+        skill_version=candidate.version,
+        target=target,
+        status=PromotionStatus.PROMOTED,
+        reason_code="success_uplift",
+        policy_version="1",
+        scorecard_hash="cli-scorecard",
+        created_at="2026-07-17T00:00:00Z",
+        decision_id="decision-cli-release",
+        skill_content_hash=candidate.content_hash,
+        suite_fingerprint=suite.fingerprint,
+        policy_fingerprint=suite.policy.fingerprint,
+        normalizer_fingerprint=normalizer_fingerprint("normalizer-v1"),
+    )
+    deps.registry.record(decision)
+    approve_args = build_parser().parse_args(
+        [
+            "--project",
+            str(tmp_path),
+            "skill",
+            "approve",
+            candidate.bundle.name,
+            "--agent",
+            "rook",
+            "--decision-id",
+            decision.decision_id,
+            "--suite",
+            str(suite_path),
+            "--approver",
+            "reviewer",
+            "--reason",
+            "reviewed immutable evidence",
+        ]
+    )
+
+    assert run_evalops_command(approve_args, dependencies=deps) == 0
+    assert deps.registry.active_version(candidate.bundle.name, target) == 1
+    approve_output = capsys.readouterr().out
+    assert "deployed cli-release-skill/rook version 1" in approve_output
+
+    for command in ("status", "history"):
+        args = build_parser().parse_args(
+            ["--project", str(tmp_path), "skill", command, candidate.bundle.name]
+        )
+        assert run_evalops_command(args, dependencies=deps) == 0
+    output = capsys.readouterr().out
+    assert "release version 1 (active" in output
+    assert "gate 2026-07-17T00:00:00Z rook v1 promoted" in output
+    assert "approval " in output
+    assert "release " in output
+
+
+def test_skill_rollback_cli_requires_history_and_reactivates_prior_version(
+    tmp_path: Path, capsys
+) -> None:
+    deps = _dependencies(
+        tmp_path,
+        {AgentType.ROOK: _ProbeAdapter(_capabilities(AgentType.ROOK))},
+    )
+    suite_path = Path(__file__).parents[1] / "evals" / "suites" / "codex-demo" / "suite.toml"
+    suite = load_eval_suite(suite_path)
+    target = _target_for(AgentType.ROOK, deps)
+    decisions: list[PromotionDecision] = []
+    for version in (1, 2):
+        candidate = deps.candidate_store.create(
+            SkillBundle(
+                name="cli-rollback-skill",
+                description="CLI rollback flow.",
+                triggers=("rollback",),
+                procedure=(f"Use version {version}.",),
+                verification=("Verify the result.",),
+                pitfalls=(),
+                evidence_refs=(),
+            ),
+            status=CandidateStatus.QUARANTINED,
+        )
+        decision = PromotionDecision(
+            skill_name=candidate.bundle.name,
+            skill_version=candidate.version,
+            target=target,
+            status=PromotionStatus.PROMOTED,
+            reason_code="success_uplift",
+            policy_version="1",
+            scorecard_hash=f"rollback-score-{version}",
+            created_at=f"2026-07-17T00:00:0{version}Z",
+            decision_id=f"decision-cli-rollback-{version}",
+            skill_content_hash=candidate.content_hash,
+            suite_fingerprint=suite.fingerprint,
+            policy_fingerprint=suite.policy.fingerprint,
+            normalizer_fingerprint=normalizer_fingerprint("normalizer-v1"),
+        )
+        deps.registry.record(decision)
+        assert deps.release_service is not None
+        deps.release_service.approve(
+            skill_name=candidate.bundle.name,
+            decision_id=decision.decision_id,
+            current_target=target,
+            suite_fingerprint=suite.fingerprint,
+            policy_fingerprint=suite.policy.fingerprint,
+            normalizer_fingerprint=normalizer_fingerprint("normalizer-v1"),
+            approver="reviewer",
+            reason=f"approve version {version}",
+        )
+        decisions.append(decision)
+
+    args = build_parser().parse_args(
+        [
+            "--project",
+            str(tmp_path),
+            "skill",
+            "rollback",
+            "cli-rollback-skill",
+            "--agent",
+            "rook",
+            "--to-version",
+            "1",
+            "--approver",
+            "reviewer",
+            "--reason",
+            "version two regressed",
+        ]
+    )
+
+    assert run_evalops_command(args, dependencies=deps) == 0
+    assert deps.registry.active_version("cli-rollback-skill", target) == 1
+    assert "rolled back cli-rollback-skill/rook to version 1" in capsys.readouterr().out

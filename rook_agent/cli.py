@@ -57,7 +57,9 @@ def _nonempty_text(value: str) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run a single Rook user turn.")
+    parser = argparse.ArgumentParser(
+        description="Run the Rook Coding Agent or its Rook Forge Skill governance commands."
+    )
     subparsers = parser.add_subparsers(dest="command")
     config_parser = subparsers.add_parser("config", help="Inspect or initialize Rook configuration.")
     config_subparsers = config_parser.add_subparsers(dest="config_command")
@@ -66,11 +68,11 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser = config_subparsers.add_parser("init", help="Create a starter global config file.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite the existing global config.")
 
-    eval_parser = subparsers.add_parser("eval", help="Run and inspect Skill EvalOps experiments.")
+    eval_parser = subparsers.add_parser("eval", help="Run and inspect Rook Forge Skill exams.")
     eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
-    doctor_parser = eval_subparsers.add_parser("doctor", help="Probe EvalOps Agent capabilities.")
+    doctor_parser = eval_subparsers.add_parser("doctor", help="Probe Rook Forge Agent capabilities.")
     doctor_parser.add_argument("--agents", default="rook,codex", help="Comma-separated Agents to probe.")
-    eval_run_parser = eval_subparsers.add_parser("run", help="Evaluate one stored Skill candidate.")
+    eval_run_parser = eval_subparsers.add_parser("run", help="Run a Rook Forge exam for one stored Skill Candidate.")
     eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
     eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")
     eval_run_parser.add_argument("--agents", required=True, help="Comma-separated Agents to evaluate.")
@@ -109,13 +111,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
-    report_parser = eval_subparsers.add_parser("report", help="Read an immutable EvalOps report.")
+    report_parser = eval_subparsers.add_parser("report", help="Read an immutable Rook Forge report.")
     report_parser.add_argument("experiment_id")
 
-    skill_parser = subparsers.add_parser("skill", help="Inspect or change evaluated Skill state.")
+    skill_parser = subparsers.add_parser("skill", help="Inspect or change Rook Forge Skill state.")
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)
     status_parser = skill_subparsers.add_parser("status", help="Show candidate and promotion state.")
     status_parser.add_argument("name")
+    approve_parser = skill_subparsers.add_parser(
+        "approve", help="Approve and deploy one promoted, non-stale Skill decision."
+    )
+    approve_parser.add_argument("name")
+    approve_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    approve_parser.add_argument("--decision-id", required=True)
+    approve_parser.add_argument("--suite", required=True, help="Current Eval suite TOML manifest.")
+    approve_parser.add_argument("--approver", required=True, type=_nonempty_text)
+    approve_parser.add_argument("--reason", required=True, type=_nonempty_text)
+    history_parser = skill_subparsers.add_parser(
+        "history", help="Show immutable gate, approval, and release history."
+    )
+    history_parser.add_argument("name")
     stage_parser = skill_subparsers.add_parser(
         "stage", help="Stage a strict TOML Skill bundle as an inactive quarantined candidate."
     )
@@ -123,7 +138,9 @@ def build_parser() -> argparse.ArgumentParser:
     rollback_parser = skill_subparsers.add_parser("rollback", help="Roll back an active Skill version.")
     rollback_parser.add_argument("name")
     rollback_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
-    rollback_parser.add_argument("--to-version", type=_positive_int, default=None)
+    rollback_parser.add_argument("--to-version", type=_positive_int, required=True)
+    rollback_parser.add_argument("--approver", required=True, type=_nonempty_text)
+    rollback_parser.add_argument("--reason", required=True, type=_nonempty_text)
     export_parser = skill_subparsers.add_parser("export", help="Export an evaluated Skill to a staging directory.")
     export_parser.add_argument("name")
     export_parser.add_argument("--agent", required=True, choices=("rook", "codex"))

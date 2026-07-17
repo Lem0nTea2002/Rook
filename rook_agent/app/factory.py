@@ -7,6 +7,7 @@ from pathlib import Path
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.agent.session import AgentSession, create_project_permission_manager
 from rook_agent.app.commands import ContextCommandHandler
+from rook_agent.app.forge_commands import ForgeCommandHandler
 from rook_agent.app.help_commands import HelpCommandHandler
 from rook_agent.app.model_commands import ModelCommandHandler, ModelState
 from rook_agent.app.permission_commands import PermissionCommandHandler
@@ -22,6 +23,8 @@ from rook_agent.context.manager import ContextWindowManager
 from rook_agent.context.provider_summarizer import ProviderLlmCompactSummarizer
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.release import SkillReleaseService
 from rook_agent.evolution.coordinator import CandidateCoordinator
 from rook_agent.evolution.models import load_evolution_config
 from rook_agent.providers.base import ChatProvider
@@ -125,6 +128,19 @@ def create_rook_app(
     permission_handler = PermissionCommandHandler(session=current)
     skill_catalog_provider = lambda: discover_all_skills(project_path)
     skill_handler = SkillCommandHandler(catalog_provider=skill_catalog_provider)
+    forge_store = CandidateStore(project_path / ".rook" / "skill-registry")
+    forge_registry = PromotionRegistry(project_path)
+    forge_release_service = SkillReleaseService(
+        project_root=project_path,
+        candidates=forge_store,
+        registry=forge_registry,
+    )
+    forge_handler = ForgeCommandHandler(
+        registry=forge_registry,
+        candidates=forge_store,
+        releases=forge_release_service,
+        artifact_root=project_path / ".rook" / "evalops" / "artifacts",
+    )
     evolution_config = load_evolution_config(resolved_app_config)
     candidate_coordinator = None
     if evolution_config.enabled:
@@ -155,6 +171,7 @@ def create_rook_app(
             session_handler,
             context_handler,
             permission_handler,
+            forge_handler,
             skill_handler,
         ]
     )

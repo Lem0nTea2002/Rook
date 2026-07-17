@@ -30,6 +30,7 @@ from rook_agent.evalops.models import (
     TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
+from rook_agent.evalops.release import SkillReleaseService, normalizer_fingerprint
 from rook_agent.evalops.report import ReportRenderer
 from rook_agent.evalops.runner import ExperimentRunner
 from rook_agent.evalops.scoring import ScoreCardBuilder
@@ -54,6 +55,7 @@ class EvalOpsCliDependencies:
     registry: PromotionRegistry
     adapters: Mapping[AgentType, AgentAdapter]
     service: EvalOpsService
+    release_service: SkillReleaseService | None = None
 
 
 def run_evalops_command(
@@ -104,13 +106,20 @@ def create_evalops_dependencies(project_root: Path) -> EvalOpsCliDependencies:
         report_renderer=ReportRenderer(),
         artifact_store=artifact_store,
     )
+    candidate_store = CandidateStore(project / ".rook" / "skill-registry")
+    release_service = SkillReleaseService(
+        project_root=project,
+        candidates=candidate_store,
+        registry=registry,
+    )
     return EvalOpsCliDependencies(
         project_root=project,
         artifact_store=artifact_store,
-        candidate_store=CandidateStore(project / ".rook" / "skill-registry"),
+        candidate_store=candidate_store,
         registry=registry,
         adapters=adapters,
         service=service,
+        release_service=release_service,
     )
 
 
@@ -161,6 +170,10 @@ def run_skill_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) ->
         return _show_skill_status(args, deps)
     if args.skill_command == "stage":
         return _stage_skill(args, deps)
+    if args.skill_command == "approve":
+        return _approve_skill(args, deps)
+    if args.skill_command == "history":
+        return _show_skill_history(args, deps)
     if args.skill_command == "rollback":
         return _rollback_skill(args, deps)
     if args.skill_command == "export":
@@ -262,9 +275,15 @@ def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> i
             else item.decision.routing_status.value
         )
         print(
-            f"{item.target.type.value}: {item.decision.status.value} "
+            f"{item.target.type.value}: gate={item.decision.status.value} "
             f"({item.decision.reason_code}); routing={routing}"
         )
+        if item.decision.status is PromotionStatus.PROMOTED:
+            print(
+                "  Gate passed (measurement-only; no approval record)"
+                if args.measurement_only
+                else "  Gate passed, awaiting approval"
+            )
     return 0
 
 
@@ -287,41 +306,134 @@ def _show_skill_status(args: argparse.Namespace, deps: EvalOpsCliDependencies) -
     candidates = deps.candidate_store.list_versions(args.name)
     history = deps.registry.history(args.name)
     print(f"skill: {args.name}")
-    print("candidates: " + (", ".join(str(item.version) for item in candidates) or "none"))
+    print(
+        "candidates: "
+        + (
+            ", ".join(f"v{item.version}:{item.status.value}" for item in candidates)
+            or "none"
+        )
+    )
     for agent_type in (AgentType.ROOK, AgentType.CODEX):
         try:
-            entry = deps.registry.active_entry(args.name, agent_type)
+            eligible = deps.registry.eligible_entry(args.name, agent_type)
+            active = deps.registry.active_entry(args.name, agent_type)
         except ValueError:
             print(f"{agent_type.value}: multiple target fingerprints")
             continue
-        if entry is None:
-            print(f"{agent_type.value}: inactive")
+        gate = (
+            "none"
+            if eligible is None
+            else f"promoted version {eligible['eligible_version']} ({eligible['decision_id']})"
+        )
+        if active is None:
+            release = "inactive"
         else:
-            routing = "active" if entry["routing_active"] else "not active"
-            print(
-                f"{agent_type.value}: version {entry['active_version']} "
-                f"(routing {routing}, target {entry['target_fingerprint']})"
+            state = (
+                deps.release_service.deployment_state(args.name, agent_type)
+                if deps.release_service is not None
+                else "unknown"
             )
+            stale = _release_is_stale(args.name, active, eligible, deps)
+            release = (
+                f"version {active['active_version']} ({state}, stale={_bool(stale)}, "
+                f"approval {active['approval_id']}, release {active['release_id']})"
+            )
+        print(f"{agent_type.value}: gate {gate}; release {release}")
     print(f"decisions: {len(history)}")
+    print(f"approvals: {len(deps.registry.approvals(args.name))}")
+    print(f"releases: {len(deps.registry.releases(args.name))}")
+    latest_report = next(
+        (item.report_ref for item in reversed(history) if item.report_ref),
+        None,
+    )
+    print(f"latest report: {latest_report or 'none'}")
+    return 0
+
+
+def _show_skill_history(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
+    print(f"skill: {args.name}")
+    for decision in deps.registry.history(args.name):
+        print(
+            f"gate {decision.created_at} {decision.target.type.value} "
+            f"v{decision.skill_version} {decision.status.value} {decision.decision_id}"
+        )
+    for approval in deps.registry.approvals(args.name):
+        print(
+            f"approval {approval.created_at} {approval.target.type.value} "
+            f"v{approval.skill_version} {approval.approver} {approval.approval_id}"
+        )
+    for release in deps.registry.releases(args.name):
+        print(
+            f"release {release.created_at} {release.target.type.value} "
+            f"v{release.to_version} {release.action.value}/{release.status.value} "
+            f"{release.release_id}"
+        )
+    return 0
+
+
+def _approve_skill(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
+    if deps.release_service is None:
+        raise ValueError("Rook Forge release service is unavailable")
+    agent_type = AgentType(args.agent)
+    decision = deps.registry.decision(args.name, args.decision_id)
+    if decision.target.type is not agent_type:
+        raise ValueError("promotion decision belongs to a different Agent")
+    suite = load_eval_suite(Path(args.suite))
+    current_target = _target_for(
+        agent_type,
+        deps,
+        model=decision.target.model if agent_type is AgentType.CODEX else None,
+    )
+    release = deps.release_service.approve(
+        skill_name=args.name,
+        decision_id=args.decision_id,
+        current_target=current_target,
+        suite_fingerprint=suite.fingerprint,
+        policy_fingerprint=suite.policy.fingerprint,
+        normalizer_fingerprint=_current_normalizer_fingerprint(agent_type, deps),
+        approver=args.approver,
+        reason=args.reason,
+    )
+    print(
+        f"deployed {release.skill_name}/{agent_type.value} "
+        f"version {release.to_version} to {release.destination}"
+    )
+    print(f"release: {release.release_id}")
     return 0
 
 
 def _rollback_skill(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
+    if deps.release_service is None:
+        raise ValueError("Rook Forge release service is unavailable")
     agent_type = AgentType(args.agent)
-    target = _registered_target(args.name, agent_type, deps.registry)
-    decision = deps.registry.rollback(
-        args.name,
-        target,
-        to_version=args.to_version,
+    registered_target = _registered_target(args.name, agent_type, deps.registry)
+    current_target = _target_for(
+        agent_type,
+        deps,
+        model=registered_target.model if agent_type is AgentType.CODEX else None,
     )
-    print(f"rolled back {args.name}/{agent_type.value} to version {decision.skill_version}")
+    if current_target.fingerprint != registered_target.fingerprint:
+        raise ValueError("active release is stale for the current Agent target")
+    release = deps.release_service.rollback(
+        skill_name=args.name,
+        current_target=current_target,
+        to_version=args.to_version,
+        approver=args.approver,
+        reason=args.reason,
+    )
+    print(f"rolled back {args.name}/{agent_type.value} to version {release.to_version}")
+    print(f"release: {release.release_id}")
     return 0
 
 
 def _export_skill(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     agent_type = AgentType(args.agent)
     registered_target = _registered_target(args.name, agent_type, deps.registry)
-    current_target = _target_for(agent_type, deps)
+    current_target = _target_for(
+        agent_type,
+        deps,
+        model=registered_target.model if agent_type is AgentType.CODEX else None,
+    )
     entry = deps.registry.active_entry(args.name, registered_target)
     if entry is None:
         raise ValueError("Skill has no active evaluated version for this target")
@@ -396,6 +508,40 @@ def _registered_target(
         if decision.target.fingerprint == fingerprint:
             return decision.target
     raise ValueError("active target has no immutable decision history")
+
+
+def _release_is_stale(
+    skill_name: str,
+    active: Mapping[str, object],
+    eligible: Mapping[str, object] | None,
+    deps: EvalOpsCliDependencies,
+) -> bool:
+    if (
+        eligible is None
+        or eligible.get("decision_id") != active.get("decision_id")
+        or eligible.get("skill_content_hash") != active.get("skill_content_hash")
+    ):
+        return True
+    try:
+        candidate = deps.candidate_store.get(skill_name, int(active["active_version"]))
+    except (FileNotFoundError, TypeError, ValueError):
+        return True
+    return candidate.content_hash != active.get("skill_content_hash")
+
+
+def _current_normalizer_fingerprint(
+    agent_type: AgentType, deps: EvalOpsCliDependencies
+) -> str:
+    adapter = deps.adapters.get(agent_type)
+    if adapter is None:
+        raise ValueError(f"adapter is not configured: {agent_type.value}")
+    try:
+        capabilities = adapter.probe()
+    except Exception as exc:
+        raise ValueError("Agent capability probe failed") from exc
+    if not capabilities.available:
+        raise ValueError("Agent is unavailable for release approval")
+    return normalizer_fingerprint(capabilities.normalizer_version)
 
 
 def _target_for(
