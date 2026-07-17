@@ -1,11 +1,8 @@
-name: Deploy website
+name: Deploy website (manual)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - website-demo/**
-      - .github/workflows/deploy-website.yml
+  # The repository is private and Pages enablement can publish the site.
+  # Keep deployment explicit until an owner enables Pages for GitHub Actions.
   workflow_dispatch:
 
 permissions:
