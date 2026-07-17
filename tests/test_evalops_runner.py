@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from rook_agent.evalops.adapters.fake import (
     FakeAgentAdapter,
     FakeAgentOutcome,
@@ -135,6 +137,42 @@ def test_plan_builds_separate_content_and_routing_pairs(tmp_path: Path) -> None:
         assert {run.routing_relevant for run in case_runs} == {expected_relevance}
         assert all(run.skill is None for run in case_runs if run.treatment is Treatment.BASELINE)
         assert all(run.skill == _candidate() for run in case_runs if run.treatment is not Treatment.BASELINE)
+
+
+def test_plan_can_select_content_family_only_with_exact_call_count(tmp_path: Path) -> None:
+    suite = _suite(tmp_path)
+
+    plan = build_experiment_plan(
+        suite,
+        targets=(_target(),),
+        candidate=_candidate(),
+        repetitions=3,
+        families=(TreatmentFamily.CONTENT,),
+    )
+
+    assert len(plan.runs) == len(suite.cases) * 3 * 2
+    assert {run.treatment_family for run in plan.runs} == {TreatmentFamily.CONTENT}
+    assert {run.treatment for run in plan.runs} == {
+        Treatment.BASELINE,
+        Treatment.FORCED_SKILL,
+    }
+
+
+@pytest.mark.parametrize(
+    "families",
+    [(), (TreatmentFamily.CONTENT, TreatmentFamily.CONTENT)],
+)
+def test_plan_rejects_empty_or_duplicate_families(
+    tmp_path: Path,
+    families: tuple[TreatmentFamily, ...],
+) -> None:
+    with pytest.raises(ValueError, match="famil"):
+        build_experiment_plan(
+            _suite(tmp_path),
+            targets=(_target(),),
+            candidate=_candidate(),
+            families=families,
+        )
 
 
 def test_plan_alternates_pair_order_and_has_stable_pair_ids(tmp_path: Path) -> None:

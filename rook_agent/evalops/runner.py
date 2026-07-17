@@ -81,6 +81,7 @@ def build_experiment_plan(
     candidate: SkillCandidate,
     repetitions: int = 1,
     phase: ExperimentPhase = ExperimentPhase.FULL,
+    families: Sequence[TreatmentFamily] | None = None,
     fast_count_per_category: int = 1,
     turn_limit: int | None = None,
     budget_limit: Decimal | None = None,
@@ -95,6 +96,13 @@ def build_experiment_plan(
         raise ValueError("at least one Agent target is required")
     if not isinstance(phase, ExperimentPhase):
         raise ValueError(f"unsupported experiment phase: {phase!r}")
+    selected_families = tuple(TreatmentFamily) if families is None else tuple(families)
+    if not selected_families:
+        raise ValueError("at least one treatment family is required")
+    if any(not isinstance(family, TreatmentFamily) for family in selected_families):
+        raise ValueError("families must contain only TreatmentFamily values")
+    if len(selected_families) != len(set(selected_families)):
+        raise ValueError("treatment families must be unique")
     safe_environment = dict(environment_allowlist or {})
     experiment_id = f"exp-{uuid.uuid4().hex}"
     cases = (
@@ -107,10 +115,12 @@ def build_experiment_plan(
         for case in cases:
             fixture_hash = hash_workspace(case.fixture)
             routing_relevant = case.category.value in _ROUTING_RELEVANT_CATEGORIES
-            for family, candidate_treatment in (
-                (TreatmentFamily.CONTENT, Treatment.FORCED_SKILL),
-                (TreatmentFamily.ROUTING, Treatment.ROUTED_SKILL),
-            ):
+            for family in selected_families:
+                candidate_treatment = (
+                    Treatment.FORCED_SKILL
+                    if family is TreatmentFamily.CONTENT
+                    else Treatment.ROUTED_SKILL
+                )
                 for repetition in range(1, repetitions + 1):
                     pair_id = _pair_id(
                         suite=suite,

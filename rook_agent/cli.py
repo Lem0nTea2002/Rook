@@ -86,6 +86,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicitly pass configured proxy environment variables to Codex.",
     )
     eval_run_parser.add_argument("--repetitions", type=_positive_int, default=1)
+    eval_run_parser.add_argument(
+        "--families",
+        default="content,routing",
+        help="Comma-separated treatment families: content,routing.",
+    )
+    eval_run_parser.add_argument(
+        "--phase",
+        choices=("auto", "fast", "full"),
+        default="auto",
+        help="Run Fast then Full automatically, or only one phase.",
+    )
+    eval_run_parser.add_argument(
+        "--fast-count-per-category",
+        type=_positive_int,
+        default=1,
+    )
+    eval_run_parser.add_argument(
+        "--measurement-only",
+        action="store_true",
+        help="Write evidence and reports without mutating the promotion registry.",
+    )
     eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
     report_parser = eval_subparsers.add_parser("report", help="Read an immutable EvalOps report.")

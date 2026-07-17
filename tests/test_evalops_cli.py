@@ -24,6 +24,7 @@ from rook_agent.evalops.models import (
     PromotionStatus,
     SkillBundle,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
 
@@ -105,6 +106,33 @@ def test_codex_eval_model_is_part_of_target_identity(tmp_path: Path) -> None:
     assert args.model == "gpt-5.6-sol"
     assert args.inherit_proxy is True
     assert target.model == "gpt-5.6-sol"
+
+
+def test_eval_run_parses_bounded_experiment_controls() -> None:
+    args = build_parser().parse_args(
+        [
+            "eval",
+            "run",
+            "--skill-path",
+            "candidate",
+            "--suite",
+            "suite.toml",
+            "--agents",
+            "rook",
+            "--families",
+            "content",
+            "--phase",
+            "full",
+            "--fast-count-per-category",
+            "2",
+            "--measurement-only",
+        ]
+    )
+
+    assert args.families == "content"
+    assert args.phase == "full"
+    assert args.fast_count_per_category == 2
+    assert args.measurement_only is True
 
 
 def test_proxy_environment_keeps_only_explicit_proxy_keys() -> None:

@@ -36,6 +36,12 @@ class ExperimentPhase(StrEnum):
     FULL = "full"
 
 
+class EvaluationMode(StrEnum):
+    AUTO = "auto"
+    FAST = "fast"
+    FULL = "full"
+
+
 class CaseCategory(StrEnum):
     DIRECT = "direct"
     TRANSFER = "transfer"

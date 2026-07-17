@@ -22,7 +22,9 @@ from rook_agent.evalops.models import (
     AgentType,
     CandidateOrigin,
     CandidateStatus,
+    EvaluationMode,
     PromotionStatus,
+    TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
 from rook_agent.evalops.report import ReportRenderer
@@ -59,6 +61,7 @@ def run_evalops_command(
     if args.command == "eval":
         if args.eval_command == "run":
             requested = _parse_agents(args.agents)
+            _parse_families(args.families)
             _require_codex_authorization(
                 requested,
                 allow_external=args.allow_external,
@@ -179,6 +182,7 @@ def _run_doctor(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
 
 def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     requested = _parse_agents(args.agents)
+    families = _parse_families(args.families)
     environment_allowlist: dict[str, str] = {}
     if args.inherit_proxy:
         environment_allowlist = _proxy_environment(os.environ)
@@ -204,6 +208,10 @@ def _run_evaluation(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> i
         suite,
         targets,
         repetitions=args.repetitions,
+        fast_count_per_category=args.fast_count_per_category,
+        families=families,
+        mode=EvaluationMode(args.phase),
+        record_decisions=not args.measurement_only,
         environment_allowlist=environment_allowlist,
     )
     print(f"evaluation: {summary.evaluation_id}")
@@ -435,6 +443,24 @@ def _parse_agents(value: str) -> tuple[AgentType, ...]:
             raise ValueError(f"duplicate Agent: {name}")
         agents.append(agent_type)
     return tuple(agents)
+
+
+def _parse_families(value: str) -> tuple[TreatmentFamily, ...]:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("families must be explicitly specified")
+    names = [item.strip().lower() for item in value.split(",")]
+    if any(not name for name in names):
+        raise ValueError("families list contains an empty value")
+    families: list[TreatmentFamily] = []
+    for name in names:
+        try:
+            family = TreatmentFamily(name)
+        except ValueError as exc:
+            raise ValueError(f"unsupported treatment family: {name}") from exc
+        if family in families:
+            raise ValueError(f"duplicate treatment family: {name}")
+        families.append(family)
+    return tuple(families)
 
 
 def _require_codex_authorization(

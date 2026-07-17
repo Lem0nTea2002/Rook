@@ -11,6 +11,7 @@ from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.models import (
     AgentTarget,
     EvalSuite,
+    EvaluationMode,
     ExperimentPhase,
     ExperimentRecord,
     FastGateDecision,
@@ -19,6 +20,7 @@ from rook_agent.evalops.models import (
     PromotionStatus,
     ScoreCard,
     SkillCandidate,
+    TreatmentFamily,
 )
 from rook_agent.evalops.policy import FastGatePolicy, PromotionPolicy
 from rook_agent.evalops.registry import PromotionRegistry
@@ -82,6 +84,9 @@ class EvalOpsService:
         *,
         repetitions: int = 1,
         fast_count_per_category: int = 1,
+        families: tuple[TreatmentFamily, ...] = tuple(TreatmentFamily),
+        mode: EvaluationMode = EvaluationMode.AUTO,
+        record_decisions: bool = True,
         environment_allowlist: Mapping[str, str] | None = None,
     ) -> EvaluationSummary:
         if not targets:
@@ -89,6 +94,8 @@ class EvalOpsService:
         fingerprints = [target.fingerprint for target in targets]
         if len(fingerprints) != len(set(fingerprints)):
             raise ValueError("target fingerprints must be unique")
+        if not isinstance(mode, EvaluationMode):
+            raise ValueError(f"unsupported evaluation mode: {mode!r}")
         evaluation_id = f"evaluation-{uuid.uuid4().hex}"
         fast_policy = FastGatePolicy(suite.policy)
         full_policy = PromotionPolicy(suite.policy)
@@ -101,6 +108,8 @@ class EvalOpsService:
                     target=target,
                     repetitions=repetitions,
                     fast_count_per_category=fast_count_per_category,
+                    families=families,
+                    mode=mode,
                     fast_policy=fast_policy,
                     full_policy=full_policy,
                     environment_allowlist=dict(environment_allowlist or {}),
@@ -121,6 +130,9 @@ class EvalOpsService:
             report_json_ref=artifacts.json_ref,
             report_markdown_ref=artifacts.markdown_ref,
         )
+
+        if not record_decisions:
+            return summary
 
         recorded: list[TargetEvaluationSummary] = []
         for item in summary.targets:
@@ -143,6 +155,8 @@ class EvalOpsService:
         target: AgentTarget,
         repetitions: int,
         fast_count_per_category: int,
+        families: tuple[TreatmentFamily, ...],
+        mode: EvaluationMode,
         fast_policy: FastGatePolicy,
         full_policy: PromotionPolicy,
         environment_allowlist: Mapping[str, str],
@@ -151,19 +165,36 @@ class EvalOpsService:
         fast_scorecard: ScoreCard | None = None
         fast_decision: FastGateDecision | None = None
         try:
-            fast_plan = build_experiment_plan(
-                suite,
-                targets=(target,),
-                candidate=candidate,
-                repetitions=repetitions,
-                phase=ExperimentPhase.FAST,
-                fast_count_per_category=fast_count_per_category,
-                environment_allowlist=environment_allowlist,
-            )
-            fast_record = self._runner.run(fast_plan)
-            fast_scorecard = self._scorecards.build(fast_record)
-            fast_decision = fast_policy.evaluate(fast_scorecard)
-            if fast_decision.status is not FastGateStatus.CONTINUE_FULL:
+            if mode in {EvaluationMode.AUTO, EvaluationMode.FAST}:
+                fast_plan = build_experiment_plan(
+                    suite,
+                    targets=(target,),
+                    candidate=candidate,
+                    repetitions=repetitions,
+                    phase=ExperimentPhase.FAST,
+                    families=families,
+                    fast_count_per_category=fast_count_per_category,
+                    environment_allowlist=environment_allowlist,
+                )
+                fast_record = self._runner.run(fast_plan)
+                fast_scorecard = self._scorecards.build(fast_record)
+                fast_decision = fast_policy.evaluate(fast_scorecard)
+            if mode is EvaluationMode.FAST:
+                return TargetEvaluationSummary(
+                    target=target,
+                    fast_scorecard=fast_scorecard,
+                    fast_decision=fast_decision,
+                    decision=_promotion_from_fast_only(
+                        fast_scorecard,
+                        fast_decision,
+                        policy_version=suite.policy.version,
+                    ),
+                    fast_record=fast_record,
+                )
+            if (
+                mode is EvaluationMode.AUTO
+                and fast_decision.status is not FastGateStatus.CONTINUE_FULL
+            ):
                 return TargetEvaluationSummary(
                     target=target,
                     fast_scorecard=fast_scorecard,
@@ -182,6 +213,7 @@ class EvalOpsService:
                 candidate=candidate,
                 repetitions=repetitions,
                 phase=ExperimentPhase.FULL,
+                families=families,
                 environment_allowlist=environment_allowlist,
             )
             full_record = self._runner.run(full_plan)
@@ -234,6 +266,34 @@ def _promotion_from_fast(
         decision_id=f"decision-{uuid.uuid4().hex}",
         routing_status=(PromotionStatus.REJECTED if routing_rejected else None),
         routing_reason_code=(fast.reason_code if routing_rejected else None),
+        skill_content_hash=scorecard.skill_content_hash,
+        suite_fingerprint=scorecard.suite_fingerprint,
+        policy_fingerprint=scorecard.policy_fingerprint,
+        normalizer_fingerprint=scorecard.normalizer_fingerprint,
+    )
+
+
+def _promotion_from_fast_only(
+    scorecard: ScoreCard,
+    fast: FastGateDecision,
+    *,
+    policy_version: str,
+) -> PromotionDecision:
+    if fast.status is not FastGateStatus.CONTINUE_FULL:
+        return _promotion_from_fast(scorecard, fast, policy_version=policy_version)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return PromotionDecision(
+        skill_name=scorecard.skill_name,
+        skill_version=scorecard.skill_version,
+        target=scorecard.target,
+        status=PromotionStatus.QUARANTINED,
+        reason_code="fast_gate_passed_full_required",
+        policy_version=policy_version,
+        scorecard_hash=scorecard.fingerprint,
+        created_at=now,
+        decision_id=f"decision-{uuid.uuid4().hex}",
+        routing_status=None,
+        routing_reason_code=None,
         skill_content_hash=scorecard.skill_content_hash,
         suite_fingerprint=scorecard.suite_fingerprint,
         policy_fingerprint=scorecard.policy_fingerprint,

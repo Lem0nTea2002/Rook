@@ -16,6 +16,7 @@ from rook_agent.evalops.models import (
     ExperimentPhase,
     ExperimentRecord,
     EvaluatorSpec,
+    EvaluationMode,
     NetworkPolicy,
     PromotionPolicyConfig,
     PromotionStatus,
@@ -23,6 +24,7 @@ from rook_agent.evalops.models import (
     SkillBundle,
     SkillCandidate,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.report import ReportArtifacts
 from rook_agent.evalops.report import ReportRenderer
@@ -263,6 +265,62 @@ def test_service_runs_fast_then_full_reports_then_records(tmp_path: Path) -> Non
     assert summary.report_json_ref.endswith("scorecard.json")
     assert summary.report_markdown_ref.endswith("report.md")
     assert registry.decisions == [summary.targets[0].decision]
+
+
+def test_full_measurement_only_skips_fast_and_registry(tmp_path: Path) -> None:
+    events: list[str] = []
+    runner = _RecordingRunner()
+    registry = _RecordingRegistry(events)
+    service = _service(
+        tmp_path,
+        scorecards=_StubScoreCards(),
+        registry=registry,
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+
+    summary = service.evaluate_candidate(
+        _candidate(),
+        _suite(tmp_path),
+        (_target(),),
+        mode=EvaluationMode.FULL,
+        families=(TreatmentFamily.CONTENT,),
+        record_decisions=False,
+    )
+
+    assert runner.calls == [(AgentType.ROOK, ExperimentPhase.FULL)]
+    assert {run.treatment_family for run in runner.plans[0].runs} == {
+        TreatmentFamily.CONTENT
+    }
+    assert summary.targets[0].fast_scorecard is None
+    assert summary.targets[0].full_scorecard is not None
+    assert summary.targets[0].decision.status is PromotionStatus.PROMOTED
+    assert events == ["report"]
+    assert registry.decisions == []
+
+
+def test_fast_mode_never_runs_full_when_gate_continues(tmp_path: Path) -> None:
+    events: list[str] = []
+    runner = _RecordingRunner()
+    service = _service(
+        tmp_path,
+        scorecards=_StubScoreCards(),
+        registry=_RecordingRegistry(events),
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+
+    summary = service.evaluate_candidate(
+        _candidate(),
+        _suite(tmp_path),
+        (_target(),),
+        mode=EvaluationMode.FAST,
+    )
+
+    assert runner.calls == [(AgentType.ROOK, ExperimentPhase.FAST)]
+    assert summary.targets[0].full_scorecard is None
+    assert summary.targets[0].decision.status is PromotionStatus.QUARANTINED
+    assert summary.targets[0].decision.reason_code == "fast_gate_passed_full_required"
 
 
 def test_service_propagates_explicit_environment_to_fast_and_full_plans(
