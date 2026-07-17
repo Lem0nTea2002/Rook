@@ -100,6 +100,20 @@ explicit opt-in and passes only `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and
 `NO_PROXY` variants through the existing Codex environment allowlist. Proxy
 values are not written to process metadata or reports.
 
+On native Windows, Rook also sets `windows.sandbox="unelevated"` explicitly
+while retaining `--sandbox workspace-write` and `approval_policy="never"`.
+This is required because EvalOps ignores user configuration and must not fall
+back to a read-only or machine-specific Windows backend. Rook never uses the
+dangerous no-sandbox flag for EvalOps.
+
+Codex EvalOps also disables user plugins and memories. For the content-effect
+pair, Rook sets `skills.include_instructions=false`: Baseline receives no
+ambient Skill catalog, while Forced Skill reads the mounted Candidate through
+the explicit relative path in its treatment prompt. The routing-effect pair
+keeps Skill instructions enabled so natural discovery remains testable. This
+prevents unrelated user Skills from confounding content attribution without
+pretending that routed activation is observable on Codex.
+
 ## Portfolio evidence suite
 
 `evals/suites/release-manifest` contains 12 versioned cases: three each for

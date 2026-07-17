@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import os
 from pathlib import Path
+import uuid
 
 import pytest
 
@@ -31,6 +32,7 @@ from rook_agent.evalops.workspace import WorkspaceManager
 
 
 _SUITE = Path(__file__).parents[1] / "evals" / "suites" / "codex-demo" / "suite.toml"
+_PROJECT_ROOT = Path(__file__).parents[1]
 
 
 def _bundle(description: str) -> SkillBundle:
@@ -116,12 +118,19 @@ def test_fake_demo_runs_candidate_to_promotion_and_rollback(tmp_path: Path) -> N
     os.environ.get("ROOK_RUN_EXTERNAL_EVALS") != "1",
     reason="set ROOK_RUN_EXTERNAL_EVALS=1 to enable live Codex smoke tests",
 )
-def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Path) -> None:
+def test_live_codex_demo_smoke_requires_separate_cost_authorization() -> None:
     if os.environ.get("ROOK_ALLOW_MODEL_COSTS") != "1":
         pytest.skip("set ROOK_ALLOW_MODEL_COSTS=1 to authorize model costs")
     model = os.environ.get("ROOK_CODEX_EVAL_MODEL")
     if not model:
         pytest.skip("set ROOK_CODEX_EVAL_MODEL to record the live target model")
+    live_root = (
+        _PROJECT_ROOT
+        / ".rook"
+        / "external-smoke"
+        / f"run-{uuid.uuid4().hex}"
+    )
+    live_root.mkdir(parents=True, exist_ok=False)
     environment_allowlist = (
         _proxy_environment(os.environ)
         if os.environ.get("ROOK_EVAL_INHERIT_PROXY") == "1"
@@ -129,16 +138,17 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
     )
     suite = load_eval_suite(_SUITE)
     direct = next(case for case in suite.cases if case.category is CaseCategory.DIRECT)
+    direct = replace(direct, timeout_seconds=120)
     policy = replace(
         suite.policy,
         data={**suite.policy.data, "min_valid_pairs": 1},
         fingerprint="live-smoke-policy",
     )
     suite = replace(suite, cases=(direct,), policy=policy)
-    candidate = CandidateStore(tmp_path / ".rook" / "skill-registry").create(
+    candidate = CandidateStore(live_root / ".rook" / "skill-registry").create(
         _bundle("live Codex smoke candidate")
     )
-    artifacts = ArtifactStore(tmp_path / ".rook" / "evalops" / "artifacts")
+    artifacts = ArtifactStore(live_root / ".rook" / "evalops" / "artifacts")
     adapter = CodexCliAdapter(artifact_store=artifacts)
     capabilities = adapter.probe()
     if not capabilities.available or not capabilities.structured_events:
@@ -150,11 +160,11 @@ def test_live_codex_demo_smoke_requires_separate_cost_authorization(tmp_path: Pa
         model=model,
         adapter_version="evalops-v1",
     )
-    registry = PromotionRegistry(tmp_path)
+    registry = PromotionRegistry(live_root)
     service = EvalOpsService(
         runner=ExperimentRunner(
             adapters={AgentType.CODEX: adapter},
-            workspace_manager=WorkspaceManager(tmp_path / ".rook" / "evalops"),
+            workspace_manager=WorkspaceManager(live_root / ".rook" / "evalops"),
             materializer=SkillMaterializer(),
             artifact_store=artifacts,
         ),

@@ -29,6 +29,7 @@ from rook_agent.evalops.models import (
     SkillBundle,
     SkillCandidate,
     Treatment,
+    TreatmentFamily,
     plain_data,
 )
 from rook_agent.evalops.process import (
@@ -140,6 +141,7 @@ def _spec(
     tmp_path: Path,
     *,
     treatment: Treatment = Treatment.BASELINE,
+    treatment_family: TreatmentFamily | None = None,
     environment: Mapping[str, str] | None = None,
 ) -> RunSpec:
     return RunSpec(
@@ -163,6 +165,7 @@ def _spec(
         budget_limit=Decimal("1.00"),
         environment_allowlist=dict(environment or {}),
         permission_profile="isolated",
+        treatment_family=treatment_family,
     )
 
 
@@ -172,12 +175,14 @@ def _adapter(
     *,
     help_path: str | None = r"C:\Tools\codex.exe",
     host_environment: Mapping[str, str] | None = None,
+    platform_name: str = "win32",
 ) -> CodexCliAdapter:
     return CodexCliAdapter(
         artifact_store=ArtifactStore(tmp_path / "artifacts"),
         process_runner=runner,
         executable="codex",
         which=lambda _: help_path,
+        platform_name=platform_name,
         host_environment=dict(
             host_environment
             or {
@@ -281,11 +286,17 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
+        "--disable",
+        "plugins",
+        "--disable",
+        "memories",
         "--sandbox",
         "workspace-write",
         "--skip-git-repo-check",
         "-C",
         str(workspace.resolve()),
+        "-c",
+        'windows.sandbox="unelevated"',
         "-c",
         'approval_policy="never"',
         "--model",
@@ -296,6 +307,52 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_prepare_does_not_set_windows_backend_on_linux(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-linux"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        platform_name="linux",
+    )
+
+    prepared = adapter.prepare(_spec(tmp_path), workspace)
+
+    assert 'windows.sandbox="unelevated"' not in prepared.command
+
+
+def test_codex_content_pair_hides_unrelated_skill_catalog(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-content"
+    workspace.mkdir()
+    adapter = _adapter(tmp_path, ScriptedProcessRunner())
+    spec = _spec(
+        tmp_path,
+        treatment=Treatment.FORCED_SKILL,
+        treatment_family=TreatmentFamily.CONTENT,
+    )
+    staged = SkillMaterializer().materialize(spec.skill, AgentType.CODEX, workspace)
+
+    prepared = adapter.prepare(spec, workspace, staged_skill=staged)
+
+    assert "skills.include_instructions=false" in prepared.command
+
+
+def test_codex_routing_pair_keeps_skill_discovery_enabled(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-routing"
+    workspace.mkdir()
+    adapter = _adapter(tmp_path, ScriptedProcessRunner())
+    spec = _spec(
+        tmp_path,
+        treatment=Treatment.ROUTED_SKILL,
+        treatment_family=TreatmentFamily.ROUTING,
+    )
+    staged = SkillMaterializer().materialize(spec.skill, AgentType.CODEX, workspace)
+
+    prepared = adapter.prepare(spec, workspace, staged_skill=staged)
+
+    assert "skills.include_instructions=false" not in prepared.command
 
 
 def test_codex_adapter_isolates_baseline_forced_and_routed_prompts(

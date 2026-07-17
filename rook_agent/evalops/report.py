@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from rook_agent.evalops.service import EvaluationSummary, TargetEvaluationSummary
 
 
+_SAFE_SCALAR_METRIC_KEYS = frozenset({"secret_leak_count", "token_improvement"})
+
+
 @dataclass(frozen=True, slots=True)
 class ReportArtifacts:
     json_ref: str
@@ -24,7 +27,10 @@ class ReportRenderer:
     """Render per-target evidence without fabricated cross-Agent comparisons."""
 
     def render_json(self, summary: EvaluationSummary) -> str:
-        payload = redact_value(_summary_payload(summary))
+        payload = redact_value(
+            _summary_payload(summary),
+            safe_scalar_keys=_SAFE_SCALAR_METRIC_KEYS,
+        )
         return (
             json.dumps(
                 payload,
@@ -37,7 +43,10 @@ class ReportRenderer:
         )
 
     def render_markdown(self, summary: EvaluationSummary) -> str:
-        payload = redact_value(_summary_payload(summary))
+        payload = redact_value(
+            _summary_payload(summary),
+            safe_scalar_keys=_SAFE_SCALAR_METRIC_KEYS,
+        )
         if not isinstance(payload, dict):
             raise TypeError("redacted report payload must be an object")
         candidate = payload["candidate"]
@@ -58,7 +67,9 @@ class ReportRenderer:
     ) -> ReportArtifacts:
         root = Path("reports") / summary.evaluation_id
         json_ref = artifact_store.write_json(
-            root / "scorecard.json", _summary_payload(summary)
+            root / "scorecard.json",
+            _summary_payload(summary),
+            safe_scalar_keys=_SAFE_SCALAR_METRIC_KEYS,
         )
         markdown_ref = artifact_store.write_text(
             root / "report.md", self.render_markdown(summary)

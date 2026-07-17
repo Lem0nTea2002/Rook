@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import sys
 import threading
 from typing import Any, Protocol
 
@@ -24,6 +25,7 @@ from rook_agent.evalops.models import (
     RunSpec,
     RunStatus,
     Treatment,
+    TreatmentFamily,
 )
 from rook_agent.evalops.normalizers.codex import CodexTraceNormalizer
 from rook_agent.evalops.process import (
@@ -111,6 +113,7 @@ class CodexCliAdapter:
         executable: str = "codex",
         which: WhichExecutable = shutil.which,
         host_environment: Mapping[str, str] | None = None,
+        platform_name: str = sys.platform,
     ) -> None:
         self._artifacts = artifact_store
         self._runner = process_runner or ProcessRunner()
@@ -120,6 +123,7 @@ class CodexCliAdapter:
         self._host_environment = dict(
             os.environ if host_environment is None else host_environment
         )
+        self._platform_name = platform_name
         self._tokens: dict[str, CancellationToken] = {}
         self._known_run_ids: set[str] = set()
         self._running: set[str] = set()
@@ -245,6 +249,12 @@ class CodexCliAdapter:
             executable_path,
             workspace=workspace_root,
             model=spec.target.model,
+            include_skill_instructions=(
+                spec.treatment_family is not TreatmentFamily.CONTENT
+            ),
+            windows_sandbox=(
+                "unelevated" if self._platform_name == "win32" else None
+            ),
         )
         run_id = "codex-" + stable_json_hash(
             {
@@ -473,6 +483,8 @@ def _command(
     *,
     workspace: Path,
     model: str | None,
+    include_skill_instructions: bool,
+    windows_sandbox: str | None,
 ) -> tuple[str, ...]:
     command = [
         executable_path,
@@ -481,14 +493,25 @@ def _command(
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
-        "--sandbox",
-        "workspace-write",
-        "--skip-git-repo-check",
-        "-C",
-        str(workspace),
-        "-c",
-        'approval_policy="never"',
+        "--disable",
+        "plugins",
+        "--disable",
+        "memories",
     ]
+    if not include_skill_instructions:
+        command.extend(("-c", "skills.include_instructions=false"))
+    command.extend(
+        (
+            "--sandbox",
+            "workspace-write",
+            "--skip-git-repo-check",
+            "-C",
+            str(workspace),
+        )
+    )
+    if windows_sandbox is not None:
+        command.extend(("-c", f'windows.sandbox="{windows_sandbox}"'))
+    command.extend(("-c", 'approval_policy="never"'))
     if model is not None:
         command.extend(("--model", model))
     command.append("-")

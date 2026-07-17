@@ -59,6 +59,8 @@ def _scorecard(target: AgentTarget) -> ScoreCard:
         "routing_precision": None,
         "routing_recall": None,
         "efficiency_improvement": None,
+        "secret_leak_count": 0,
+        "token_improvement": None,
         "secret_note": "Bearer report-secret-value",
     }
     return ScoreCard(
@@ -150,6 +152,8 @@ def test_json_report_is_stable_explicit_and_redacted() -> None:
     assert [item["agent_type"] for item in payload["targets"]] == ["codex", "rook"]
     assert payload["targets"][0]["metrics"]["routing_precision"] is None
     assert payload["targets"][0]["decision"]["routing_status"] is None
+    assert payload["targets"][0]["metrics"]["secret_leak_count"] == 0
+    assert payload["targets"][0]["metrics"]["token_improvement"] is None
     assert "report-secret-value" not in rendered
     assert "[REDACTED]" in rendered
 
@@ -179,3 +183,5 @@ def test_report_writer_persists_json_and_markdown_artifacts(tmp_path: Path) -> N
     payload = json.loads((tmp_path / artifacts.json_ref).read_text(encoding="utf-8"))
     assert payload["targets"][0]["metrics"]["baseline_tokens"]["median"] == 1200.0
     assert payload["targets"][0]["metrics"]["candidate_tokens"]["median"] == 900.0
+    assert payload["targets"][0]["metrics"]["secret_leak_count"] == 0
+    assert payload["targets"][0]["metrics"]["token_improvement"] is None

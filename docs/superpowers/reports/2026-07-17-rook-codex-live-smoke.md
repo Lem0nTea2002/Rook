@@ -70,3 +70,30 @@ The transport issue is therefore resolved. The task outcome did not pass: both B
 For the content pair, the observed Baseline total token count was 33,915 and the Forced Skill count was 51,983; median latency was 17.219 seconds versus 31.797 seconds. These single-pair values are diagnostic only, not resume metrics. Monetary cost and routing activation remained unobserved.
 
 The run also exposed a report persistence bug: the text redactor treated JSON keys containing `tokens` as assigned secrets and corrupted the persisted ScoreCard JSON. Report persistence now uses structured `ArtifactStore.write_json`, with a regression test for numeric token metrics. The untouched original and a locally recovered, parseable report are retained under `.rook/live-smoke/evaluation-9ed196ad3f6c48498d98b55bb3585cd2`.
+
+## Windows write-sandbox diagnosis
+
+The write failure had two Windows-specific causes. EvalOps used `--ignore-user-config` while only setting the generic `--sandbox workspace-write`, and the opt-in pytest smoke created its workspace under a deep user Temp path that the restricted sandbox identity could not traverse. A captured shell command showed its effective cwd falling back to the PowerShell installation directory, while an absolute write to the Temp workspace failed with access denied.
+
+The Adapter now explicitly adds `windows.sandbox="unelevated"` on `win32`, keeps `workspace-write` and `approval_policy="never"`, and never bypasses the sandbox. Linux and macOS command construction remains unchanged. The opt-in live smoke now stores its isolated root under the project's ignored `.rook/external-smoke/<run-id>` tree instead of the user Temp hierarchy. Cross-platform command tests fix the backend behavior in the Adapter contract.
+
+## Post-sandbox live verification
+
+The repaired project-local workspace path was exercised with a bounded `gpt-5.6-sol` run:
+
+- Evaluation: `evaluation-308b5aa43f3b449f90a6a4532e949e64`.
+- External Agent runs: 4; process durations were 31.717, 41.047, 60.563, and 60.608 seconds.
+- Every treatment created `result.txt`, confirming that the Windows write sandbox and effective working directory were repaired.
+- Two runs completed normally. The Forced Skill produced evaluator-passing file contents but crossed the 60-second process deadline; the matching content Baseline also timed out after creating its file.
+- The routing Baseline passed. Routed Skill produced a trailing newline and failed exact-text evaluation, which is a task outcome rather than an infrastructure failure.
+- Fast Gate quarantined the Candidate with `trace_incomplete`; trace completeness was 0.5. No Full Gate calls were made.
+
+This run is transport and sandbox evidence, not Skill-uplift evidence. Its sample is too small, two statuses hit the deadline, and Codex still does not expose a reliable native Skill activation event.
+
+## Prompt-isolation follow-up
+
+The run also showed that `--ignore-user-config` does not by itself remove the user Skill catalog. Unrelated Skills consumed context and one Baseline invoked a global workflow Skill. Rook now disables Codex plugins and memories for every EvalOps run. For content-effect pairs it additionally sets `skills.include_instructions=false`; Forced Skill still reads the mounted Candidate from the explicit relative path, while Baseline has no ambient Skill catalog. Routing-effect pairs keep discovery enabled so they remain behaviorally meaningful.
+
+A no-model `codex debug prompt-input` check confirmed that the content-pair override removes the Skill instruction block. An attempted HOME/USERPROFILE override was rejected: native Windows sandbox child creation returned access denied, so that approach was reverted. The opt-in live case now allows 120 seconds, but no further model run was started after the bounded six-call diagnostic sequence.
+
+Structured report persistence now explicitly preserves the non-string `secret_leak_count` and `token_improvement` metric scalars while continuing to redact string or nested values under sensitive keys. This closes the remaining ScoreCard schema corruption without weakening the default ArtifactStore policy.

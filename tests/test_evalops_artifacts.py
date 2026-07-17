@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from rook_agent.evalops import artifacts as artifacts_module
-from rook_agent.evalops.artifacts import ArtifactStore
+from rook_agent.evalops.artifacts import ArtifactStore, redact_value
 
 
 def test_artifact_store_redacts_sensitive_keys_and_nested_values_before_persisting(
@@ -69,6 +69,21 @@ def test_artifact_store_redacts_acronym_camel_case_sensitive_keys(tmp_path: Path
     assert payload["XApiKey"] == "[REDACTED]"
     assert "Bearer example-secret-value" not in persisted
     assert payload["note"] == "Use Bearer prose-example in docs"
+
+
+def test_redact_value_preserves_only_explicit_safe_non_string_scalars() -> None:
+    redacted = redact_value(
+        {
+            "token_improvement": 0.25,
+            "secret_leak_count": 0,
+            "TOKEN": "still-a-secret",
+        },
+        safe_scalar_keys={"token_improvement", "secret_leak_count", "TOKEN"},
+    )
+
+    assert redacted["token_improvement"] == 0.25
+    assert redacted["secret_leak_count"] == 0
+    assert redacted["TOKEN"] == "[REDACTED]"
 
 
 def test_artifact_store_failed_replace_preserves_old_file_and_cleans_redacted_temp(

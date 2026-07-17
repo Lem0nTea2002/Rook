@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import re
 import tempfile
-from typing import Any
+from typing import AbstractSet, Any
 
 from rook_agent.evolution.gate import redact_sensitive_text
 
@@ -37,10 +37,16 @@ class ArtifactStore:
     def __init__(self, root: Path) -> None:
         self.root = Path(root).resolve()
 
-    def write_json(self, relative_path: str | Path, value: object) -> ArtifactRef:
+    def write_json(
+        self,
+        relative_path: str | Path,
+        value: object,
+        *,
+        safe_scalar_keys: AbstractSet[str] = frozenset(),
+    ) -> ArtifactRef:
         """Redact and atomically persist one deterministic JSON document."""
 
-        redacted = redact_value(value)
+        redacted = redact_value(value, safe_scalar_keys=safe_scalar_keys)
         content = _encode_json(redacted) + b"\n"
         return self._write(relative_path, content)
 
@@ -103,20 +109,35 @@ class ArtifactStore:
         return target, target.relative_to(self.root).as_posix()
 
 
-def redact_value(value: object) -> object:
+def redact_value(
+    value: object,
+    *,
+    safe_scalar_keys: AbstractSet[str] = frozenset(),
+) -> object:
     """Recursively redact JSON-compatible values before serialization."""
 
     if isinstance(value, str):
         return redact_sensitive_text(value)
     if isinstance(value, list | tuple):
-        return [redact_value(item) for item in value]
+        return [
+            redact_value(item, safe_scalar_keys=safe_scalar_keys) for item in value
+        ]
     if isinstance(value, dict):
         redacted: dict[str, object] = {}
         for raw_key, item in value.items():
             key = redact_sensitive_text(str(raw_key))
-            redacted[key] = "[REDACTED]" if _is_sensitive_key(key) else redact_value(item)
+            safe_scalar = key in safe_scalar_keys and _is_non_string_scalar(item)
+            redacted[key] = (
+                "[REDACTED]"
+                if _is_sensitive_key(key) and not safe_scalar
+                else redact_value(item, safe_scalar_keys=safe_scalar_keys)
+            )
         return redacted
     return value
+
+
+def _is_non_string_scalar(value: object) -> bool:
+    return value is None or isinstance(value, bool | int | float)
 
 
 def _is_sensitive_key(key: str) -> bool:
