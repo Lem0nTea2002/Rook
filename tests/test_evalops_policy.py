@@ -201,3 +201,76 @@ def test_fast_gate_continues_only_when_effect_is_observed() -> None:
     assert improved.reason_code == "continue_full"
     assert unchanged.status is FastGateStatus.REJECTED
     assert unchanged.reason_code == "no_fast_gate_improvement"
+
+
+def test_formal_policy_uses_capability_split_and_preservation_hard_gates() -> None:
+    policy = PromotionPolicy(
+        _policy(
+            min_capability_pairs=6,
+            min_candidate_capability_success_rate=0.80,
+            min_capability_success_uplift=0.20,
+            max_infra_exclusion_rate=0.10,
+            require_positive_capability_uplift_ci=True,
+        )
+    )
+    metrics = {
+        "capability_pair_count": 6,
+        "capability_baseline_success_rate": 0.50,
+        "capability_candidate_success_rate": 1.0,
+        "capability_paired_success_uplift": 0.50,
+        "capability_paired_uplift_ci95": {"lower": 0.10, "upper": 0.90},
+        "infra_exclusion_rate": 0.0,
+    }
+
+    promoted = policy.evaluate(_scorecard(**metrics))
+    uncertain = policy.evaluate(
+        _scorecard(
+            **{
+                **metrics,
+                "capability_paired_uplift_ci95": {"lower": 0.0, "upper": 0.90},
+            }
+        )
+    )
+    regressed = policy.evaluate(_scorecard(**metrics, new_regression_count=1))
+
+    assert promoted.status is PromotionStatus.PROMOTED
+    assert promoted.reason_code == "capability_success_uplift"
+    assert uncertain.status is PromotionStatus.QUARANTINED
+    assert uncertain.reason_code == "capability_uplift_uncertain"
+    assert regressed.status is PromotionStatus.REJECTED
+    assert regressed.reason_code == "new_regression"
+
+
+def test_formal_policy_rejects_low_capability_success_and_excess_infra() -> None:
+    policy = PromotionPolicy(
+        _policy(
+            min_capability_pairs=4,
+            min_candidate_capability_success_rate=0.80,
+            min_capability_success_uplift=0.10,
+            max_infra_exclusion_rate=0.10,
+        )
+    )
+    base = {
+        "capability_pair_count": 4,
+        "capability_baseline_success_rate": 0.25,
+        "capability_candidate_success_rate": 0.75,
+        "capability_paired_success_uplift": 0.50,
+        "capability_paired_uplift_ci95": {"lower": 0.10, "upper": 0.80},
+        "infra_exclusion_rate": 0.0,
+    }
+
+    low_success = policy.evaluate(_scorecard(**base))
+    infra = policy.evaluate(
+        _scorecard(
+            **{
+                **base,
+                "capability_candidate_success_rate": 1.0,
+                "infra_exclusion_rate": 0.20,
+            }
+        )
+    )
+
+    assert low_success.status is PromotionStatus.REJECTED
+    assert low_success.reason_code == "capability_success_below_threshold"
+    assert infra.status is PromotionStatus.QUARANTINED
+    assert infra.reason_code == "excess_infrastructure_exclusions"

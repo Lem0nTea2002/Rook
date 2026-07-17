@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 import math
+import random
 import statistics
 
 from rook_agent.context.identity import stable_json_hash
@@ -24,6 +25,7 @@ from rook_agent.evalops.models import (
 
 
 _Z_95 = 1.959963984540054
+_BOOTSTRAP_ITERATIONS = 10_000
 _VALID_CAPABILITY_STATUSES = frozenset(
     {
         RunStatus.PASSED,
@@ -76,6 +78,10 @@ class ScoreCardBuilder:
             candidate=candidate,
             target=selected_target,
             incomplete_pair_count=incomplete_pair_count,
+            bootstrap_key=(
+                f"{record.plan.suite_fingerprint}:"
+                f"{candidate.fingerprint}:{selected_target.fingerprint}"
+            ),
         )
         per_case = _per_case(complete_pairs)
         observed = tuple(sorted(key for key, value in metrics.items() if value is not None))
@@ -178,6 +184,7 @@ def _build_metrics(
     candidate: SkillCandidate,
     target: AgentTarget,
     incomplete_pair_count: int,
+    bootstrap_key: str,
 ) -> dict[str, object]:
     baseline_successes = sum(pair[0].status is RunStatus.PASSED for pair in content_pairs)
     candidate_successes = sum(pair[1].status is RunStatus.PASSED for pair in content_pairs)
@@ -226,24 +233,66 @@ def _build_metrics(
         sum(run.agent_run.trace_complete for run in valid_content_runs),
         len(valid_content_runs),
     )
-    new_regressions = sum(
-        baseline.status is RunStatus.PASSED and candidate_run.status is not RunStatus.PASSED
-        for baseline, candidate_run in content_pairs
-    )
-    regression_failures = sum(
-        baseline.status is RunStatus.PASSED
-        and candidate_run.status is not RunStatus.PASSED
-        and candidate_run.spec.case.category.value in {"regression", "adversarial"}
-        for baseline, candidate_run in content_pairs
-    )
     direct_transfer_pairs = tuple(
         pair
         for pair in content_pairs
         if pair[0].spec.case.category.value in {"direct", "transfer"}
     )
+    preservation_pairs = tuple(
+        pair
+        for pair in content_pairs
+        if pair[0].spec.case.category.value in {"regression", "adversarial"}
+    )
+    new_regressions = sum(
+        baseline.status is RunStatus.PASSED
+        and candidate_run.status is not RunStatus.PASSED
+        for baseline, candidate_run in preservation_pairs
+    )
+    regression_failures = new_regressions
     direct_transfer_improvements = sum(
         baseline.status is not RunStatus.PASSED and candidate_run.status is RunStatus.PASSED
         for baseline, candidate_run in direct_transfer_pairs
+    )
+    capability_degradations = sum(
+        baseline.status is RunStatus.PASSED and candidate_run.status is not RunStatus.PASSED
+        for baseline, candidate_run in direct_transfer_pairs
+    )
+    capability_baseline_successes = sum(
+        baseline.status is RunStatus.PASSED for baseline, _candidate_run in direct_transfer_pairs
+    )
+    capability_candidate_successes = sum(
+        candidate_run.status is RunStatus.PASSED
+        for _baseline, candidate_run in direct_transfer_pairs
+    )
+    capability_count = len(direct_transfer_pairs)
+    capability_uplift = _paired_success_uplift(direct_transfer_pairs)
+    capability_latency = _paired_telemetry(
+        direct_transfer_pairs, lambda run: run.latency_ms
+    )
+    capability_tokens = _paired_telemetry(direct_transfer_pairs, _token_total)
+    capability_cost = _paired_telemetry(
+        direct_transfer_pairs,
+        lambda run: float(run.cost_usd) if run.cost_usd is not None else None,
+    )
+    capability_efficiency_metric, capability_efficiency_improvement = next(
+        (
+            (name, value)
+            for name, value in (
+                ("latency", _efficiency_improvement(*capability_latency)),
+                ("tokens", _efficiency_improvement(*capability_tokens)),
+                ("cost", _efficiency_improvement(*capability_cost)),
+            )
+            if value is not None
+        ),
+        (None, None),
+    )
+    content_runs = tuple(
+        run
+        for run in runs
+        if run.spec.treatment_family is TreatmentFamily.CONTENT
+    )
+    infra_exclusions = sum(
+        run.status not in _VALID_CAPABILITY_STATUSES for run in content_runs
     )
     metrics: dict[str, object] = {
         "valid_content_pair_count": pair_count,
@@ -276,9 +325,109 @@ def _build_metrics(
         "efficiency_improvement": efficiency_improvement,
         "direct_transfer_valid_pair_count": len(direct_transfer_pairs),
         "direct_transfer_improved_pair_count": direct_transfer_improvements,
+        "capability_pair_count": capability_count,
+        "capability_baseline_success_rate": _rate(
+            capability_baseline_successes, capability_count
+        ),
+        "capability_candidate_success_rate": _rate(
+            capability_candidate_successes, capability_count
+        ),
+        "capability_baseline_success_ci95": _wilson_interval(
+            capability_baseline_successes, capability_count
+        ),
+        "capability_candidate_success_ci95": _wilson_interval(
+            capability_candidate_successes, capability_count
+        ),
+        "capability_paired_success_uplift": capability_uplift,
+        "capability_paired_uplift_ci95": _cluster_bootstrap_interval(
+            direct_transfer_pairs,
+            seed_key=bootstrap_key,
+        ),
+        "capability_paired_uplift_ci95_method": (
+            "task_stratified_bootstrap" if capability_count else None
+        ),
+        "capability_paired_uplift_ci95_iterations": (
+            _BOOTSTRAP_ITERATIONS if capability_count else None
+        ),
+        "capability_improved_pair_count": direct_transfer_improvements,
+        "capability_degraded_pair_count": capability_degradations,
+        "preservation_pair_count": len(preservation_pairs),
+        "preservation_rate": _rate(
+            sum(
+                candidate_run.status is RunStatus.PASSED
+                for _baseline, candidate_run in preservation_pairs
+            ),
+            len(preservation_pairs),
+        ),
+        "capability_baseline_latency_ms": _distribution(capability_latency[0]),
+        "capability_candidate_latency_ms": _distribution(capability_latency[1]),
+        "capability_latency_delta_ms": _median_delta(*capability_latency),
+        "capability_latency_improvement": _efficiency_improvement(
+            *capability_latency
+        ),
+        "capability_baseline_tokens": _distribution(capability_tokens[0]),
+        "capability_candidate_tokens": _distribution(capability_tokens[1]),
+        "capability_token_delta": _median_delta(*capability_tokens),
+        "capability_token_improvement": _efficiency_improvement(
+            *capability_tokens
+        ),
+        "capability_baseline_cost_usd": _distribution(capability_cost[0]),
+        "capability_candidate_cost_usd": _distribution(capability_cost[1]),
+        "capability_cost_improvement": _efficiency_improvement(*capability_cost),
+        "capability_efficiency_metric": capability_efficiency_metric,
+        "capability_efficiency_improvement": capability_efficiency_improvement,
+        "cost_observed": (
+            capability_count > 0
+            and len(capability_cost[0]) == capability_count
+            and len(capability_cost[1]) == capability_count
+        ),
+        "infra_exclusion_count": infra_exclusions,
+        "infra_exclusion_rate": _rate(infra_exclusions, len(content_runs)),
         **routing,
     }
     return metrics
+
+
+def _paired_success_uplift(
+    pairs: Sequence[tuple[EvaluatedRun, EvaluatedRun]],
+) -> float | None:
+    if not pairs:
+        return None
+    return sum(
+        int(candidate.status is RunStatus.PASSED)
+        - int(baseline.status is RunStatus.PASSED)
+        for baseline, candidate in pairs
+    ) / len(pairs)
+
+
+def _cluster_bootstrap_interval(
+    pairs: Sequence[tuple[EvaluatedRun, EvaluatedRun]],
+    *,
+    seed_key: str,
+) -> Mapping[str, float] | None:
+    if not pairs:
+        return None
+    by_case: dict[str, list[int]] = defaultdict(list)
+    for baseline, candidate in pairs:
+        by_case[baseline.spec.case.id].append(
+            int(candidate.status is RunStatus.PASSED)
+            - int(baseline.status is RunStatus.PASSED)
+        )
+    case_ids = sorted(by_case)
+    seed = int(stable_json_hash(seed_key, length=16), 16)
+    generator = random.Random(seed)
+    samples: list[float] = []
+    for _ in range(_BOOTSTRAP_ITERATIONS):
+        deltas: list[int] = []
+        for _case_index in case_ids:
+            selected = case_ids[generator.randrange(len(case_ids))]
+            deltas.extend(by_case[selected])
+        samples.append(sum(deltas) / len(deltas))
+    samples.sort()
+    return {
+        "lower": _percentile(samples, 0.025),
+        "upper": _percentile(samples, 0.975),
+    }
 
 
 def _paired_telemetry(
@@ -319,6 +468,14 @@ def _efficiency_improvement(
         return None
     candidate_median = float(statistics.median(candidate_values))
     return 1.0 - candidate_median / baseline_median
+
+
+def _median_delta(
+    baseline_values: Sequence[float], candidate_values: Sequence[float]
+) -> float | None:
+    if not baseline_values or not candidate_values:
+        return None
+    return float(statistics.median(candidate_values) - statistics.median(baseline_values))
 
 
 def _distribution(values: Sequence[float]) -> Mapping[str, object] | None:

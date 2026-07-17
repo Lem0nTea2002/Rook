@@ -14,7 +14,14 @@ if TYPE_CHECKING:
     from rook_agent.evalops.service import EvaluationSummary, TargetEvaluationSummary
 
 
-_SAFE_SCALAR_METRIC_KEYS = frozenset({"secret_leak_count", "token_improvement"})
+_SAFE_SCALAR_METRIC_KEYS = frozenset(
+    {
+        "secret_leak_count",
+        "token_improvement",
+        "capability_token_delta",
+        "capability_token_improvement",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)

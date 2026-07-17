@@ -364,3 +364,119 @@ def test_codex_routing_metrics_remain_unobserved_even_if_trace_has_marker() -> N
     assert scorecard.metrics["routing_recall"] is None
     assert "routing_precision" in scorecard.missing_fields
     assert "routing_recall" in scorecard.missing_fields
+
+
+def test_scorecard_stratifies_capability_and_preservation_evidence() -> None:
+    target = _target(AgentType.CODEX)
+    runs: list[EvaluatedRun] = []
+    definitions = (
+        ("direct", CaseCategory.DIRECT, RunStatus.WRONG_RESULT, RunStatus.PASSED, 100, 60),
+        ("transfer", CaseCategory.TRANSFER, RunStatus.WRONG_RESULT, RunStatus.PASSED, 120, 80),
+        ("regression", CaseCategory.REGRESSION, RunStatus.PASSED, RunStatus.PASSED, 80, 90),
+        ("adversarial", CaseCategory.ADVERSARIAL, RunStatus.PASSED, RunStatus.PASSED, 70, 75),
+    )
+    for pair_id, category, baseline_status, candidate_status, baseline_tokens, candidate_tokens in definitions:
+        case = _case(pair_id, category)
+        runs.extend(
+            (
+                _evaluated_run(
+                    target=target,
+                    case=case,
+                    pair_id=pair_id,
+                    treatment=Treatment.BASELINE,
+                    family=TreatmentFamily.CONTENT,
+                    status=baseline_status,
+                    latency_ms=baseline_tokens * 10,
+                    input_tokens=baseline_tokens,
+                    cost_usd=Decimal("0.10"),
+                ),
+                _evaluated_run(
+                    target=target,
+                    case=case,
+                    pair_id=pair_id,
+                    treatment=Treatment.FORCED_SKILL,
+                    family=TreatmentFamily.CONTENT,
+                    status=candidate_status,
+                    latency_ms=candidate_tokens * 10,
+                    input_tokens=candidate_tokens,
+                    cost_usd=Decimal("0.12"),
+                ),
+            )
+        )
+
+    first = ScoreCardBuilder().build(_record(target, tuple(runs)))
+    second = ScoreCardBuilder().build(_record(target, tuple(runs)))
+    metrics = first.metrics
+
+    assert metrics["capability_pair_count"] == 2
+    assert metrics["capability_baseline_success_rate"] == 0.0
+    assert metrics["capability_candidate_success_rate"] == 1.0
+    assert metrics["capability_paired_success_uplift"] == 1.0
+    assert metrics["capability_improved_pair_count"] == 2
+    assert metrics["capability_degraded_pair_count"] == 0
+    assert metrics["capability_paired_uplift_ci95"] == second.metrics[
+        "capability_paired_uplift_ci95"
+    ]
+    assert metrics["capability_paired_uplift_ci95"] == {
+        "lower": 1.0,
+        "upper": 1.0,
+    }
+    assert metrics["preservation_pair_count"] == 2
+    assert metrics["new_regression_count"] == 0
+    assert metrics["preservation_rate"] == 1.0
+    assert metrics["capability_baseline_tokens"]["median"] == 110.0
+    assert metrics["capability_candidate_tokens"]["median"] == 70.0
+    assert metrics["capability_token_delta"] == -40.0
+    assert metrics["capability_latency_delta_ms"] == -400.0
+    assert metrics["cost_observed"] is True
+    assert metrics["infra_exclusion_count"] == 0
+    assert metrics["infra_exclusion_rate"] == 0.0
+
+
+def test_capability_metrics_exclude_preservation_and_infrastructure_runs() -> None:
+    target = _target()
+    direct = _case("direct", CaseCategory.DIRECT)
+    regression = _case("regression", CaseCategory.REGRESSION)
+    runs = (
+        _evaluated_run(
+            target=target,
+            case=direct,
+            pair_id="direct",
+            treatment=Treatment.BASELINE,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.INFRA_ERROR,
+        ),
+        _evaluated_run(
+            target=target,
+            case=direct,
+            pair_id="direct",
+            treatment=Treatment.FORCED_SKILL,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.PASSED,
+        ),
+        _evaluated_run(
+            target=target,
+            case=regression,
+            pair_id="regression",
+            treatment=Treatment.BASELINE,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.PASSED,
+        ),
+        _evaluated_run(
+            target=target,
+            case=regression,
+            pair_id="regression",
+            treatment=Treatment.FORCED_SKILL,
+            family=TreatmentFamily.CONTENT,
+            status=RunStatus.PASSED,
+        ),
+    )
+
+    metrics = ScoreCardBuilder().build(_record(target, runs)).metrics
+
+    assert metrics["capability_pair_count"] == 0
+    assert metrics["capability_candidate_success_rate"] is None
+    assert metrics["preservation_pair_count"] == 1
+    assert metrics["infra_exclusion_count"] == 1
+    assert metrics["infra_exclusion_rate"] == 0.25
+    assert metrics["cost_observed"] is False

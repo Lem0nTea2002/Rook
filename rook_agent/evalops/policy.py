@@ -22,11 +22,47 @@ class PromotionPolicy:
     def __init__(self, config: PromotionPolicyConfig) -> None:
         self.config = config
         data = config.data
+        self.use_capability_metrics = any(
+            key in data
+            for key in (
+                "min_capability_pairs",
+                "min_candidate_capability_success_rate",
+                "min_capability_success_uplift",
+                "max_infra_exclusion_rate",
+                "require_positive_capability_uplift_ci",
+            )
+        )
         self.min_valid_pairs = _integer(data, "min_valid_pairs", default=1, minimum=1)
         self.min_trace_completeness = _ratio(
             data, "min_trace_completeness", default=1.0
         )
         self.min_success_uplift = _number(data, "min_success_uplift", default=0.0)
+        self.min_capability_pairs = _integer(
+            data,
+            "min_capability_pairs",
+            default=self.min_valid_pairs,
+            minimum=1,
+        )
+        self.min_candidate_capability_success_rate = _ratio(
+            data,
+            "min_candidate_capability_success_rate",
+            default=0.0,
+        )
+        self.min_capability_success_uplift = _number(
+            data,
+            "min_capability_success_uplift",
+            default=self.min_success_uplift,
+        )
+        self.max_infra_exclusion_rate = _ratio(
+            data,
+            "max_infra_exclusion_rate",
+            default=1.0,
+        )
+        self.require_positive_capability_uplift_ci = _boolean(
+            data,
+            "require_positive_capability_uplift_ci",
+            default=False,
+        )
         self.success_noninferiority_margin = _number(
             data, "success_noninferiority_margin", default=0.0, minimum=0.0
         )
@@ -74,6 +110,23 @@ class PromotionPolicy:
                 routing_reason="new_regression",
             )
 
+        infra_exclusion_rate = _optional_number(metrics, "infra_exclusion_rate")
+        if (
+            infra_exclusion_rate is not None
+            and infra_exclusion_rate > self.max_infra_exclusion_rate
+        ):
+            return self._decision(
+                scorecard,
+                status=PromotionStatus.QUARANTINED,
+                reason_code="excess_infrastructure_exclusions",
+                routing_status=_observed_quarantine(metrics),
+                routing_reason=(
+                    "excess_infrastructure_exclusions"
+                    if _routing_observed(metrics)
+                    else None
+                ),
+            )
+
         trace_rate = _optional_number(metrics, "trace_completeness_rate")
         if trace_rate is None or trace_rate < self.min_trace_completeness:
             return self._decision(
@@ -85,8 +138,17 @@ class PromotionPolicy:
                     "trace_incomplete" if _routing_observed(metrics) else None
                 ),
             )
-        valid_pairs = _count(metrics, "valid_content_pair_count")
-        if valid_pairs < self.min_valid_pairs:
+        capability_observed = (
+            self.use_capability_metrics and "capability_pair_count" in metrics
+        )
+        valid_pairs = _count(
+            metrics,
+            "capability_pair_count" if capability_observed else "valid_content_pair_count",
+        )
+        required_pairs = (
+            self.min_capability_pairs if capability_observed else self.min_valid_pairs
+        )
+        if valid_pairs < required_pairs:
             return self._decision(
                 scorecard,
                 status=PromotionStatus.QUARANTINED,
@@ -97,10 +159,30 @@ class PromotionPolicy:
                 ),
             )
 
-        baseline_rate = _optional_number(metrics, "baseline_success_rate")
-        candidate_rate = _optional_number(metrics, "candidate_success_rate")
-        improvement = _optional_number(metrics, "paired_success_improvement")
-        efficiency = _optional_number(metrics, "efficiency_improvement")
+        baseline_rate = _optional_number(
+            metrics,
+            "capability_baseline_success_rate"
+            if capability_observed
+            else "baseline_success_rate",
+        )
+        candidate_rate = _optional_number(
+            metrics,
+            "capability_candidate_success_rate"
+            if capability_observed
+            else "candidate_success_rate",
+        )
+        improvement = _optional_number(
+            metrics,
+            "capability_paired_success_uplift"
+            if capability_observed
+            else "paired_success_improvement",
+        )
+        efficiency = _optional_number(
+            metrics,
+            "capability_efficiency_improvement"
+            if capability_observed
+            else "efficiency_improvement",
+        )
         if baseline_rate is None or candidate_rate is None or improvement is None:
             return self._decision(
                 scorecard,
@@ -108,9 +190,56 @@ class PromotionPolicy:
                 reason_code="success_rate_unobserved",
             )
 
-        if improvement >= self.min_success_uplift:
+        if (
+            capability_observed
+            and candidate_rate < self.min_candidate_capability_success_rate
+        ):
+            return self._decision(
+                scorecard,
+                status=PromotionStatus.REJECTED,
+                reason_code="capability_success_below_threshold",
+                routing_status=(
+                    PromotionStatus.REJECTED if _routing_observed(metrics) else None
+                ),
+                routing_reason=(
+                    "content_not_promoted" if _routing_observed(metrics) else None
+                ),
+            )
+
+        required_uplift = (
+            self.min_capability_success_uplift
+            if capability_observed
+            else self.min_success_uplift
+        )
+        if improvement >= required_uplift:
+            uplift_interval_lower = _interval_lower(
+                metrics, "capability_paired_uplift_ci95"
+            )
+            if (
+                capability_observed
+                and self.require_positive_capability_uplift_ci
+                and (
+                    uplift_interval_lower is None
+                    or uplift_interval_lower <= 0.0
+                )
+            ):
+                return self._decision(
+                    scorecard,
+                    status=PromotionStatus.QUARANTINED,
+                    reason_code="capability_uplift_uncertain",
+                    routing_status=_observed_quarantine(metrics),
+                    routing_reason=(
+                        "capability_uplift_uncertain"
+                        if _routing_observed(metrics)
+                        else None
+                    ),
+                )
             status = PromotionStatus.PROMOTED
-            reason = "success_uplift"
+            reason = (
+                "capability_success_uplift"
+                if capability_observed
+                else "success_uplift"
+            )
         elif candidate_rate < baseline_rate - self.success_noninferiority_margin:
             status = PromotionStatus.REJECTED
             reason = "success_regression"
@@ -214,15 +343,37 @@ class FastGatePolicy:
             return self._decision(
                 scorecard, FastGateStatus.QUARANTINED, "trace_incomplete"
             )
-        if _count(metrics, "direct_transfer_valid_pair_count") == 0:
+        capability_observed = "capability_pair_count" in metrics
+        capability_pairs = _count(
+            metrics,
+            "capability_pair_count"
+            if capability_observed
+            else "direct_transfer_valid_pair_count",
+        )
+        if capability_pairs == 0:
             return self._decision(
                 scorecard,
                 FastGateStatus.QUARANTINED,
                 "no_direct_transfer_evidence",
             )
-        paired = _optional_number(metrics, "paired_success_improvement")
-        efficiency = _optional_number(metrics, "efficiency_improvement")
-        improved_count = _count(metrics, "direct_transfer_improved_pair_count")
+        paired = _optional_number(
+            metrics,
+            "capability_paired_success_uplift"
+            if capability_observed
+            else "paired_success_improvement",
+        )
+        efficiency = _optional_number(
+            metrics,
+            "capability_efficiency_improvement"
+            if capability_observed
+            else "efficiency_improvement",
+        )
+        improved_count = _count(
+            metrics,
+            "capability_improved_pair_count"
+            if capability_observed
+            else "direct_transfer_improved_pair_count",
+        )
         if improved_count <= 0 and (paired is None or paired <= 0) and (
             efficiency is None or efficiency <= 0
         ):
@@ -266,6 +417,18 @@ def _optional_number(metrics: Mapping[str, object], key: str) -> float | None:
     return float(value)
 
 
+def _interval_lower(metrics: Mapping[str, object], key: str) -> float | None:
+    value = metrics.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError(f"ScoreCard metric {key!r} must be an interval mapping")
+    lower = value.get("lower")
+    if isinstance(lower, bool) or not isinstance(lower, int | float):
+        raise ValueError(f"ScoreCard metric {key!r} must contain numeric lower")
+    return float(lower)
+
+
 def _integer(
     data: Mapping[str, object], key: str, *, default: int, minimum: int
 ) -> int:
@@ -295,6 +458,13 @@ def _ratio(data: Mapping[str, object], key: str, *, default: float) -> float:
     value = _number(data, key, default=default)
     if value < 0.0 or value > 1.0:
         raise ValueError(f"policy field {key!r} must be between 0 and 1")
+    return value
+
+
+def _boolean(data: Mapping[str, object], key: str, *, default: bool) -> bool:
+    value = data.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"policy field {key!r} must be a boolean")
     return value
 
 
