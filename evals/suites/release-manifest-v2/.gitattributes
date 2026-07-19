@@ -1,1 +1,2 @@
 fixtures/** -text
+holdout/fixtures/** -text

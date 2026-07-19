@@ -7,7 +7,6 @@ import sys
 import threading
 import time
 
-import pytest
 
 from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.utils.subprocess import CommandResult, run_command

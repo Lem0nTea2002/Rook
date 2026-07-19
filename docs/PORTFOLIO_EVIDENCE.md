@@ -26,11 +26,13 @@ and trace-derived quarantined candidates.
 | Full offline core suite | 1,500+ passing tests; exact current count is recorded in `docs/ROOK_PROGRESS_SUMMARY.md` |
 | Operating systems | Windows and Linux GitHub Actions matrix configured |
 | RM-2 evidence suite | 12 versioned cases: 3 Direct, 3 Transfer, 3 Regression, 3 Adversarial |
+| Sealed Formal holdout | 12 disjoint cases across six repository shapes; Candidate SHA-256 locked before execution |
 | Effective control | Promoted by the deterministic Fake Agent control |
 | Neutral control | Rejected because it provides no measurable uplift |
 | Unsafe control | Rejected after three adversarial preservation regressions |
 | Authorized Calibration | 12 scheduled calls; 5 complete comparable pairs; quarantined conclusion |
-| Future live schedule | New Calibration 12; Pilot 24; Formal 72 |
+| Authorized Pilot measurement | 24/24 calls complete; 12 comparable pairs; 0 infrastructure exclusions |
+| Remaining live schedule | Formal 72, requiring a new explicit authorization |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -64,6 +66,31 @@ Immutable report: `.rook/evalops/artifacts/reports/evaluation-7b656409ddb54076a3
 
 One infrastructure exclusion left trace completeness at 80%, so the gate concluded `quarantined (excess_infrastructure_exclusions)`. These values show that the suite detected a difference; they neither qualify the Candidate for deployment nor replace the 72-call Formal resume result.
 
+## Completed 24-call Pilot measurement (not a Formal result)
+
+Immutable report: `.rook/evalops/artifacts/reports/evaluation-5eef9bb282934e9e8748221ce9e24e2d/scorecard.json`. The authorized run completed all 12 Baseline/Forced pairs with Codex CLI `0.144.1` and `gpt-5.4-mini`.
+
+| Metric | Baseline | Forced Skill | Change |
+| --- | ---: | ---: | ---: |
+| Comparable-pair success, n=12 | 25% | 100% | +75pp |
+| Capability success, n=6 | 0% | 100% | +100pp; bootstrap 95% interval [100pp, 100pp] |
+| Median latency | 77.469s | 59.898s | 22.7% lower |
+| Capability median latency | 80.616s | 67.852s | 15.8% lower |
+| Median tokens | 49,749 | 43,350 | 12.9% lower |
+| Capability median tokens | 49,749 | 52,042 | 4.6% higher |
+| Preservation | — | 6/6 | 0 new regressions |
+| Infrastructure / trace | — | 0 exclusions | 100% complete |
+| USD cost | Not observed | Not observed | Not computable |
+
+The calls and measurements are valid, but this run accidentally used the
+Formal manifest and therefore its immutable automatic decision is
+`quarantined (insufficient_valid_pairs)`: one Pilot repetition supplies six
+capability pairs, while the Formal policy requires 18. Rook now has a dedicated
+`pilot.toml` and `rm2-pilot.toml` boundary so future 24-call runs cannot be
+evaluated against the 72-call sample threshold. Existing immutable evidence is
+not relabelled or silently rescored. These Pilot values are engineering
+evidence, not the final resume performance claim.
+
 ## Formal live measurement contract
 
 Do not replace the following fields with estimates. Populate them only from an
@@ -81,9 +108,11 @@ immutable report produced with explicit external-call and cost authorization.
 | Cost delta | Paired observed model cost | Formal not measured |
 | Routing precision/recall | Only from reliable `skill_loaded` identity events | Not observed for Codex |
 
-The staged protocol is 12-call Calibration, 24-call Pilot, and 72-call Formal
-(12 cases x 3 repetitions x 2 arms). Each stage requires a separate explicit
-authorization and stops before the next gate. Publish the suite
+The staged protocol is 12-call Calibration (`calibration.toml`), 24-call Pilot
+(`pilot.toml`), and 72-call Formal (sealed disjoint `suite.toml`, 12 cases x 3
+repetitions x 2 arms). The Formal manifest locks the Candidate content hash and
+fails before an Agent call if it changes. Each stage requires a separate explicit authorization and stops before
+the next gate. Publish the suite
 fingerprint, policy fingerprint, target/model version, repetition count,
 infrastructure exclusions, immutable report path, and exact authorization
 state together with any metric.

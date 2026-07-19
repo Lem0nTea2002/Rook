@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-19
+
+### Added
+
+- A sealed 12-case RM-2 Formal holdout whose case IDs and fixture contents are disjoint from Pilot, with a fail-closed Candidate content-hash lock.
+- `rook eval trends` for redacted ScoreCard history, comparable-version deltas, fingerprint boundaries, SLO breaches, and governance counts.
+- Ruff, incremental mypy, 85% EvalOps coverage, pip-audit, Python 3.11/3.12, and Dependabot quality gates.
+- A version-controlled redacted Pilot evidence summary and honest dogfooding/incident ledger.
+
+### Fixed
+
+- Native Windows Codex workspace writes no longer create a split nested temporary writable root; both A/B arms use the same shell-write compatibility boundary.
+- The 24-call Pilot now has a dedicated policy and cannot be evaluated against the 72-call Formal capability-pair threshold.
+
+### Changed
+
+- GitHub is the supported `pipx` installation source until a separately verified PyPI publication exists.
+- The Formal protocol uses the sealed holdout with three repetitions for exactly 72 calls.
+
+### Security
+
+- Holdout execution rejects a changed Candidate before starting an Agent or model call.
+- Dependency audit and weekly pip/GitHub Actions update checks are part of CI.
+
 ## [0.2.0] - 2026-07-18
 
 ### Added
@@ -25,5 +49,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ZHUMUJUN/Rook/tree/v0.2.0

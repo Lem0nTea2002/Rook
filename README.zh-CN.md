@@ -51,7 +51,9 @@ flowchart LR
     J --> K["原子回滚"]
 ```
 
-仓库内置 12 个版本化简历证据案例，覆盖 Direct、Transfer、Regression、Adversarial，并提供有效、中性、危险三个控制 Candidate。Fake Agent 结果只证明控制面正确。一次获授权的 Codex Calibration 在 5 个完整可比配对中观测到成功率提升 80 个百分点、中位时延降低 27.4%、完整 Token 观测的中位数增加 17.2%；但该轮因基础设施排除率超限被门禁隔离，只能作为校准证据，不能作为 Formal 上线或最终简历结论。
+版本化证据协议包含 12-case 开发/Pilot suite，以及完全不重叠、覆盖服务目录、应用、包、部署、运维和 ML 服务仓库形态的 12-case sealed Formal holdout。Formal manifest 锁定 Candidate content hash；Candidate 一旦变化，会在任何模型调用前失败。Fake Agent 控制实验只证明控制面正确。
+
+修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是尚待授权的 72-call Formal 简历结论。
 
 用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
 
@@ -64,6 +66,8 @@ rook eval demo
 - [EvalOps 使用说明](docs/EVALOPS.md)
 - [离线演示手册](docs/DEMO.md)
 - [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
+- [Dogfooding 与事故记录](docs/DOGFOODING.md)
+- [脱敏 Pilot 证据](docs/evidence/rm2-pilot-summary.json)
 
 ## 为什么做 Rook
 
@@ -103,10 +107,16 @@ rook eval demo
 
 ## 快速开始
 
-推荐用 `pipx` 安装：
+推荐用 `pipx` 安装已打标签的 GitHub release：
 
 ```sh
-pipx install rook-agent
+pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1"
+```
+
+也可以从本地克隆目录安装：
+
+```sh
+pipx install .
 ```
 
 启动 TUI：

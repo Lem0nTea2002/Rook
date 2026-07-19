@@ -140,6 +140,17 @@ def test_artifact_store_jsonl_preserves_record_order(tmp_path: Path) -> None:
     assert [json.loads(line) for line in persisted.splitlines()] == list(records)
 
 
+def test_artifact_store_rejects_non_iterable_jsonl_and_non_text_value(
+    tmp_path: Path,
+) -> None:
+    store = ArtifactStore(tmp_path)
+
+    with pytest.raises(TypeError, match="JSONL values must be iterable"):
+        store.write_jsonl("raw/events.jsonl", 7)
+    with pytest.raises(TypeError, match="text artifacts require a string"):
+        store.write_text("raw/event.txt", 7)  # type: ignore[arg-type]
+
+
 def test_artifact_store_text_redacts_and_fsyncs_a_sibling_temp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

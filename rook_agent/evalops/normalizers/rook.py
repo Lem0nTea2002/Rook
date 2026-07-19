@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
 
 from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.models import (

@@ -12,6 +12,8 @@ from rook_agent.context.metadata import merge_metadata_patch
 
 DEFAULT_TITLE_CHARS = 40
 
+__all__ = ["DEFAULT_TITLE_CHARS", "merge_metadata_patch", "title_from_first_user_message"]
+
 
 def title_from_first_user_message(content: str | None, *, max_chars: int = DEFAULT_TITLE_CHARS) -> str | None:
     """从第一条用户消息生成保守标题。"""

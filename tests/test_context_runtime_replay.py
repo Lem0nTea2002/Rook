@@ -2,7 +2,6 @@ from dataclasses import asdict
 
 from rook_agent.context.compaction import CompactionEvent
 from rook_agent.context.events import SessionEvent
-from rook_agent.context.llm_compact import LlmCompactEvent
 from rook_agent.context.runtime_replay import replay_runtime_state
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.context.task_boundary import TaskBoundaryService

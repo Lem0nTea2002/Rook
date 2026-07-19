@@ -139,6 +139,17 @@ def test_plan_builds_separate_content_and_routing_pairs(tmp_path: Path) -> None:
         assert all(run.skill == _candidate() for run in case_runs if run.treatment is not Treatment.BASELINE)
 
 
+def test_plan_rejects_candidate_that_differs_from_sealed_suite(tmp_path: Path) -> None:
+    suite = replace(_suite(tmp_path), candidate_content_hash="b" * 64)
+
+    with pytest.raises(ValueError, match="sealed Candidate content hash"):
+        build_experiment_plan(
+            suite,
+            targets=(_target(),),
+            candidate=_candidate(),
+        )
+
+
 def test_plan_can_select_content_family_only_with_exact_call_count(tmp_path: Path) -> None:
     suite = _suite(tmp_path)
 

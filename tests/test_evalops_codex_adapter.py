@@ -294,6 +294,8 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         'web_search="disabled"',
         "-c",
         "sandbox_workspace_write.network_access=false",
+        "-c",
+        "sandbox_workspace_write.exclude_tmpdir_env_var=true",
         "--sandbox",
         "workspace-write",
         "--skip-git-repo-check",
@@ -307,10 +309,88 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "gpt-test",
         "-",
     )
-    assert prepared.stdin_text == "Create result.txt and verify it."
+    assert prepared.stdin_text == (
+        "Execution constraints for this Windows workspace:\n"
+        "- Use shell commands for file changes; do not call apply_patch.\n"
+        "- Finish with a best-effort result within the task time limit.\n\n"
+        "Create result.txt and verify it."
+    )
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_prepare_windows_keeps_os_temp_without_synthesizing_nested_root(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-temp"
+    workspace.mkdir()
+    runner = ScriptedProcessRunner()
+    adapter = _adapter(
+        tmp_path,
+        runner,
+        host_environment={
+            "PATH": r"C:\\Windows\\System32",
+            "SystemRoot": r"C:\\Windows",
+            "TEMP": r"C:\\host-temp",
+            "tmp": r"C:\\host-tmp",
+            "TMPDIR": r"C:\\host-tmpdir",
+        },
+    )
+
+    prepared = adapter.prepare(_spec(tmp_path), workspace)
+
+    assert prepared.environment["TEMP"] == r"C:\\host-temp"
+    assert prepared.environment["tmp"] == r"C:\\host-tmp"
+    assert prepared.environment["TMPDIR"] == r"C:\\host-tmpdir"
+    assert "TMP" not in prepared.environment
+    assert not (workspace / ".rook" / "evalops-temp").exists()
+
+
+def test_codex_prepare_windows_does_not_add_missing_temp_aliases(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-one-temp"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        host_environment={
+            "PATH": r"C:\\Windows\\System32",
+            "SystemRoot": r"C:\\Windows",
+            "TEMP": r"C:\\host-temp",
+        },
+    )
+
+    prepared = adapter.prepare(_spec(tmp_path), workspace)
+
+    assert prepared.environment["TEMP"] == r"C:\\host-temp"
+    assert "TMP" not in prepared.environment
+    assert "TMPDIR" not in prepared.environment
+
+
+def test_codex_prepare_keeps_host_temp_on_non_windows(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-linux-temp"
+    workspace.mkdir()
+    runner = ScriptedProcessRunner()
+    adapter = _adapter(
+        tmp_path,
+        runner,
+        platform_name="linux",
+        host_environment={
+            "PATH": "/usr/bin",
+            "TEMP": "/host-temp",
+            "TMP": "/host-tmp",
+            "TMPDIR": "/host-tmpdir",
+        },
+    )
+
+    prepared = adapter.prepare(_spec(tmp_path), workspace)
+
+    assert prepared.environment["TEMP"] == "/host-temp"
+    assert prepared.environment["TMP"] == "/host-tmp"
+    assert prepared.environment["TMPDIR"] == "/host-tmpdir"
+    assert not (workspace / ".rook" / "evalops-temp").exists()
 
 
 def test_codex_disabled_network_web_search_is_a_policy_violation(
@@ -356,6 +436,11 @@ def test_codex_prepare_does_not_set_windows_backend_on_linux(tmp_path: Path) -> 
     prepared = adapter.prepare(_spec(tmp_path), workspace)
 
     assert 'windows.sandbox="unelevated"' not in prepared.command
+    assert (
+        "sandbox_workspace_write.exclude_tmpdir_env_var=true"
+        not in prepared.command
+    )
+    assert prepared.stdin_text == "Create result.txt and verify it."
 
 
 def test_codex_content_pair_hides_unrelated_skill_catalog(tmp_path: Path) -> None:
@@ -372,6 +457,7 @@ def test_codex_content_pair_hides_unrelated_skill_catalog(tmp_path: Path) -> Non
     prepared = adapter.prepare(spec, workspace, staged_skill=staged)
 
     assert "skills.include_instructions=false" in prepared.command
+    assert "do not search for other repository guidance" in prepared.stdin_text
 
 
 def test_codex_routing_pair_keeps_skill_discovery_enabled(tmp_path: Path) -> None:
@@ -388,6 +474,7 @@ def test_codex_routing_pair_keeps_skill_discovery_enabled(tmp_path: Path) -> Non
     prepared = adapter.prepare(spec, workspace, staged_skill=staged)
 
     assert "skills.include_instructions=false" not in prepared.command
+    assert "do not search for other repository guidance" not in prepared.stdin_text
 
 
 def test_codex_adapter_isolates_baseline_forced_and_routed_prompts(

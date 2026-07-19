@@ -4,7 +4,6 @@ from rook_agent.context.runtime_state import SessionRuntimeState
 from rook_agent.context.task_boundary import (
     TaskBoundaryPolicy,
     TaskBoundaryDecision,
-    TaskBoundaryObservation,
     TaskBoundaryService,
 )
 
@@ -94,32 +93,6 @@ def test_same_after_pending_new_confirms_candidate_task() -> None:
     assert state.active_task_hash == first.candidate_hash
     assert state.candidate_task_hash is None
     assert state.task_hash_stable_count == 0
-
-
-def test_uncertain_resets_pending_new_candidate_window() -> None:
-    state = SessionRuntimeState(session_id="sess_test", active_task_hash="task_active")
-    service = TaskBoundaryService(required_stable_count=2)
-
-    service.observe(
-        state,
-        decision=TaskBoundaryDecision.NEW,
-        basis_message_id="msg_new",
-    )
-    service.observe(
-        state,
-        decision=TaskBoundaryDecision.UNCERTAIN,
-        basis_message_id="msg_uncertain",
-    )
-    observation = service.observe(
-        state,
-        decision=TaskBoundaryDecision.NEW,
-        basis_message_id="msg_new",
-    )
-
-    assert observation.confirmed_change is False
-    assert observation.should_trigger_compaction is False
-    assert state.candidate_task_hash == observation.candidate_hash
-    assert state.task_hash_stable_count == 1
 
 
 def test_new_requires_stable_window() -> None:

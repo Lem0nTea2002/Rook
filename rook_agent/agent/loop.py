@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 from typing import Protocol
 
 import anyio

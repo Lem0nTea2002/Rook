@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # noqa: F401 - compatibility hook used by existing integrations
 from pathlib import Path
 
 from rook_agent.permissions.types import PermissionAction

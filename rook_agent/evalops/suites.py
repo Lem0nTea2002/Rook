@@ -7,7 +7,6 @@ import re
 import tomllib
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
 
 from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.models import (
@@ -21,7 +20,7 @@ from rook_agent.evalops.models import (
 )
 
 
-_SUITE_FIELDS = {"id", "version", "policy", "cases"}
+_SUITE_FIELDS = {"id", "version", "policy", "candidate_content_hash", "cases"}
 _CASE_FIELDS = {"id", "category", "task", "fixture", "evaluator", "timeout_seconds", "network"}
 _EVALUATOR_KINDS = {"command", "file_state", "trajectory", "composite", "llm_judge"}
 _COMMAND_EVALUATOR_FIELDS = {"kind", "command", "timeout_seconds"}
@@ -56,6 +55,14 @@ def load_eval_suite(path: str | Path) -> EvalSuite:
     suite_id = _require_string(raw, "id", context="suite manifest")
     version = _require_string(raw, "version", context="suite manifest")
     policy_ref = _require_string(raw, "policy", context="suite manifest")
+    candidate_content_hash = raw.get("candidate_content_hash")
+    if candidate_content_hash is not None and (
+        not isinstance(candidate_content_hash, str)
+        or _SHA256.fullmatch(candidate_content_hash) is None
+    ):
+        raise ValueError(
+            "suite manifest field 'candidate_content_hash' must be lowercase SHA-256 hex"
+        )
     raw_cases = _require_list(raw, "cases", context="suite manifest")
     if not raw_cases:
         raise ValueError("suite manifest field 'cases' must contain at least one case")
@@ -80,6 +87,7 @@ def load_eval_suite(path: str | Path) -> EvalSuite:
         policy=policy,
         manifest_path=manifest,
         fingerprint=fingerprint,
+        candidate_content_hash=candidate_content_hash,
     )
 
 
@@ -156,6 +164,7 @@ def _load_evaluator(
 
     if kind == "command":
         return _load_command_evaluator(root, raw, case_id=case_id, fixture=fixture)
+    options: dict[str, object]
     if kind == "file_state":
         _reject_unknown(raw, allowed=_FILE_STATE_EVALUATOR_FIELDS, context=context)
         required = _workspace_path_list(raw, "required_files", context=context)
@@ -179,9 +188,11 @@ def _load_evaluator(
         }
     elif kind == "trajectory":
         _reject_unknown(raw, allowed=_TRAJECTORY_EVALUATOR_FIELDS, context=context)
+        required_tools = _string_list(raw, "required_tools", context=context)
+        forbidden_tools = _string_list(raw, "forbidden_tools", context=context)
         options = {
-            "required_tools": _string_list(raw, "required_tools", context=context),
-            "forbidden_tools": _string_list(raw, "forbidden_tools", context=context),
+            "required_tools": required_tools,
+            "forbidden_tools": forbidden_tools,
             "required_successful_tools": _string_list(
                 raw, "required_successful_tools", context=context
             ),
@@ -189,7 +200,7 @@ def _load_evaluator(
                 raw, "require_trace_complete", default=True, context=context
             ),
         }
-        if set(options["required_tools"]) & set(options["forbidden_tools"]):
+        if set(required_tools) & set(forbidden_tools):
             raise ValueError(f"{context} cannot require and forbid the same tool")
     elif kind == "llm_judge":
         _reject_unknown(raw, allowed=_LLM_JUDGE_EVALUATOR_FIELDS, context=context)

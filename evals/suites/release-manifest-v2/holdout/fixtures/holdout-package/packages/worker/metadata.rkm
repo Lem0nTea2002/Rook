@@ -1,0 +1,5 @@
+service = Queue_Worker
+version = 2.0.7
+channel = internal
+owners = Runtime, ops, runtime
+build = 4815

@@ -257,6 +257,7 @@ class EvalSuite:
     policy: PromotionPolicyConfig
     manifest_path: Path
     fingerprint: str
+    candidate_content_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

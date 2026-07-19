@@ -1,6 +1,5 @@
 from rook_agent.context.content.router import (
     RouteCompactResult,
-    RouteCompressor,
     RouteContentType,
     RouteContext,
     RouteCompactRouter,

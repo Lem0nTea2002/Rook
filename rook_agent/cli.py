@@ -121,6 +121,13 @@ def build_parser() -> argparse.ArgumentParser:
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
     report_parser = eval_subparsers.add_parser("report", help="Read an immutable Rook Forge report.")
     report_parser.add_argument("experiment_id")
+    trends_parser = eval_subparsers.add_parser(
+        "trends", help="Compare immutable ScoreCards and summarize EvalOps SLOs."
+    )
+    trends_parser.add_argument("name", help="Skill name to inspect.")
+    trends_parser.add_argument("--agent", choices=("rook", "codex"), default=None)
+    trends_parser.add_argument("--limit", type=_positive_int, default=20)
+    trends_parser.add_argument("--json", action="store_true", help="Print stable JSON instead of Markdown.")
 
     skill_parser = subparsers.add_parser("skill", help="Inspect or change Rook Forge Skill state.")
     skill_subparsers = skill_parser.add_subparsers(dest="skill_command", required=True)

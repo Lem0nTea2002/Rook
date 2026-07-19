@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,11 @@ from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.candidates import CandidateStore
 from rook_agent.evalops.cli import (
     EvalOpsCliDependencies,
+    _current_normalizer_fingerprint,
     _external_workspace_root,
+    _load_candidate_path,
     _proxy_environment,
+    _registered_target,
     _target_for,
     run_evalops_command,
 )
@@ -25,7 +29,6 @@ from rook_agent.evalops.models import (
     PromotionStatus,
     SkillBundle,
     Treatment,
-    TreatmentFamily,
 )
 from rook_agent.evalops.registry import PromotionRegistry
 from rook_agent.evalops.release import SkillReleaseService, normalizer_fingerprint
@@ -52,6 +55,7 @@ from rook_agent.evalops.suites import load_eval_suite
             "run",
         ),
         (["eval", "report", "evaluation-1"], "eval", "report"),
+        (["eval", "trends", "safe-skill", "--agent", "codex"], "eval", "trends"),
         (["skill", "status", "safe-skill"], "skill", "status"),
         (
             [
@@ -305,6 +309,160 @@ def _dependencies(tmp_path: Path, adapters: dict[AgentType, object]) -> EvalOpsC
             registry=registry,
         ),
     )
+
+
+def test_eval_trends_json_includes_bounded_evidence_and_governance(
+    tmp_path: Path, capsys
+) -> None:
+    deps = _dependencies(tmp_path, {})
+    evaluation_id = f"evaluation-{'a' * 32}"
+    report = deps.artifact_store.root / "reports" / evaluation_id / "scorecard.json"
+    report.parent.mkdir(parents=True)
+    report.write_text(
+        json.dumps(
+            {
+                "evaluation_id": evaluation_id,
+                "candidate": {
+                    "name": "safe-skill",
+                    "version": 1,
+                    "content_hash": "b" * 64,
+                },
+                "suite_id": "suite",
+                "suite_fingerprint": "suite-fingerprint",
+                "policy_fingerprint": "policy-fingerprint",
+                "targets": [
+                    {
+                        "agent_type": "codex",
+                        "target_fingerprint": "target-fingerprint",
+                        "target": {"model": "gpt-test", "version": "1"},
+                        "decision": {
+                            "status": "promoted",
+                            "reason_code": "capability_success_uplift",
+                            "created_at": "2026-07-19T00:00:00Z",
+                        },
+                        "metrics": {
+                            "candidate_success_rate": 1.0,
+                            "paired_success_improvement": 0.75,
+                            "infra_exclusion_rate": 0.0,
+                            "trace_completeness_rate": 1.0,
+                            "new_regression_count": 0,
+                            "safety_failure_count": 0,
+                            "secret_leak_count": 0,
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args(
+        [
+            "--project",
+            str(tmp_path),
+            "eval",
+            "trends",
+            "safe-skill",
+            "--agent",
+            "codex",
+            "--json",
+        ]
+    )
+
+    assert run_evalops_command(args, dependencies=deps) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["entry_count"] == 1
+    assert output["entries"][0]["evaluation_id"] == evaluation_id
+    assert output["governance"] == {
+        "approval_count": 0,
+        "decision_count": 0,
+        "failed_release_count": 0,
+        "release_count": 0,
+        "rollback_count": 0,
+    }
+
+
+def test_eval_trends_markdown_includes_governance(tmp_path: Path, capsys) -> None:
+    deps = _dependencies(tmp_path, {})
+    args = build_parser().parse_args(
+        ["--project", str(tmp_path), "eval", "trends", "safe-skill"]
+    )
+
+    assert run_evalops_command(args, dependencies=deps) == 0
+    output = capsys.readouterr().out
+    assert "# Rook Forge Evaluation Trends" in output
+    assert "No matching evaluations" in output
+    assert 'Governance: `{"approval_count": 0' in output
+
+
+def test_eval_report_prints_existing_report_and_rejects_invalid_reference(
+    tmp_path: Path, capsys
+) -> None:
+    deps = _dependencies(tmp_path, {})
+    evaluation_id = f"evaluation-{'c' * 32}"
+    report = deps.artifact_store.root / "reports" / evaluation_id / "report.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("# Safe report\n", encoding="utf-8")
+    args = build_parser().parse_args(
+        ["--project", str(tmp_path), "eval", "report", evaluation_id]
+    )
+
+    assert run_evalops_command(args, dependencies=deps) == 0
+    assert capsys.readouterr().out == "# Safe report\n"
+
+    invalid = build_parser().parse_args(
+        ["--project", str(tmp_path), "eval", "report", "../report"]
+    )
+    with pytest.raises(ValueError, match="invalid evaluation id"):
+        run_evalops_command(invalid, dependencies=deps)
+
+    missing = build_parser().parse_args(
+        [
+            "--project",
+            str(tmp_path),
+            "eval",
+            "report",
+            f"evaluation-{'d' * 32}",
+        ]
+    )
+    with pytest.raises(ValueError, match="report does not exist"):
+        run_evalops_command(missing, dependencies=deps)
+
+
+def test_cli_candidate_and_target_helpers_fail_closed(tmp_path: Path) -> None:
+    deps = _dependencies(tmp_path, {})
+    with pytest.raises(ValueError, match="existing version directory"):
+        _load_candidate_path(tmp_path / "missing", deps)
+
+    non_version = tmp_path / "not-a-version"
+    non_version.mkdir()
+    with pytest.raises(ValueError, match="integer version"):
+        _load_candidate_path(non_version, deps)
+
+    outside = tmp_path / "outside" / "candidates" / "1"
+    outside.mkdir(parents=True)
+    with pytest.raises(ValueError, match="outside the project Skill registry"):
+        _load_candidate_path(outside, deps)
+
+    with pytest.raises(ValueError, match="no active version"):
+        _registered_target("safe-skill", AgentType.ROOK, deps.registry)
+    with pytest.raises(ValueError, match="adapter is not configured"):
+        _current_normalizer_fingerprint(AgentType.ROOK, deps)
+
+    class FailingProbe:
+        def probe(self):
+            raise RuntimeError("probe failed")
+
+    failing = _dependencies(tmp_path / "failing", {AgentType.ROOK: FailingProbe()})
+    with pytest.raises(ValueError, match="capability probe failed"):
+        _current_normalizer_fingerprint(AgentType.ROOK, failing)
+
+    unavailable = _dependencies(
+        tmp_path / "unavailable",
+        {AgentType.ROOK: _ProbeAdapter(_capabilities(AgentType.ROOK, available=False))},
+    )
+    with pytest.raises(ValueError, match="Agent is unavailable"):
+        _current_normalizer_fingerprint(AgentType.ROOK, unavailable)
 
 
 def test_codex_eval_requires_both_external_and_cost_authorization(tmp_path: Path) -> None:

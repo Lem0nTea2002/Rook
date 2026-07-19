@@ -110,7 +110,7 @@ def test_bootstrap_uses_target_python_for_agent_venv_and_keeps_verifier_path_cle
     assert '--exclude=.git' in bootstrap
     assert '| tar -C "$agent_source" -xf -' in bootstrap
     assert '"$agent_venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir "$agent_source"' in bootstrap
-    assert f'"$agent_venv/bin/python" "$agent_source/benchmark/chainswe/runner.py"' in bootstrap
+    assert '"$agent_venv/bin/python" "$agent_source/benchmark/chainswe/runner.py"' in bootstrap
     assert 'max_tool_rounds="${5:-}"' in bootstrap
     assert 'if [ -n "$max_tool_rounds" ]; then' in bootstrap
     assert 'set -- "$@" --max-tool-rounds "$max_tool_rounds"' in bootstrap

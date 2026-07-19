@@ -51,7 +51,19 @@ flowchart LR
     J --> K["Atomic rollback"]
 ```
 
-The version-controlled portfolio suite contains 12 Direct, Transfer, Regression, and Adversarial cases plus effective, neutral, and unsafe controls. Fake Agent results prove the control plane only. An authorized five-pair Codex Calibration observed +80 percentage points success, 27.4% lower median latency, and 17.2% more median tokens among complete observations, but the gate quarantined that run for excessive infrastructure exclusions. It is calibration evidence, not a Formal release or resume conclusion.
+The version-controlled evidence protocol contains a 12-case development/Pilot
+suite and a sealed, disjoint 12-case Formal holdout across service catalog,
+application, package, deployment, operations, and ML-service repository shapes.
+The Formal manifest locks the Candidate content hash and fails before any model
+call if the Candidate changes. Fake Agent controls prove the control plane only.
+
+After the native Windows sandbox fix, an authorized `gpt-5.4-mini` Pilot
+completed 24/24 calls with 12 comparable pairs, zero infrastructure exclusions,
+100% trace completeness, and zero new regressions. It observed Baseline 25% vs
+Forced Skill 100% (+75pp), 22.7% lower median latency, and 12.9% lower median
+Token use. The immutable run accidentally used the Formal sample threshold and
+was quarantined; the dedicated Pilot policy now fixes that boundary. These are
+Pilot measurements, not the pending 72-call Formal resume result.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -64,6 +76,8 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [EvalOps usage](docs/EVALOPS.md)
 - [Offline demo walkthrough](docs/DEMO.md)
 - [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
+- [Dogfooding and incident ledger](docs/DOGFOODING.md)
+- [Redacted Pilot evidence](docs/evidence/rm2-pilot-summary.json)
 
 ## Why Rook
 
@@ -103,10 +117,16 @@ Detailed subsystem design lives in the docs, not in this README.
 
 ## Quickstart
 
-Install with `pipx`:
+Install the tagged GitHub release with `pipx`:
 
 ```sh
-pipx install rook-agent
+pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1"
+```
+
+Or install from a local clone:
+
+```sh
+pipx install .
 ```
 
 Start the TUI:

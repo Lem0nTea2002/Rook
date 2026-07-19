@@ -91,6 +91,13 @@ class EvalOpsService:
     ) -> EvaluationSummary:
         if not targets:
             raise ValueError("at least one target is required")
+        if (
+            suite.candidate_content_hash is not None
+            and candidate.content_hash != suite.candidate_content_hash
+        ):
+            raise ValueError(
+                "Candidate does not match the suite's sealed Candidate content hash"
+            )
         fingerprints = [target.fingerprint for target in targets]
         if len(fingerprints) != len(set(fingerprints)):
             raise ValueError("target fingerprints must be unique")
@@ -198,6 +205,8 @@ class EvalOpsService:
                 fast_scorecard = self._scorecards.build(fast_record)
                 fast_decision = fast_policy.evaluate(fast_scorecard)
             if mode is EvaluationMode.FAST:
+                assert fast_scorecard is not None
+                assert fast_decision is not None
                 return TargetEvaluationSummary(
                     target=target,
                     fast_scorecard=fast_scorecard,
@@ -209,21 +218,21 @@ class EvalOpsService:
                     ),
                     fast_record=fast_record,
                 )
-            if (
-                mode is EvaluationMode.AUTO
-                and fast_decision.status is not FastGateStatus.CONTINUE_FULL
-            ):
-                return TargetEvaluationSummary(
-                    target=target,
-                    fast_scorecard=fast_scorecard,
-                    fast_decision=fast_decision,
-                    decision=_promotion_from_fast(
-                        fast_scorecard,
-                        fast_decision,
-                        policy_version=suite.policy.version,
-                    ),
-                    fast_record=fast_record,
-                )
+            if mode is EvaluationMode.AUTO:
+                assert fast_scorecard is not None
+                assert fast_decision is not None
+                if fast_decision.status is not FastGateStatus.CONTINUE_FULL:
+                    return TargetEvaluationSummary(
+                        target=target,
+                        fast_scorecard=fast_scorecard,
+                        fast_decision=fast_decision,
+                        decision=_promotion_from_fast(
+                            fast_scorecard,
+                            fast_decision,
+                            policy_version=suite.policy.version,
+                        ),
+                        fast_record=fast_record,
+                    )
 
             full_plan = build_experiment_plan(
                 suite,

@@ -1,7 +1,6 @@
 import subprocess
 from pathlib import Path
 
-import pytest
 
 from rook_agent.eval.patch import collect_git_diff, ensure_clean_repo
 

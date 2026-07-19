@@ -13,7 +13,7 @@ from typing import Protocol, Literal
 
 from rook_agent.context.compaction import CompactionPipeline, CompactionRequest, CompactionEvent, CompactionResult
 from rook_agent.context.fallback import CompactFallbackPolicy, FallbackStep
-from rook_agent.context.llm_compact import LlmCompactRequest, LlmCompactService, LlmCompactEvent
+from rook_agent.context.llm_compact import LlmCompactRequest, LlmCompactEvent
 from rook_agent.context.models import SessionView
 from rook_agent.context.runtime_state import SessionRuntimeState, auto_compact_circuit_is_open
 from rook_agent.context.store import JsonlSessionStore

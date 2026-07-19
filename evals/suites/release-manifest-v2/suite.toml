@@ -1,147 +1,148 @@
-id = "release-manifest-v2-formal"
-version = "2"
+id = "release-manifest-v2-formal-holdout"
+version = "3"
 policy = "../../policies/rm2-formal.toml"
+candidate_content_hash = "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
 
 [[cases]]
-id = "direct-canonical"
+id = "holdout-catalog"
 category = "direct"
-task = "tasks/direct-canonical.md"
-fixture = "fixtures/direct-canonical"
+task = "holdout/tasks/holdout-catalog.md"
+fixture = "holdout/fixtures/holdout-catalog"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=direct-canonical"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-catalog"]
 timeout_seconds = 15
 
 [[cases]]
-id = "direct-casing"
+id = "holdout-application"
 category = "direct"
-task = "tasks/direct-casing.md"
-fixture = "fixtures/direct-casing"
+task = "holdout/tasks/holdout-application.md"
+fixture = "holdout/fixtures/holdout-application"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=direct-casing"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-application"]
 timeout_seconds = 15
 
 [[cases]]
-id = "direct-untrusted"
+id = "holdout-package"
 category = "direct"
-task = "tasks/direct-untrusted.md"
-fixture = "fixtures/direct-untrusted"
+task = "holdout/tasks/holdout-package.md"
+fixture = "holdout/fixtures/holdout-package"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=direct-untrusted"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-package"]
 timeout_seconds = 15
 
 [[cases]]
-id = "transfer-release"
+id = "holdout-chart"
 category = "transfer"
-task = "tasks/transfer-release.md"
-fixture = "fixtures/transfer-release"
+task = "holdout/tasks/holdout-chart.md"
+fixture = "holdout/fixtures/holdout-chart"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=transfer-release"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-chart"]
 timeout_seconds = 15
 
 [[cases]]
-id = "transfer-text"
+id = "holdout-mobile"
 category = "transfer"
-task = "tasks/transfer-text.md"
-fixture = "fixtures/transfer-text"
+task = "holdout/tasks/holdout-mobile.md"
+fixture = "holdout/fixtures/holdout-mobile"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=transfer-text"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-mobile"]
 timeout_seconds = 15
 
 [[cases]]
-id = "transfer-nested"
+id = "holdout-ml-service"
 category = "transfer"
-task = "tasks/transfer-nested.md"
-fixture = "fixtures/transfer-nested"
+task = "holdout/tasks/holdout-ml-service.md"
+fixture = "holdout/fixtures/holdout-ml-service"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=transfer-nested"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-ml-service"]
 timeout_seconds = 15
 
 [[cases]]
-id = "regression-notes"
+id = "holdout-docs"
 category = "regression"
-task = "tasks/regression-notes.md"
-fixture = "fixtures/regression-notes"
+task = "holdout/tasks/holdout-docs.md"
+fixture = "holdout/fixtures/holdout-docs"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=regression-notes"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-docs"]
 timeout_seconds = 15
 
 [[cases]]
-id = "regression-ini"
+id = "holdout-config"
 category = "regression"
-task = "tasks/regression-ini.md"
-fixture = "fixtures/regression-ini"
+task = "holdout/tasks/holdout-config.md"
+fixture = "holdout/fixtures/holdout-config"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=regression-ini"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-config"]
 timeout_seconds = 15
 
 [[cases]]
-id = "regression-csv"
+id = "holdout-owners"
 category = "regression"
-task = "tasks/regression-csv.md"
-fixture = "fixtures/regression-csv"
+task = "holdout/tasks/holdout-owners.md"
+fixture = "holdout/fixtures/holdout-owners"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=regression-csv"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-owners"]
 timeout_seconds = 15
 
 [[cases]]
-id = "adversarial-comment"
+id = "holdout-comment"
 category = "adversarial"
-task = "tasks/adversarial-comment.md"
-fixture = "fixtures/adversarial-comment"
+task = "holdout/tasks/holdout-comment.md"
+fixture = "holdout/fixtures/holdout-comment"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=adversarial-comment"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-comment"]
 timeout_seconds = 15
 
 [[cases]]
-id = "adversarial-secret"
+id = "holdout-secret"
 category = "adversarial"
-task = "tasks/adversarial-secret.md"
-fixture = "fixtures/adversarial-secret"
+task = "holdout/tasks/holdout-secret.md"
+fixture = "holdout/fixtures/holdout-secret"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=adversarial-secret"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-secret"]
 timeout_seconds = 15
 
 [[cases]]
-id = "adversarial-instruction"
+id = "holdout-instruction"
 category = "adversarial"
-task = "tasks/adversarial-instruction.md"
-fixture = "fixtures/adversarial-instruction"
+task = "holdout/tasks/holdout-instruction.md"
+fixture = "holdout/fixtures/holdout-instruction"
 timeout_seconds = 120
 network = "disabled"
 [cases.evaluator]
 kind = "command"
-command = ["python", "validators/validate_rm2.py", "--case=adversarial-instruction"]
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-instruction"]
 timeout_seconds = 15

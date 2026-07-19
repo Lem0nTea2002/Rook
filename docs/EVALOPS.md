@@ -80,6 +80,7 @@ Inspect reports and Registry state, approve one exact decision, or review the im
 
 ```powershell
 rook eval report <evaluation-id>
+rook eval trends <skill-name> --agent rook|codex
 rook skill status <skill-name>
 rook skill approve <skill-name> --agent rook --decision-id <decision-id> --suite <suite.toml> --approver <name> --reason <text>
 rook skill approve <skill-name> --agent codex --decision-id <decision-id> --suite <suite.toml> --approver <name> --reason <text>
@@ -87,6 +88,12 @@ rook skill history <skill-name>
 rook skill rollback <skill-name> --agent codex --to-version 1 --approver <name> --reason <text>
 rook skill export <skill-name> --agent codex --output .\staged-export
 ```
+
+`rook eval trends` reads only bounded, redacted immutable ScoreCards. It
+compares adjacent entries only when target and suite fingerprints match, and
+shows gate reasons, success/latency/Token deltas, SLO breaches, fingerprint
+boundaries, and approval/release/rollback counts. It never launches an Agent
+or calls a model. Add `--json` for stable machine output.
 
 Approval re-probes the current Agent and revalidates the model, Adapter,
 Normalizer, Suite, Policy, and Candidate content fingerprints. Rook approval
@@ -145,6 +152,25 @@ while retaining `--sandbox workspace-write` and `approval_policy="never"`.
 This is required because EvalOps ignores user configuration and must not fall
 back to a read-only or machine-specific Windows backend. Rook never uses the
 dangerous no-sandbox flag for EvalOps.
+
+For the same Windows subprocess, Rook sets
+`sandbox_workspace_write.exclude_tmpdir_env_var=true`. This prevents Codex
+from granting model-run tools a second writable root for `TEMP`/`TMPDIR`,
+which the Windows restricted-token backend cannot enforce. Rook deliberately
+does not redirect those variables beneath the workspace: Codex 0.144.x's
+compatibility projection recognizes such a nested temp directory as writable
+through the workspace itself and reintroduces it as a separate legacy root.
+The ordinary OS temp variables remain available to the trusted Codex CLI
+process, but are excluded from the workspace-write policy applied to tools.
+
+Codex 0.144.x on native Windows can also reject its in-process `apply_patch`
+filesystem write even when a shell write to the same isolated workspace is
+allowed. Rook therefore gives both sides of a Windows A/B pair the same
+execution constraint: file changes must use sandboxed shell commands rather
+than `apply_patch`. Content-effect runs also work only from task inputs and an
+explicitly named Candidate instead of searching for missing repository
+guidance. Baseline must still finish with a best-effort result, so lack of the
+Candidate is measured as task failure instead of an infrastructure timeout.
 
 Codex EvalOps also disables user plugins and memories. For the content-effect
 pair, Rook sets `skills.include_instructions=false`: Baseline receives no
@@ -218,11 +244,50 @@ complete Token observations. It was quarantined with
 `excess_infrastructure_exclusions`, so it does not authorize deployment and is
 not a Formal resume result.
 
-Future Calibration, Pilot, and Formal stages require separate authorizations
-for 12, 24, and 72 calls. Do not infer one stage's authorization from another.
-Only the 72-call Formal immutable report may populate final resume success,
-Token, and latency values; USD cost remains `not observed` unless the Adapter
-receives a real cost field.
+Use the dedicated Pilot manifest for the 24-call stage:
+
+```powershell
+rook eval run `
+  --skill-path <printed-candidate-version-directory> `
+  --suite evals\suites\release-manifest-v2\pilot.toml `
+  --agents codex `
+  --model gpt-5.4-mini `
+  --families content `
+  --phase full `
+  --repetitions 1 `
+  --measurement-only `
+  --allow-external `
+  --allow-costs `
+  --inherit-proxy
+```
+
+The 72-call Formal stage deliberately uses the stricter sealed `suite.toml`
+holdout with three repetitions. Its case IDs and fixture hashes are disjoint
+from Pilot, and the manifest locks the frozen Candidate content hash. A changed
+Candidate is rejected before any Agent call. Never use `suite.toml` for a
+24-call Pilot: its policy requires 18 capability pairs, which only the 72-call
+Formal plan can supply.
+
+```powershell
+rook eval run `
+  --skill-path <printed-candidate-version-directory> `
+  --suite evals\suites\release-manifest-v2\suite.toml `
+  --agents codex `
+  --model gpt-5.4-mini `
+  --families content `
+  --phase full `
+  --repetitions 3 `
+  --measurement-only `
+  --allow-external `
+  --allow-costs `
+  --inherit-proxy
+```
+
+Calibration, Pilot, and Formal stages require separate authorizations for 12,
+24, and 72 calls. Do not infer one stage's authorization from another. Only the
+72-call Formal immutable report may populate final resume success, Token, and
+latency values; USD cost remains `not observed` unless the Adapter receives a
+real cost field.
 
 The repository-level Codex target and network controls follow the official
 [Codex Skill documentation](https://learn.chatgpt.com/docs/build-skills) and

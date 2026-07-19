@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Mapping
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
@@ -37,6 +38,7 @@ from rook_agent.evalops.scoring import ScoreCardBuilder
 from rook_agent.evalops.service import EvalOpsService
 from rook_agent.evalops.skills import SkillMaterializer
 from rook_agent.evalops.suites import load_eval_suite
+from rook_agent.evalops.trends import build_trend_summary, render_trend_markdown
 from rook_agent.evalops.workspace import WorkspaceManager
 
 
@@ -182,6 +184,8 @@ def run_eval_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> 
         return _run_evaluation(args, deps)
     if args.eval_command == "report":
         return _show_report(args, deps)
+    if args.eval_command == "trends":
+        return _show_trends(args, deps)
     raise ValueError(f"unsupported eval command: {args.eval_command!r}")
 
 
@@ -319,6 +323,29 @@ def _show_report(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     if not path.is_file():
         raise ValueError(f"report does not exist: {evaluation_id}")
     print(path.read_text(encoding="utf-8"), end="")
+    return 0
+
+
+def _show_trends(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
+    summary = build_trend_summary(
+        deps.artifact_store.root,
+        skill_name=args.name,
+        agent_type=args.agent,
+        limit=args.limit,
+    )
+    releases = deps.registry.releases(args.name)
+    summary["governance"] = {
+        "decision_count": len(deps.registry.history(args.name)),
+        "approval_count": len(deps.registry.approvals(args.name)),
+        "release_count": len(releases),
+        "rollback_count": sum(item.action.value == "rollback" for item in releases),
+        "failed_release_count": sum(item.status.value == "failed" for item in releases),
+    }
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, sort_keys=True, indent=2))
+    else:
+        print(render_trend_markdown(summary), end="")
+        print("Governance: `" + json.dumps(summary["governance"], sort_keys=True) + "`")
     return 0
 
 

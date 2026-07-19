@@ -6,9 +6,6 @@ from rook_agent.utils import git as git_utils
 from rook_agent.tools import diagnostics as diagnostics_module
 from rook_agent.tools import python_exec as python_exec_module
 from rook_agent.tools import shell as shell_module
-from rook_agent.tools.diagnostics import create_diagnostics_tool
-from rook_agent.tools.python_exec import create_python_exec_tool
-from rook_agent.tools.shell import create_shell_tool
 from rook_agent.tools import create_builtin_registry
 
 

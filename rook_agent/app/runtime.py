@@ -21,7 +21,6 @@ from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.agent.session import AgentSession
 from rook_agent.agent.user_input import AgentTurnStatus, UserInputRequest
 from rook_agent.context.context_builder import ContextBuilder
-from rook_agent.context.manager import ContextCompactRequest
 from rook_agent.context.models import AgentMessage, MessagePart, SessionView
 from rook_agent.context.runtime_state import SessionRuntimeState
 from rook_agent.permissions.types import PermissionMode

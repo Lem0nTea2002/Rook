@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rook_agent.evalops.artifacts import ArtifactStore, redact_value
-from rook_agent.evalops.models import PromotionDecision, ScoreCard, plain_data
+from rook_agent.evalops.models import PromotionDecision, plain_data
 
 if TYPE_CHECKING:
     from rook_agent.evalops.service import EvaluationSummary, TargetEvaluationSummary

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from rook_agent.evalops.adapters.fake import FakeAgentAdapter, FakeAgentScript
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.models import (
@@ -104,6 +106,25 @@ def _suite(tmp_path: Path) -> EvalSuite:
         manifest_path=manifest,
         fingerprint="suite-fp",
     )
+
+
+def test_service_rejects_candidate_that_differs_from_sealed_suite(
+    tmp_path: Path,
+) -> None:
+    suite = replace(_suite(tmp_path), candidate_content_hash="a" * 64)
+    runner = _RecordingRunner()
+    service = EvalOpsService(
+        runner=runner,
+        scorecard_builder=_StubScoreCards(),
+        registry=PromotionRegistry(tmp_path),
+        report_renderer=_RecordingReport([]),
+        artifact_store=ArtifactStore(tmp_path / "artifacts"),
+    )
+
+    with pytest.raises(ValueError, match="sealed Candidate content hash"):
+        service.evaluate_candidate(_candidate(), suite, (_target(),))
+
+    assert runner.calls == []
 
 
 class _RecordingRunner:

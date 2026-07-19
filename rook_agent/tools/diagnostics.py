@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
+import subprocess  # noqa: F401 - compatibility hook used by existing integrations
 import sys
 from pathlib import Path
 

@@ -99,6 +99,15 @@ _BASELINE_ISOLATION_MARKERS = (
     "/validators/validate_rm2.py",
     "\\validators\\validate_rm2.py",
 )
+_WINDOWS_SHELL_WRITE_GUIDANCE = (
+    "Execution constraints for this Windows workspace:\n"
+    "- Use shell commands for file changes; do not call apply_patch.\n"
+    "- Finish with a best-effort result within the task time limit.\n"
+)
+_CONTENT_EXPERIMENT_GUIDANCE = (
+    "- Use only the task inputs and any explicitly named Skill; do not search "
+    "for other repository guidance.\n"
+)
 
 
 class ProcessRunnerLike(Protocol):
@@ -255,7 +264,12 @@ class CodexCliAdapter:
             workspace_root=workspace_root,
             staged_skill=staged_skill,
         )
-        prompt = _prompt(spec, resolved_skill, workspace_root)
+        prompt = _prompt(
+            spec,
+            resolved_skill,
+            workspace_root,
+            windows_compatibility=self._platform_name == "win32",
+        )
         _reject_internal_absolute_paths(prompt, workspace_root, resolved_skill)
         environment = self._safe_environment(spec.environment_allowlist)
         command = _command(
@@ -536,6 +550,13 @@ def _command(
     )
     if not include_skill_instructions:
         command.extend(("-c", "skills.include_instructions=false"))
+    if windows_sandbox is not None:
+        command.extend(
+            (
+                "-c",
+                "sandbox_workspace_write.exclude_tmpdir_env_var=true",
+            )
+        )
     command.extend(
         (
             "--sandbox",
@@ -554,13 +575,25 @@ def _command(
     return tuple(command)
 
 
-def _prompt(spec: RunSpec, staged_skill: Path | None, workspace: Path) -> str:
+def _prompt(
+    spec: RunSpec,
+    staged_skill: Path | None,
+    workspace: Path,
+    *,
+    windows_compatibility: bool,
+) -> str:
+    guidance = ""
+    if windows_compatibility:
+        guidance = _WINDOWS_SHELL_WRITE_GUIDANCE
+        if spec.treatment_family is TreatmentFamily.CONTENT:
+            guidance += _CONTENT_EXPERIMENT_GUIDANCE
+        guidance += "\n"
     if spec.treatment is Treatment.FORCED_SKILL:
         if staged_skill is None:
             raise ValueError("forced Skill treatment requires a staged Skill")
         relative_skill = staged_skill.relative_to(workspace).as_posix()
-        return f"Read and follow `{relative_skill}`.\n\n{spec.case.task}"
-    return spec.case.task
+        return f"{guidance}Read and follow `{relative_skill}`.\n\n{spec.case.task}"
+    return f"{guidance}{spec.case.task}"
 
 
 def _reject_internal_absolute_paths(

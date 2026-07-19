@@ -126,7 +126,10 @@ def create_rook_app(
     )
     context_handler = ContextCommandHandler(session=current, context_manager=context_manager)
     permission_handler = PermissionCommandHandler(session=current)
-    skill_catalog_provider = lambda: discover_all_skills(project_path)
+
+    def skill_catalog_provider():
+        return discover_all_skills(project_path)
+
     skill_handler = SkillCommandHandler(catalog_provider=skill_catalog_provider)
     forge_store = CandidateStore(project_path / ".rook" / "skill-registry")
     forge_registry = PromotionRegistry(project_path)

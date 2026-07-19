@@ -92,6 +92,11 @@ def build_experiment_plan(
 
     if isinstance(repetitions, bool) or not isinstance(repetitions, int) or repetitions <= 0:
         raise ValueError("repetitions must be a positive integer")
+    if (
+        suite.candidate_content_hash is not None
+        and candidate.content_hash != suite.candidate_content_hash
+    ):
+        raise ValueError("Candidate does not match the suite's sealed Candidate content hash")
     if not targets:
         raise ValueError("at least one Agent target is required")
     if not isinstance(phase, ExperimentPhase):

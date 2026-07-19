@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from rook_agent.tools import fetch as fetch_module
 from rook_agent.tools import web_search as web_search_module
-from rook_agent.tools.fetch import create_fetch_tool
-from rook_agent.tools.web_search import create_web_search_tool
 from rook_agent.tools import create_builtin_registry
 
 

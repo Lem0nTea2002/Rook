@@ -25,7 +25,6 @@ from rook_agent.providers.types import (
     ProviderDiagnostics,
     ProviderCapabilities,
     ToolCall,
-    ToolChoiceFunction,
     ToolDefinition,
 )
 from rook_agent.tools.task_boundary import create_task_boundary_tool

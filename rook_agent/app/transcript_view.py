@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from rook_agent.app.activity_view import tool_event_status
 from rook_agent.app.tui_state import TuiEntryKind, TuiTranscriptEntry
 
 

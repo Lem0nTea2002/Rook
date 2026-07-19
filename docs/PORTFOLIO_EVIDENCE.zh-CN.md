@@ -15,11 +15,13 @@
 | 完整离线核心测试 | 1,500+ 通过；精确数字记录在 `docs/ROOK_PROGRESS_SUMMARY.md` |
 | 操作系统 | 已配置 Windows/Linux GitHub Actions 矩阵 |
 | RM-2 证据 suite | 12 个版本化案例：Direct、Transfer、Regression、Adversarial 各 3 个 |
+| Sealed Formal holdout | 12 个不重叠案例，覆盖六种仓库形态；执行前锁定 Candidate SHA-256 |
 | 有效控制 Candidate | 确定性 Fake Agent 控制实验中 promoted |
 | 中性控制 Candidate | 因无可测提升被 rejected |
 | 危险控制 Candidate | 因 3 个 adversarial 保持性回归被 rejected |
 | 已授权 Calibration | 12 次计划调用；形成 5 个完整可比配对，结论 quarantined |
-| 后续真实调用计划 | 新 Calibration 12 次；Pilot 24 次；Formal 72 次 |
+| 已授权 Pilot 测量 | 24/24 次调用完成；12 个完整配对；基础设施排除 0 |
+| 剩余真实调用计划 | Formal 72 次，必须重新显式授权 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -53,6 +55,24 @@ rook skill status release-manifest-v2-normalizer
 
 该轮有 1 个基础设施排除、轨迹完整度 80%，最终门禁为 `quarantined (excess_infrastructure_exclusions)`。因此这些数字证明“该套件能测出差异”，不证明 Candidate 已具备上线资格，也不能充当 72-call Formal 简历指标。
 
+## 已完成的 24-call Pilot 测量（不能作为 Formal 结论）
+
+不可变报告：`.rook/evalops/artifacts/reports/evaluation-5eef9bb282934e9e8748221ce9e24e2d/scorecard.json`。该授权轮次使用 Codex CLI `0.144.1` 与 `gpt-5.4-mini`，12 组 Baseline/Forced 配对全部完成。
+
+| 指标 | Baseline | Forced Skill | 变化 |
+| --- | ---: | ---: | ---: |
+| 完整可比配对成功率，n=12 | 25% | 100% | +75pp |
+| 能力任务成功率，n=6 | 0% | 100% | +100pp；bootstrap 95% 区间 [100pp, 100pp] |
+| 中位时延 | 77.469s | 59.898s | 降低 22.7% |
+| 能力任务中位时延 | 80.616s | 67.852s | 降低 15.8% |
+| 中位 Token | 49,749 | 43,350 | 降低 12.9% |
+| 能力任务中位 Token | 49,749 | 52,042 | 增加 4.6% |
+| Preservation | — | 6/6 | 新增回归 0 |
+| 基础设施 / 轨迹 | — | 排除 0 | 完整度 100% |
+| 美元成本 | 未观测 | 未观测 | 无法计算 |
+
+调用和测量数据有效，但该轮误用了 Formal manifest，所以不可变自动门禁结果为 `quarantined (insufficient_valid_pairs)`：Pilot 的一次重复只有 6 个能力配对，Formal 策略要求 18 个。现在已增加独立的 `pilot.toml` 与 `rm2-pilot.toml`，防止以后把 24-call Pilot 套用 72-call 样本门槛；既有不可变证据不会被改名或静默重评分。这些 Pilot 数值可作为工程验证证据，但不是最终简历效果结论。
+
 ## Formal 真实评测填写合同
 
 以下字段不能用估算值替代。只有在显式授权外部调用和费用，并生成不可变报告后才能填写。
@@ -69,7 +89,7 @@ rook skill status release-manifest-v2-normalizer
 | 成本变化 | 可观测模型费用配对值 | Formal 未测量 |
 | 路由 precision/recall | 只能来自可靠的 `skill_loaded` 身份事件 | Codex 未观测 |
 
-真实协议分为 12 次 Calibration、24 次 Pilot 和 72 次 Formal（12 案例 x 3 次重复 x 2 个实验臂）。每一阶段都需要单独显式授权，并在进入下一阶段前暂停。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
+真实协议分为 12 次 Calibration（`calibration.toml`）、24 次 Pilot（`pilot.toml`）和 72 次 Formal（sealed 且与 Pilot 不重叠的 `suite.toml`，12 案例 x 3 次重复 x 2 个实验臂）。Formal manifest 锁定 Candidate content hash；一旦变化，会在 Agent 调用前失败。每一阶段都需要单独显式授权，并在进入下一阶段前暂停。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
 
 正式执行使用 `rook eval run --model <model>` 显式指定 Codex 模型；可选 live smoke 使用 `ROOK_CODEX_EVAL_MODEL`。模型会进入目标指纹，不能依赖被隔离执行忽略的用户配置。
 

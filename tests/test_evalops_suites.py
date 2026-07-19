@@ -64,6 +64,7 @@ def test_load_eval_suite_builds_frozen_protocol_from_real_files(tmp_path: Path) 
     assert suite.policy.source == (tmp_path / "evals" / "policies" / "default.toml").resolve()
     assert len(suite.policy.fingerprint) == 32
     assert suite.policy.data["requirements"]["min_valid_pairs"] == 1  # type: ignore[index]
+    assert suite.candidate_content_hash is None
     assert len(suite.cases) == 1
     case = suite.cases[0]
     assert case.id == "direct-01"
@@ -77,6 +78,36 @@ def test_load_eval_suite_builds_frozen_protocol_from_real_files(tmp_path: Path) 
         "command": ("python", str((manifest.parent / "hidden_check.py").resolve())),
         "timeout_seconds": 30,
     }
+
+
+def test_load_eval_suite_accepts_candidate_content_lock(tmp_path: Path) -> None:
+    expected_hash = "a" * 64
+    manifest = write_eval_tree(
+        tmp_path,
+        manifest=SUITE_TOML.replace(
+            'policy = "../../policies/default.toml"',
+            'policy = "../../policies/default.toml"\n'
+            f'candidate_content_hash = "{expected_hash}"',
+        ),
+    )
+
+    suite = load_eval_suite(manifest)
+
+    assert suite.candidate_content_hash == expected_hash
+
+
+def test_load_eval_suite_rejects_invalid_candidate_content_lock(tmp_path: Path) -> None:
+    manifest = write_eval_tree(
+        tmp_path,
+        manifest=SUITE_TOML.replace(
+            'policy = "../../policies/default.toml"',
+            'policy = "../../policies/default.toml"\n'
+            'candidate_content_hash = "not-a-sha256"',
+        ),
+    )
+
+    with pytest.raises(ValueError, match="candidate_content_hash.*SHA-256"):
+        load_eval_suite(manifest)
 
 
 def test_load_eval_suite_rejects_unknown_top_level_field(tmp_path: Path) -> None:

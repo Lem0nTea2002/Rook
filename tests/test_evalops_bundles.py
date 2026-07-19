@@ -62,3 +62,44 @@ def test_load_skill_bundle_rejects_oversized_source(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="64 KiB"):
         load_skill_bundle(path)
+
+
+def test_load_skill_bundle_rejects_missing_and_non_utf8_sources(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="does not exist"):
+        load_skill_bundle(tmp_path / "missing.toml")
+
+    invalid = tmp_path / "invalid.toml"
+    invalid.write_bytes(b"\xff\xfe")
+    with pytest.raises(ValueError, match="valid UTF-8 TOML"):
+        load_skill_bundle(invalid)
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement", "message"),
+    [
+        ("name", 'name = ""', "non-empty string"),
+        ("name", 'name = " padded "', "surrounding whitespace"),
+        ("description", 'description = "' + "x" * 2001 + '"', "exceeds 2000"),
+        ("triggers", "triggers = [1]", "non-empty strings"),
+        ("triggers", 'triggers = [" padded "]', "surrounding whitespace"),
+        ("triggers", 'triggers = ["' + "x" * 2001 + '"]', "exceeds 2000"),
+        (
+            "triggers",
+            "triggers = [" + ", ".join(f'\"item-{index}\"' for index in range(33)) + "]",
+            "exceeds 32 items",
+        ),
+    ],
+)
+def test_load_skill_bundle_rejects_bounded_scalar_and_item_violations(
+    tmp_path: Path,
+    field: str,
+    replacement: str,
+    message: str,
+) -> None:
+    path = _write_bundle(tmp_path / "bundle.toml")
+    text = path.read_text(encoding="utf-8")
+    original_line = next(line for line in text.splitlines() if line.startswith(f"{field} ="))
+    path.write_text(text.replace(original_line, replacement), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_skill_bundle(path)

@@ -10,7 +10,6 @@ import asyncio
 import threading
 import time
 from dataclasses import dataclass
-from collections.abc import Callable
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -60,7 +59,7 @@ from rook_agent.app.transcript_view import (
     normalize_stream_text,
     tool_event_entry_kind,
 )
-from rook_agent.app.tui_state import TuiEntryKind, TuiTodoItem, TuiTranscript, TuiTranscriptEntry
+from rook_agent.app.tui_state import TuiEntryKind, TuiTranscript, TuiTranscriptEntry
 from rook_agent.app.welcome import welcome_renderable
 
 

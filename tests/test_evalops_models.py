@@ -179,7 +179,15 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "timeout_seconds",
             "network_policy",
         ),
-        EvalSuite: ("id", "version", "cases", "policy", "manifest_path", "fingerprint"),
+        EvalSuite: (
+            "id",
+            "version",
+            "cases",
+            "policy",
+            "manifest_path",
+            "fingerprint",
+            "candidate_content_hash",
+        ),
         RunSpec: (
             "experiment_id",
             "pair_id",

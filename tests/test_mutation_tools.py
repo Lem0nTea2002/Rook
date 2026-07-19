@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import sys
+
+import pytest
+
 from rook_agent.tools import create_builtin_registry
-from rook_agent.tools.apply_patch import create_apply_patch_tool
-from rook_agent.tools.delete import create_delete_tool
-from rook_agent.tools.edit import create_edit_tool
-from rook_agent.tools.write import create_write_tool
 
 
 def test_apply_patch_updates_file(tmp_path):
@@ -274,12 +274,6 @@ def test_delete_rejects_project_root(tmp_path):
     assert result.ok is False
     assert result.error == "不能删除项目根目录"
     assert tmp_path.exists()
-
-
-import sys
-
-import pytest
-
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows 非管理员账户创建符号链接受限，平台行为差异大")
 def test_delete_treats_symlink_as_file_and_unlinks_it(tmp_path):

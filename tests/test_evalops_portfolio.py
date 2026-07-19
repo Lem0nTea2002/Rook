@@ -63,6 +63,25 @@ def test_portfolio_docs_keep_fake_controls_separate_from_live_metrics() -> None:
     assert "Formal 未测量" in chinese
 
 
+def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
+    evidence = json.loads(
+        (_ROOT / "docs" / "evidence" / "rm2-pilot-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    english_readme = (_ROOT / "README.md").read_text(encoding="utf-8")
+    chinese_readme = (_ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+
+    assert evidence["scope"]["completed_calls"] == 24
+    assert evidence["scope"]["formal_result"] is False
+    assert evidence["metrics"]["infra_exclusion_count"] == 0
+    assert evidence["metrics"]["trace_completeness_rate"] == 1.0
+    assert evidence["authorization"]["formal_authorized"] is False
+    assert "prompt" not in json.dumps(evidence).casefold()
+    assert "pipx install rook-agent" not in english_readme + chinese_readme
+    assert "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1" in english_readme
+
+
 def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tmp_path: Path) -> None:
     suite = load_eval_suite(_SUITE)
     store = CandidateStore(tmp_path / ".rook" / "skill-registry")
@@ -106,7 +125,7 @@ def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tm
 
 
 def test_rm2_fake_controls_separate_effect_preservation_and_safety(tmp_path: Path) -> None:
-    formal_suite = load_eval_suite(_RM2_SUITE_ROOT / "suite.toml")
+    formal_suite = load_eval_suite(_RM2_SUITE_ROOT / "pilot.toml")
     calibration_policy = load_eval_suite(
         _RM2_SUITE_ROOT / "calibration.toml"
     ).policy

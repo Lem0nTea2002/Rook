@@ -12,7 +12,7 @@ from rook_agent.permissions.types import PermissionDecision, PermissionDecisionK
 from rook_agent.providers.types import ToolDefinition
 from rook_agent.tools.permission_results import make_permission_confirmation_result, make_permission_denied_result
 from rook_agent.tools.registry import ToolRegistry
-from rook_agent.tools.types import Tool, ToolPermissionSpec, ToolResult, make_error_result
+from rook_agent.tools.types import Tool, ToolPermissionSpec, ToolResult
 
 
 class PermissionAwareToolRegistry:

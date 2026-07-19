@@ -4,9 +4,21 @@ from __future__ import annotations
 
 from rook_agent.context.identity import new_part_id
 from rook_agent.context.models import MessagePart
-from rook_agent.context.tool_sequence import InvalidToolCallSequenceError, validate_tool_call_sequence
+from rook_agent.context.tool_sequence import (
+    InvalidToolCallSequenceError,
+    validate_tool_call_sequence,
+)
 from rook_agent.providers.types import ChatResponse, ToolCall
 from rook_agent.tools.types import ToolResult
+
+
+__all__ = [
+    "InvalidToolCallSequenceError",
+    "assistant_response_to_parts",
+    "tool_call_to_part",
+    "tool_result_to_part",
+    "validate_tool_call_sequence",
+]
 
 
 def assistant_response_to_parts(*, message_id: str, response: ChatResponse) -> list[MessagePart]:
