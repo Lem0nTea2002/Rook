@@ -5,7 +5,7 @@ from dataclasses import replace
 from decimal import Decimal
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -13,7 +13,7 @@ from tests.evalops_adapter_contract import assert_adapter_contract
 from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.adapters import AgentAdapter
-from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
+from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter, _command
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.models import (
     AgentTarget,
@@ -300,7 +300,7 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "workspace-write",
         "--skip-git-repo-check",
         "-C",
-        str(workspace.resolve()),
+        workspace.resolve().as_posix(),
         "-c",
         'windows.sandbox="unelevated"',
         "-c",
@@ -312,12 +312,33 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert prepared.stdin_text == (
         "Execution constraints for this Windows workspace:\n"
         "- Use shell commands for file changes; do not call apply_patch.\n"
+        "- Treat the current directory as the complete isolated workspace; do not "
+        "run git or search parent directories.\n"
         "- Finish with a best-effort result within the task time limit.\n\n"
         "Create result.txt and verify it."
     )
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_windows_command_uses_slash_normalized_workspace_argument() -> None:
+    workspace = PureWindowsPath(
+        r"C:\Users\runner\AppData\Local\Temp\rook-evalops\base\baseline"
+    )
+
+    command = _command(
+        r"C:\Tools\codex.exe",
+        workspace=workspace,
+        model="gpt-test",
+        include_skill_instructions=False,
+        windows_sandbox="unelevated",
+        network_policy=NetworkPolicy.DISABLED,
+    )
+
+    cwd_index = command.index("-C") + 1
+    assert command[cwd_index] == workspace.as_posix()
+    assert "\\b" not in command[cwd_index]
 
 
 def test_codex_prepare_windows_keeps_os_temp_without_synthesizing_nested_root(
@@ -424,6 +445,49 @@ def test_codex_disabled_network_web_search_is_a_policy_violation(
     assert "unexpected" not in persisted
 
 
+def test_codex_windows_sandbox_error_fails_closed_after_successful_process(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-sandbox-error"
+    workspace.mkdir()
+    stderr = (
+        "windows sandbox: CreateProcessAsUserW failed: 267 "
+        "(directory name is invalid)"
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(exec_result=_process_result(stderr=stderr)),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_windows_sandbox_error"
+
+
+def test_codex_recovered_stream_error_keeps_successful_terminal_result(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-recovered-stream"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    lines.insert(-1, '{"type":"error","message":"Reconnecting... 2/5 (request timed out)"}')
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.PASSED
+    assert run.error_code is None
+    assert run.trace is not None
+    assert run.trace.trace_complete is True
+    assert "codex_stream_error" in run.trace.diagnostics
+
+
 def test_codex_prepare_does_not_set_windows_backend_on_linux(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace-linux"
     workspace.mkdir()
@@ -458,6 +522,25 @@ def test_codex_content_pair_hides_unrelated_skill_catalog(tmp_path: Path) -> Non
 
     assert "skills.include_instructions=false" in prepared.command
     assert "do not search for other repository guidance" in prepared.stdin_text
+    assert "make a direct best-effort attempt" in prepared.stdin_text
+    assert "Stop after creating and verifying" in prepared.stdin_text
+
+
+def test_codex_content_guidance_is_platform_independent(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-content-linux"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        platform_name="linux",
+    )
+    spec = _spec(tmp_path, treatment_family=TreatmentFamily.CONTENT)
+
+    prepared = adapter.prepare(spec, workspace)
+
+    assert "do not search for other repository guidance" in prepared.stdin_text
+    assert "make a direct best-effort attempt" in prepared.stdin_text
+    assert "Stop after creating and verifying" in prepared.stdin_text
 
 
 def test_codex_routing_pair_keeps_skill_discovery_enabled(tmp_path: Path) -> None:

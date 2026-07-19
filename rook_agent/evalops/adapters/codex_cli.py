@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import sys
@@ -91,6 +92,15 @@ _AUTH_FAILURE_MARKERS = (
     "not logged in",
     "unauthorized",
 )
+_WINDOWS_SANDBOX_FAILURE_MARKERS = (
+    "windows sandbox: createprocessasuserw failed:",
+    "windows sandbox: runner error:",
+    "windows sandbox: runner failed during",
+    "windows sandbox: setup refresh",
+)
+_RECOVERED_RECONNECT = re.compile(
+    r"\AReconnecting\.\.\. [1-9][0-9]*/[1-9][0-9]* \([^\r\n]+\)\Z"
+)
 _BASELINE_ISOLATION_MARKERS = (
     ".agents/skills/",
     ".agents\\skills\\",
@@ -102,11 +112,16 @@ _BASELINE_ISOLATION_MARKERS = (
 _WINDOWS_SHELL_WRITE_GUIDANCE = (
     "Execution constraints for this Windows workspace:\n"
     "- Use shell commands for file changes; do not call apply_patch.\n"
+    "- Treat the current directory as the complete isolated workspace; do not "
+    "run git or search parent directories.\n"
     "- Finish with a best-effort result within the task time limit.\n"
 )
 _CONTENT_EXPERIMENT_GUIDANCE = (
     "- Use only the task inputs and any explicitly named Skill; do not search "
     "for other repository guidance.\n"
+    "- Do not search for conventions or examples beyond files named by the task; "
+    "make a direct best-effort attempt when the task does not supply a rule.\n"
+    "- Stop after creating and verifying the requested output.\n"
 )
 
 
@@ -371,6 +386,12 @@ class CodexCliAdapter:
                 cancelled=token.is_cancelled,
             )
             if (
+                self._platform_name == "win32"
+                and _contains_windows_sandbox_failure(sanitized_stderr)
+            ):
+                status = RunStatus.INFRA_ERROR
+                error_code = "codex_windows_sandbox_error"
+            if (
                 prepared.spec.treatment is Treatment.BASELINE
                 and _contains_baseline_isolation_marker(sanitized_events)
             ):
@@ -524,6 +545,12 @@ def _command(
     windows_sandbox: str | None,
     network_policy: NetworkPolicy,
 ) -> tuple[str, ...]:
+    # Codex forwards ``-C`` through its sandbox configuration.  On Windows a
+    # native path segment such as ``\baseline`` can otherwise be decoded as
+    # the JSON escape ``\b`` and turn into an invalid working directory.
+    workspace_argument = (
+        workspace.as_posix() if windows_sandbox is not None else str(workspace)
+    )
     command = [
         executable_path,
         "exec",
@@ -563,7 +590,7 @@ def _command(
             "workspace-write",
             "--skip-git-repo-check",
             "-C",
-            str(workspace),
+            workspace_argument,
         )
     )
     if windows_sandbox is not None:
@@ -584,9 +611,10 @@ def _prompt(
 ) -> str:
     guidance = ""
     if windows_compatibility:
-        guidance = _WINDOWS_SHELL_WRITE_GUIDANCE
-        if spec.treatment_family is TreatmentFamily.CONTENT:
-            guidance += _CONTENT_EXPERIMENT_GUIDANCE
+        guidance += _WINDOWS_SHELL_WRITE_GUIDANCE
+    if spec.treatment_family is TreatmentFamily.CONTENT:
+        guidance += _CONTENT_EXPERIMENT_GUIDANCE
+    if guidance:
         guidance += "\n"
     if spec.treatment is Treatment.FORCED_SKILL:
         if staged_skill is None:
@@ -643,14 +671,31 @@ def _run_status(
         return RunStatus.INFRA_ERROR, "codex_turn_failed"
     if terminal_types != ("run_completed",):
         return RunStatus.ADAPTER_ERROR, "codex_terminal_invalid"
-    if any(event.type == "run_error" for event in trace.events):
+    stream_errors = tuple(event for event in trace.events if event.type == "run_error")
+    if stream_errors and not all(
+        _is_recovered_reconnect(event.data.get("message"))
+        for event in stream_errors
+    ):
         return RunStatus.INFRA_ERROR, "codex_stream_error"
+    # Codex emits top-level ``error`` events for transient reconnect attempts.
+    # A later, unique ``turn.completed`` plus a successful process exit proves
+    # that a strictly shaped reconnect recovered; the normalizer retains the
+    # diagnostic without converting it into an infrastructure exclusion.
     return RunStatus.PASSED, None
 
 
 def _looks_like_auth_failure(stdout: str, stderr: str) -> bool:
     combined = f"{stdout}\n{stderr}".casefold()
     return any(marker in combined for marker in _AUTH_FAILURE_MARKERS)
+
+
+def _contains_windows_sandbox_failure(stderr: str) -> bool:
+    folded = stderr.casefold()
+    return any(marker in folded for marker in _WINDOWS_SANDBOX_FAILURE_MARKERS)
+
+
+def _is_recovered_reconnect(message: object) -> bool:
+    return isinstance(message, str) and _RECOVERED_RECONNECT.fullmatch(message) is not None
 
 
 def _contains_baseline_isolation_marker(events: object) -> bool:

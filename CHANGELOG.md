@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Native Windows Codex workspaces now use slash-normalized `-C` arguments so
+  backslash escape sequences cannot corrupt the sandbox working directory.
+- Codex Windows sandbox setup and `CreateProcessAsUserW` failures now fail
+  closed as infrastructure errors, including runs whose outer process exits
+  successfully.
+- A bounded Codex reconnect event is accepted only when the process succeeds
+  and a unique terminal event follows; generic stream errors still fail closed.
+
+### Changed
+
+- The RM-2 Formal holdout now has an explicit repository-root output contract,
+  a 180-second run boundary, and a new suite/Adapter fingerprint. The first
+  authorized Formal attempt was aborted and is recorded as non-resume evidence.
+
 ## [0.2.1] - 2026-07-19
 
 ### Added

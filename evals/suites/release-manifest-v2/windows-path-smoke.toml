@@ -1,0 +1,16 @@
+id = "release-manifest-v2-windows-path-smoke-v2"
+version = "3"
+policy = "../../policies/rm2-calibration.toml"
+candidate_content_hash = "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
+
+[[cases]]
+id = "holdout-catalog-windows-path-smoke"
+category = "direct"
+task = "holdout/tasks/holdout-catalog.md"
+fixture = "holdout/fixtures/holdout-catalog"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-catalog"]
+timeout_seconds = 15

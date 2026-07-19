@@ -63,7 +63,14 @@ completed 24/24 calls with 12 comparable pairs, zero infrastructure exclusions,
 Forced Skill 100% (+75pp), 22.7% lower median latency, and 12.9% lower median
 Token use. The immutable run accidentally used the Formal sample threshold and
 was quarantined; the dedicated Pilot policy now fixes that boundary. These are
-Pilot measurements, not the pending 72-call Formal resume result.
+Pilot measurements, not a final 72-call Formal resume result.
+
+The first authorized Formal attempt was stopped after its evidence protocol
+exposed Windows work-directory, task-contract, and recovered-stream
+classification defects. Eighteen calls were started across the aborted attempt
+and bounded diagnostics; no Formal metric was produced. The frozen Candidate
+did not change. Suite v5 and Adapter v4 contain the remediation, and a fresh
+2-call smoke must pass before a separately authorized Formal rerun.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -78,6 +85,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
 - [Dogfooding and incident ledger](docs/DOGFOODING.md)
 - [Redacted Pilot evidence](docs/evidence/rm2-pilot-summary.json)
+- [Formal readiness incident](docs/evidence/rm2-formal-readiness-2026-07-20.json)
 
 ## Why Rook
 

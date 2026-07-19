@@ -21,7 +21,8 @@
 | 危险控制 Candidate | 因 3 个 adversarial 保持性回归被 rejected |
 | 已授权 Calibration | 12 次计划调用；形成 5 个完整可比配对，结论 quarantined |
 | 已授权 Pilot 测量 | 24/24 次调用完成；12 个完整配对；基础设施排除 0 |
-| 剩余真实调用计划 | Formal 72 次，必须重新显式授权 |
+| 首次 Formal 授权已中止 | 中止轮次与诊断共启动 18 次调用；没有 Formal 结果 |
+| 剩余真实调用计划 | 先执行新的 v4 smoke 2 次，再单独授权 Formal 72 次 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -72,6 +73,12 @@ rook skill status release-manifest-v2-normalizer
 | 美元成本 | 未观测 | 未观测 | 无法计算 |
 
 调用和测量数据有效，但该轮误用了 Formal manifest，所以不可变自动门禁结果为 `quarantined (insufficient_valid_pairs)`：Pilot 的一次重复只有 6 个能力配对，Formal 策略要求 18 个。现在已增加独立的 `pilot.toml` 与 `rm2-pilot.toml`，防止以后把 24-call Pilot 套用 72-call 样本门槛；既有不可变证据不会被改名或静默重评分。这些 Pilot 数值可作为工程验证证据，但不是最终简历效果结论。
+
+## 第一次 Formal 已中止（不能作为 Formal 结论）
+
+第一次获授权的执行在证据边界发现原生 Windows CWD 转义、仓库根输出约定含糊、Codex 沙箱工作目录间歇漂移以及流错误分类过宽后被主动停止。中止轮次和有界诊断共启动 18 次调用，其中 17 次形成终态进程制品，1 次在制品生成前被强制停止。该轮没有形成不可变 Formal 报告，任何中间数字都不能写入简历。
+
+Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf`。新的证据边界由 suite v5、Adapter v4、Codex CLI `0.144.6`、180 秒超时、严格沙箱失败分类和恢复型重连处理共同组成。脱敏记录见 [`rm2-formal-readiness-2026-07-20.json`](evidence/rm2-formal-readiness-2026-07-20.json)。再次申请 72-call Formal 前，必须先通过新的 2-call v4 smoke。
 
 ## Formal 真实评测填写合同
 

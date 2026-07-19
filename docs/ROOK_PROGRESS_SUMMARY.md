@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-19
+更新时间：2026-07-20
 
 ## 项目定位
 
@@ -14,10 +14,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 分支：`agent/rook-v0.2.1-evidence`
+- 分支：`fix/formal-windows-evidence`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
-- Rook Forge 产品化主线已通过 PR #1 合并到 `main`，合并提交为 `6f6a9d8`。
-- 当前改动：v0.2.1 发布候选，包含 Windows 沙箱修复、独立 Pilot policy、sealed Formal holdout、长期趋势视图和质量/供应链门禁。
+- Rook Forge v0.2.1 已发布，当前 `main` 基线提交为 `363e9bc`。
+- 当前改动：修复首次 Formal 暴露的 Windows CWD、沙箱漂移和恢复型流事件证据边界；Candidate 内容未改变。
 
 ## 已完成功能
 
@@ -81,12 +81,12 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前 EvalOps 离线覆盖率门禁：`461 passed, 7 skipped`，总覆盖率 `85.84%`；新增边界测试使 Ubuntu 也能独立满足 85% 门槛。
-- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1708 passed, 10 skipped`，用时 `382.86s`；运行时显式关闭外部评测和模型费用。
+- 当前 EvalOps 离线覆盖率门禁：`467 passed, 7 skipped`，总覆盖率 `85.88%`。
+- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1727 passed, 10 skipped`，用时 `202.40s`；运行时显式关闭外部评测和模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - `rook-agent 0.2.1` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/回滚全链路通过。
 - v0.2.1 wheel SHA-256 为 `eccd8aa29c91057746d4e51397669d7f8539dd16c667a0da9df213e98367a8a0`；sdist SHA-256 为 `6b876f2a7ebb62e82a73447df2fe8dcddd0cdbdcd1c010718e12185dacf8a07b`。
-- GitHub Actions Python 3.11 双平台门禁 [run 29583269292](https://github.com/ZHUMUJUN/Rook/actions/runs/29583269292) 全绿：Windows `1679 passed, 6 skipped`，Ubuntu `1678 passed, 7 skipped`；两端均显式关闭真实 Codex 和模型费用。
+- GitHub Actions [run 29680362272](https://github.com/ZHUMUJUN/Rook/actions/runs/29680362272) 全绿：Ubuntu Python 3.11/3.12 各 `1724 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1725 passed, 6 skipped`；Quality 为 `463 passed, 5 skipped`、85% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -99,12 +99,13 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - Windows 修复后 2-call strict smoke 为 2/2 成功，均正常结束且无 `apply_patch`、分裂写入根、超时或沙箱写入错误。
 - 已授权的 24-call Pilot 测量报告 `evaluation-5eef9bb282934e9e8748221ce9e24e2d` 完成 12/12 配对，基础设施排除 0、轨迹完整度 100%；Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%，Preservation 6/6、无新增回归。
 - 该 Pilot 误用了 Formal policy，因只有 6 个能力配对而被不可变报告标记为 `quarantined (insufficient_valid_pairs)`；已增加独立 `pilot.toml` / `rm2-pilot.toml`。对同一指标进行不落盘阈值模拟的结果为 `promoted (capability_success_uplift)`，但原报告不会被改名或重评分。
-- 新 Formal holdout 仍为 12 case × 3 repetition × 2 arm = 72 次调用，但其 case ID 和 fixture SHA-256 与 Pilot 完全不重叠；Candidate hash 已冻结，Formal 尚未授权、尚未运行。
+- 第一次获授权的 Formal 在证据协议发现 Windows CWD 转义、沙箱工作目录漂移、输出路径歧义和恢复型流事件误分类后被中止；连同有界诊断共启动 18 次调用，其中 17 次形成终态进程制品、1 次在制品前强制停止，没有产生 Formal 报告或简历指标。
+- Candidate hash 继续冻结为 `bb69239c...bbcf`；suite v5、Adapter v4、Codex CLI `0.144.6` 和 180 秒边界已完成离线专项验证。再次 Formal 前必须先重新授权 2-call v4 smoke。
 
 ## 下一阶段计划
 
-1. 提交并推送 v0.2.1，跑通 Windows/Linux × Python 3.11/3.12 远端 CI，发布 GitHub Release 并验证公开安装入口。
-2. 如需填写最终简历模型效果，再单独申请 72 次 Formal 授权；使用 sealed `suite.toml`、3 次重复，不复用 Pilot 授权。
+1. 提交并推送 Windows Formal 证据边界修复，跑通 Windows/Linux × Python 3.11/3.12 远端 CI。
+2. 单独授权并执行 2-call v4 smoke；通过后再为 sealed `suite.toml`、3 次重复的 72-call Formal 单独授权。
 3. 在不伪造记录的前提下继续累积 3–5 个真实 Skill 的 gate、审批、部署、drift 和 rollback 生命周期。
 4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
@@ -112,4 +113,4 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。Windows 沙箱基础设施问题已由 2-call strict smoke 和 24-call Pilot 的 0 排除、100% 完整轨迹验证；Pilot 显示明确正向效果，但最终简历成功率、Token 和时延仍必须等待单独授权的 72-call Formal。Codex 不提供费用字段时，成本继续写 `not observed`。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；第一次 Formal 被证据门禁主动中止，反而验证了 Rook 不会吞掉基础设施污染或把无效中间数字包装为效果。最终简历成功率、Token 和时延仍必须等待新 v4 smoke 与重新授权的 72-call Formal；Codex 不提供费用字段时，成本继续写 `not observed`。

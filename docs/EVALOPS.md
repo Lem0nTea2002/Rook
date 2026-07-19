@@ -153,6 +153,13 @@ This is required because EvalOps ignores user configuration and must not fall
 back to a read-only or machine-specific Windows backend. Rook never uses the
 dangerous no-sandbox flag for EvalOps.
 
+Rook serializes the Codex `-C` workspace argument with forward slashes on
+Windows while retaining the native `Path` as the outer process CWD. This keeps
+sequences such as `\b` in a generated `baseline` directory from becoming
+control characters at the inner sandbox boundary. Any Windows sandbox setup,
+runner refresh, or `CreateProcessAsUserW` failure in stderr is normalized as a
+fail-closed infrastructure error even when the outer process later exits zero.
+
 For the same Windows subprocess, Rook sets
 `sandbox_workspace_write.exclude_tmpdir_env_var=true`. This prevents Codex
 from granting model-run tools a second writable root for `TEMP`/`TMPDIR`,
@@ -171,6 +178,12 @@ than `apply_patch`. Content-effect runs also work only from task inputs and an
 explicitly named Candidate instead of searching for missing repository
 guidance. Baseline must still finish with a best-effort result, so lack of the
 Candidate is measured as task failure instead of an infrastructure timeout.
+
+Codex can emit a transient JSONL reconnect error before recovering. Rook accepts
+only the exact bounded `Reconnecting... n/m (...)` event when the process exits
+successfully and exactly one `turn.completed` event follows. The diagnostic is
+retained in the trace. Generic stream errors, missing terminal events, Windows
+sandbox markers, and unsuccessful processes remain infrastructure failures.
 
 Codex EvalOps also disables user plugins and memories. For the content-effect
 pair, Rook sets `skills.include_instructions=false`: Baseline receives no
@@ -266,7 +279,9 @@ holdout with three repetitions. Its case IDs and fixture hashes are disjoint
 from Pilot, and the manifest locks the frozen Candidate content hash. A changed
 Candidate is rejected before any Agent call. Never use `suite.toml` for a
 24-call Pilot: its policy requires 18 capability pairs, which only the 72-call
-Formal plan can supply.
+Formal plan can supply. Suite v5 makes the repository-root output contract
+explicit and gives each Agent arm 180 seconds; these protocol changes produce a
+new suite fingerprint without changing the Candidate.
 
 ```powershell
 rook eval run `
@@ -282,6 +297,17 @@ rook eval run `
   --allow-costs `
   --inherit-proxy
 ```
+
+The first authorized Formal attempt was aborted after the protocol exposed
+Windows CWD serialization, intermittent sandbox work-directory drift, an
+ambiguous output-location contract, and recovered-stream classification bugs.
+Eighteen calls were started across that attempt and its bounded diagnostics;
+17 produced terminal process artifacts and one was force-cancelled before an
+artifact. No immutable Formal result was produced, so none of those values are
+resume evidence. See the redacted
+[Formal readiness incident](evidence/rm2-formal-readiness-2026-07-20.json).
+Adapter v4 and suite v5 require a fresh 2-call smoke before a new, separately
+authorized 72-call Formal run.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the

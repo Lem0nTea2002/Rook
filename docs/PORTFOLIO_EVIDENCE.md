@@ -32,7 +32,8 @@ and trace-derived quarantined candidates.
 | Unsafe control | Rejected after three adversarial preservation regressions |
 | Authorized Calibration | 12 scheduled calls; 5 complete comparable pairs; quarantined conclusion |
 | Authorized Pilot measurement | 24/24 calls complete; 12 comparable pairs; 0 infrastructure exclusions |
-| Remaining live schedule | Formal 72, requiring a new explicit authorization |
+| Aborted first Formal authorization | 18 calls started across the aborted run and diagnostics; no Formal result |
+| Remaining live schedule | Fresh v4 smoke 2, then Formal 72 with separate explicit authorization |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -90,6 +91,25 @@ capability pairs, while the Formal policy requires 18. Rook now has a dedicated
 evaluated against the 72-call sample threshold. Existing immutable evidence is
 not relabelled or silently rescored. These Pilot values are engineering
 evidence, not the final resume performance claim.
+
+## Aborted first Formal attempt (not a Formal result)
+
+The first authorized attempt was stopped when the evidence boundary detected a
+native Windows CWD escape, an ambiguous repository-root output contract,
+intermittent Codex sandbox work-directory drift, and an overly broad stream
+error classification. Across the aborted run and bounded diagnostics, 18 calls
+were started, 17 produced terminal process artifacts, and one was force-stopped
+before an artifact. No immutable Formal report was produced and no result from
+this attempt is resume eligible.
+
+The Candidate remains frozen at SHA-256
+`bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf`.
+Suite v5, Adapter v4, Codex CLI `0.144.6`, the 180-second boundary, strict
+sandbox failure classification, and recovered-reconnect handling form the new
+evidence boundary. The exact redacted record is
+[`rm2-formal-readiness-2026-07-20.json`](evidence/rm2-formal-readiness-2026-07-20.json).
+A fresh 2-call v4 smoke is required before requesting another 72-call Formal
+authorization.
 
 ## Formal live measurement contract
 
