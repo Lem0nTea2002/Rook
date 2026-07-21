@@ -33,7 +33,8 @@ and trace-derived quarantined candidates.
 | Authorized Calibration | 12 scheduled calls; 5 complete comparable pairs; quarantined conclusion |
 | Authorized Pilot measurement | 24/24 calls complete; 12 comparable pairs; 0 infrastructure exclusions |
 | Aborted first Formal authorization | 18 calls started across the aborted run and diagnostics; no Formal result |
-| Remaining live schedule | Fresh v4 smoke 2, then Formal 72 with separate explicit authorization |
+| Adapter v4 smoke | 2/2 calls complete; both timed out after WebSocket retries; quarantined |
+| Remaining live schedule | Fresh v5 HTTP-only smoke 2, then Formal 72 with separate explicit authorization |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -108,8 +109,24 @@ Suite v5, Adapter v4, Codex CLI `0.144.6`, the 180-second boundary, strict
 sandbox failure classification, and recovered-reconnect handling form the new
 evidence boundary. The exact redacted record is
 [`rm2-formal-readiness-2026-07-20.json`](evidence/rm2-formal-readiness-2026-07-20.json).
-A fresh 2-call v4 smoke is required before requesting another 72-call Formal
+A fresh 2-call v4 smoke was required before requesting another 72-call Formal
 authorization.
+
+## Completed Adapter v4 smoke (failed readiness gate)
+
+Evaluation `evaluation-c3d92efe8cc749c48f81fa7c8dab94a8` used exactly two
+authorized calls. Baseline and Forced Skill both emitted four WebSocket retry
+events, fell back to HTTPS, and timed out at 180 seconds without a terminal
+turn. The strict gate concluded `quarantined (trace_incomplete)` with 0% trace
+completeness. No Windows sandbox marker or infrastructure exclusion appeared,
+and no Token or USD cost observation was complete.
+
+This is transport evidence, not a zero-effect result: the pair is unsuitable
+for measuring the Skill because neither arm reached a terminal turn. Adapter v5
+uses the same authenticated ChatGPT endpoint through a controlled provider with
+`supports_websockets=false`. See the redacted
+[`rm2-v4-smoke-2026-07-21.json`](evidence/rm2-v4-smoke-2026-07-21.json).
+A separately authorized 2-call v5 smoke must pass before Formal authorization.
 
 ## Formal live measurement contract
 

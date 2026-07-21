@@ -13,6 +13,8 @@ All notable changes to this project are documented here. The format follows [Kee
   successfully.
 - A bounded Codex reconnect event is accepted only when the process succeeds
   and a unique terminal event follows; generic stream errors still fail closed.
+- Codex EvalOps now uses a controlled HTTP/SSE-only ChatGPT provider so blocked
+  WebSocket connections cannot consume the run budget before HTTPS fallback.
 
 ### Changed
 

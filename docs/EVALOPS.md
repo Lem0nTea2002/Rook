@@ -185,6 +185,16 @@ successfully and exactly one `turn.completed` event follows. The diagnostic is
 retained in the trace. Generic stream errors, missing terminal events, Windows
 sandbox markers, and unsuccessful processes remain infrastructure failures.
 
+Codex's built-in ChatGPT provider prefers WebSockets. On networks where that
+transport is blocked, the CLI can consume its full reconnect budget before
+falling back to HTTPS. Adapter v5 therefore defines a controlled provider for
+the same `https://chatgpt.com/backend-api/codex` endpoint, keeps
+`requires_openai_auth=true`, uses the Responses wire API, and sets
+`supports_websockets=false`. Every EvalOps call starts with HTTP/SSE while still
+using the existing ChatGPT login. These exact overrides are passed after
+`--ignore-user-config`, so ambient provider configuration cannot change the
+experiment transport.
+
 Codex EvalOps also disables user plugins and memories. For the content-effect
 pair, Rook sets `skills.include_instructions=false`: Baseline receives no
 ambient Skill catalog, while Forced Skill reads the mounted Candidate through
@@ -306,8 +316,13 @@ Eighteen calls were started across that attempt and its bounded diagnostics;
 artifact. No immutable Formal result was produced, so none of those values are
 resume evidence. See the redacted
 [Formal readiness incident](evidence/rm2-formal-readiness-2026-07-20.json).
-Adapter v4 and suite v5 require a fresh 2-call smoke before a new, separately
-authorized 72-call Formal run.
+Suite v5 and Adapter v4 required a fresh 2-call smoke. That smoke completed both
+authorized calls but quarantined the pair as `trace_incomplete`: each arm spent
+four retries before WebSocket-to-HTTPS fallback and then hit the 180-second
+boundary without `turn.completed`. It produced no Formal result. The redacted
+record is [Adapter v4 smoke evidence](evidence/rm2-v4-smoke-2026-07-21.json).
+Adapter v5's HTTP/SSE-only target fingerprint now requires another separately
+authorized 2-call smoke before a new 72-call Formal authorization.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the

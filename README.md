@@ -69,8 +69,11 @@ The first authorized Formal attempt was stopped after its evidence protocol
 exposed Windows work-directory, task-contract, and recovered-stream
 classification defects. Eighteen calls were started across the aborted attempt
 and bounded diagnostics; no Formal metric was produced. The frozen Candidate
-did not change. Suite v5 and Adapter v4 contain the remediation, and a fresh
-2-call smoke must pass before a separately authorized Formal rerun.
+did not change. Suite v5 and Adapter v4 contained that remediation. A later
+2-call v4 smoke correctly quarantined two incomplete turns after WebSocket
+retries consumed their run budgets. Adapter v5 now starts with controlled
+HTTP/SSE transport; a fresh 2-call v5 smoke must pass before a separately
+authorized Formal rerun.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -86,6 +89,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Dogfooding and incident ledger](docs/DOGFOODING.md)
 - [Redacted Pilot evidence](docs/evidence/rm2-pilot-summary.json)
 - [Formal readiness incident](docs/evidence/rm2-formal-readiness-2026-07-20.json)
+- [Failed Adapter v4 smoke](docs/evidence/rm2-v4-smoke-2026-07-21.json)
 
 ## Why Rook
 

@@ -22,7 +22,8 @@
 | 已授权 Calibration | 12 次计划调用；形成 5 个完整可比配对，结论 quarantined |
 | 已授权 Pilot 测量 | 24/24 次调用完成；12 个完整配对；基础设施排除 0 |
 | 首次 Formal 授权已中止 | 中止轮次与诊断共启动 18 次调用；没有 Formal 结果 |
-| 剩余真实调用计划 | 先执行新的 v4 smoke 2 次，再单独授权 Formal 72 次 |
+| Adapter v4 smoke | 2/2 次调用完成；两臂均在 WebSocket 重试后超时并被隔离 |
+| 剩余真实调用计划 | 先执行新的 v5 HTTP-only smoke 2 次，再单独授权 Formal 72 次 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -78,7 +79,13 @@ rook skill status release-manifest-v2-normalizer
 
 第一次获授权的执行在证据边界发现原生 Windows CWD 转义、仓库根输出约定含糊、Codex 沙箱工作目录间歇漂移以及流错误分类过宽后被主动停止。中止轮次和有界诊断共启动 18 次调用，其中 17 次形成终态进程制品，1 次在制品生成前被强制停止。该轮没有形成不可变 Formal 报告，任何中间数字都不能写入简历。
 
-Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf`。新的证据边界由 suite v5、Adapter v4、Codex CLI `0.144.6`、180 秒超时、严格沙箱失败分类和恢复型重连处理共同组成。脱敏记录见 [`rm2-formal-readiness-2026-07-20.json`](evidence/rm2-formal-readiness-2026-07-20.json)。再次申请 72-call Formal 前，必须先通过新的 2-call v4 smoke。
+Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf`。新的证据边界由 suite v5、Adapter v4、Codex CLI `0.144.6`、180 秒超时、严格沙箱失败分类和恢复型重连处理共同组成。脱敏记录见 [`rm2-formal-readiness-2026-07-20.json`](evidence/rm2-formal-readiness-2026-07-20.json)。该边界随后接受了 2-call v4 smoke。
+
+## Adapter v4 smoke 已完成（未通过就绪门禁）
+
+评测 `evaluation-c3d92efe8cc749c48f81fa7c8dab94a8` 恰好使用两次授权调用。Baseline 与 Forced Skill 都出现 4 次 WebSocket 重试，回退 HTTPS 后在 180 秒触发超时，没有形成终态 turn；严格门禁因此得到 `quarantined (trace_incomplete)`，轨迹完整度为 0%。两臂均未出现 Windows 沙箱错误或基础设施排除，也没有完整 Token 或美元成本观测。
+
+这证明的是传输边界失败，不能解读为“Skill 没有效果”，因为两臂都没有完成。Adapter v5 继续使用相同的 ChatGPT 认证端点，但通过受控 provider 设置 `supports_websockets=false`，直接使用 HTTP/SSE。脱敏记录见 [`rm2-v4-smoke-2026-07-21.json`](evidence/rm2-v4-smoke-2026-07-21.json)。必须重新授权并通过 2-call v5 smoke，才能申请 Formal 授权。
 
 ## Formal 真实评测填写合同
 

@@ -291,6 +291,18 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "--disable",
         "memories",
         "-c",
+        'model_provider="rook-chatgpt-http"',
+        "-c",
+        'model_providers.rook-chatgpt-http.name="Rook ChatGPT HTTP"',
+        "-c",
+        'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"',
+        "-c",
+        'model_providers.rook-chatgpt-http.wire_api="responses"',
+        "-c",
+        "model_providers.rook-chatgpt-http.requires_openai_auth=true",
+        "-c",
+        "model_providers.rook-chatgpt-http.supports_websockets=false",
+        "-c",
         'web_search="disabled"',
         "-c",
         "sandbox_workspace_write.network_access=false",
@@ -320,6 +332,30 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_command_forces_http_transport_without_changing_auth_endpoint(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-http-only"
+    workspace.mkdir()
+    prepared = _adapter(tmp_path, ScriptedProcessRunner()).prepare(
+        _spec(tmp_path), workspace
+    )
+
+    assert 'model_provider="rook-chatgpt-http"' in prepared.command
+    assert (
+        'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"'
+        in prepared.command
+    )
+    assert (
+        "model_providers.rook-chatgpt-http.requires_openai_auth=true"
+        in prepared.command
+    )
+    assert (
+        "model_providers.rook-chatgpt-http.supports_websockets=false"
+        in prepared.command
+    )
 
 
 def test_codex_windows_command_uses_slash_normalized_workspace_argument() -> None:

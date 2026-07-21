@@ -101,6 +101,14 @@ _WINDOWS_SANDBOX_FAILURE_MARKERS = (
 _RECOVERED_RECONNECT = re.compile(
     r"\AReconnecting\.\.\. [1-9][0-9]*/[1-9][0-9]* \([^\r\n]+\)\Z"
 )
+_HTTP_ONLY_PROVIDER_OVERRIDES = (
+    'model_provider="rook-chatgpt-http"',
+    'model_providers.rook-chatgpt-http.name="Rook ChatGPT HTTP"',
+    'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"',
+    'model_providers.rook-chatgpt-http.wire_api="responses"',
+    "model_providers.rook-chatgpt-http.requires_openai_auth=true",
+    "model_providers.rook-chatgpt-http.supports_websockets=false",
+)
 _BASELINE_ISOLATION_MARKERS = (
     ".agents/skills/",
     ".agents\\skills\\",
@@ -567,6 +575,12 @@ def _command(
         raise ValueError(
             "Codex EvalOps currently supports only disabled Agent network access"
         )
+    # The built-in ChatGPT provider prefers WebSockets and waits through its
+    # complete reconnect budget before falling back to HTTPS. EvalOps needs a
+    # deterministic transport boundary, so use the same authenticated ChatGPT
+    # endpoint through a controlled provider that starts with HTTP/SSE.
+    for override in _HTTP_ONLY_PROVIDER_OVERRIDES:
+        command.extend(("-c", override))
     command.extend(
         (
             "-c",

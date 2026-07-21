@@ -55,7 +55,7 @@ flowchart LR
 
 修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是最终 72-call Formal 简历结论。
 
-第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。修复已进入 suite v5 与 Adapter v4；必须先通过新的 2-call smoke，再为 Formal 重跑单独授权。
+第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。suite v5 与 Adapter v4 修复了上述问题；随后 2-call v4 smoke 中，两臂因 WebSocket 重试耗尽 180 秒预算而被正确隔离。Adapter v5 已固定从受控 HTTP/SSE 传输开始；必须重新授权并通过 2-call v5 smoke，再为 Formal 重跑单独授权。
 
 用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
 
@@ -71,6 +71,7 @@ rook eval demo
 - [Dogfooding 与事故记录](docs/DOGFOODING.md)
 - [脱敏 Pilot 证据](docs/evidence/rm2-pilot-summary.json)
 - [Formal 就绪事故记录](docs/evidence/rm2-formal-readiness-2026-07-20.json)
+- [Adapter v4 smoke 失败证据](docs/evidence/rm2-v4-smoke-2026-07-21.json)
 
 ## 为什么做 Rook
 
