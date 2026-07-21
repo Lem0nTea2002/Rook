@@ -23,7 +23,8 @@
 | 已授权 Pilot 测量 | 24/24 次调用完成；12 个完整配对；基础设施排除 0 |
 | 首次 Formal 授权已中止 | 中止轮次与诊断共启动 18 次调用；没有 Formal 结果 |
 | Adapter v4 smoke | 2/2 次调用完成；两臂均在 WebSocket 重试后超时并被隔离 |
-| 剩余真实调用计划 | 先执行新的 v5 HTTP-only smoke 2 次，再单独授权 Formal 72 次 |
+| Adapter v5 HTTP-only smoke | 2/2 次调用完成；终态轨迹 2/2；重连/回退 0；基础设施排除 0 |
+| 剩余真实调用计划 | 单独授权 Formal 72 次 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -85,7 +86,13 @@ Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeee
 
 评测 `evaluation-c3d92efe8cc749c48f81fa7c8dab94a8` 恰好使用两次授权调用。Baseline 与 Forced Skill 都出现 4 次 WebSocket 重试，回退 HTTPS 后在 180 秒触发超时，没有形成终态 turn；严格门禁因此得到 `quarantined (trace_incomplete)`，轨迹完整度为 0%。两臂均未出现 Windows 沙箱错误或基础设施排除，也没有完整 Token 或美元成本观测。
 
-这证明的是传输边界失败，不能解读为“Skill 没有效果”，因为两臂都没有完成。Adapter v5 继续使用相同的 ChatGPT 认证端点，但通过受控 provider 设置 `supports_websockets=false`，直接使用 HTTP/SSE。脱敏记录见 [`rm2-v4-smoke-2026-07-21.json`](evidence/rm2-v4-smoke-2026-07-21.json)。必须重新授权并通过 2-call v5 smoke，才能申请 Formal 授权。
+这证明的是传输边界失败，不能解读为“Skill 没有效果”，因为两臂都没有完成。Adapter v5 继续使用相同的 ChatGPT 认证端点，但通过受控 provider 设置 `supports_websockets=false`，直接使用 HTTP/SSE。脱敏记录见 [`rm2-v4-smoke-2026-07-21.json`](evidence/rm2-v4-smoke-2026-07-21.json)。
+
+## Adapter v5 smoke 已完成（就绪门禁通过）
+
+评测 `evaluation-e373ad3d6c394e88b54b67ca60523d0e` 恰好使用两次获授权的 `gpt-5.4-mini` 调用，并通过受控 HTTP/SSE provider 执行。两个进程都以 0 退出且各产生一个终态 turn；重连、WebSocket 回退、Windows 沙箱失败和基础设施排除均为 0，轨迹完整度 100%。Baseline 为 `wrong_result`，Forced Skill 通过。该轮还观测到时延 127.579s 对 99.500s、Token 65,226 对 58,284，但一个配对不足以形成 Formal 效果结论。
+
+自动决策为 `quarantined (insufficient_valid_pairs)` 是预期行为：本次就绪 smoke 只验证传输、终态轨迹和 evaluator 链路，三项均通过；它不满足正式策略的样本数。脱敏记录见 [`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json)。Formal 尚未运行，72 次调用需要新的单独显式授权。
 
 ## Formal 真实评测填写合同
 

@@ -21,6 +21,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - The RM-2 Formal holdout now has an explicit repository-root output contract,
   a 180-second run boundary, and a new suite/Adapter fingerprint. The first
   authorized Formal attempt was aborted and is recorded as non-resume evidence.
+- The separately authorized Adapter v5 readiness smoke completed exactly two
+  HTTP/SSE calls with terminal traces, zero reconnect/fallback events, and zero
+  infrastructure exclusions; the one-pair result remains non-Formal evidence.
 
 ## [0.2.1] - 2026-07-19
 

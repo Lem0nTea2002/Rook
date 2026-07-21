@@ -34,7 +34,8 @@ and trace-derived quarantined candidates.
 | Authorized Pilot measurement | 24/24 calls complete; 12 comparable pairs; 0 infrastructure exclusions |
 | Aborted first Formal authorization | 18 calls started across the aborted run and diagnostics; no Formal result |
 | Adapter v4 smoke | 2/2 calls complete; both timed out after WebSocket retries; quarantined |
-| Remaining live schedule | Fresh v5 HTTP-only smoke 2, then Formal 72 with separate explicit authorization |
+| Adapter v5 HTTP-only smoke | 2/2 calls complete; terminal traces 2/2; reconnect/fallback 0; infrastructure exclusions 0 |
+| Remaining live schedule | Formal 72 with separate explicit authorization |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -126,7 +127,23 @@ for measuring the Skill because neither arm reached a terminal turn. Adapter v5
 uses the same authenticated ChatGPT endpoint through a controlled provider with
 `supports_websockets=false`. See the redacted
 [`rm2-v4-smoke-2026-07-21.json`](evidence/rm2-v4-smoke-2026-07-21.json).
-A separately authorized 2-call v5 smoke must pass before Formal authorization.
+
+## Completed Adapter v5 smoke (readiness gate passed)
+
+Evaluation `evaluation-e373ad3d6c394e88b54b67ca60523d0e` used exactly two
+authorized `gpt-5.4-mini` calls through the controlled HTTP/SSE provider. Both
+processes exited 0 and emitted exactly one terminal turn, with zero reconnect,
+WebSocket-fallback, Windows sandbox-failure, or infrastructure-exclusion events.
+Trace completeness was 100%. Baseline produced `wrong_result`; Forced Skill
+passed. The run also observed 127.579s vs 99.500s latency and 65,226 vs 58,284
+Tokens, but one pair is deliberately too small for a Formal effect claim.
+
+The automatic decision is therefore correctly
+`quarantined (insufficient_valid_pairs)`. This does not negate the smoke: the
+readiness contract tests transport, terminal trace capture, and evaluator
+execution, all of which passed. The redacted record is
+[`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json). Formal
+has not run and requires a new explicit 72-call authorization.
 
 ## Formal live measurement contract
 

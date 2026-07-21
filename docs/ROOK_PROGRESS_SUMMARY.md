@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-21
+更新时间：2026-07-22
 
 ## 项目定位
 
@@ -17,7 +17,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 分支：`fix/formal-windows-evidence`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
 - Rook Forge v0.2.1 已发布，当前 `main` 基线提交为 `363e9bc`。
-- 当前改动：Adapter v5 固定使用受控 HTTP/SSE ChatGPT provider，避免 WebSocket 重试耗尽评测预算；Candidate 内容未改变。
+- 当前改动：Adapter v5 固定使用受控 HTTP/SSE ChatGPT provider；2-call live smoke 已通过传输、终态轨迹和 evaluator 就绪边界，Candidate 内容未改变。
 
 ## 已完成功能
 
@@ -81,12 +81,12 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前 EvalOps 离线覆盖率门禁：`467 passed, 7 skipped`，总覆盖率 `85.88%`。
-- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1727 passed, 10 skipped`，用时 `202.40s`；运行时显式关闭外部评测和模型费用。
+- 当前 EvalOps 离线覆盖率门禁：`470 passed, 5 skipped`，总覆盖率 `85.19%`。
+- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1728 passed, 10 skipped`，用时 `253.37s`；运行时显式关闭外部评测和模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - `rook-agent 0.2.1` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/回滚全链路通过。
 - v0.2.1 wheel SHA-256 为 `eccd8aa29c91057746d4e51397669d7f8539dd16c667a0da9df213e98367a8a0`；sdist SHA-256 为 `6b876f2a7ebb62e82a73447df2fe8dcddd0cdbdcd1c010718e12185dacf8a07b`。
-- GitHub Actions [run 29680362272](https://github.com/ZHUMUJUN/Rook/actions/runs/29680362272) 全绿：Ubuntu Python 3.11/3.12 各 `1724 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1725 passed, 6 skipped`；Quality 为 `463 passed, 5 skipped`、85% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
+- GitHub Actions [run 29845798709](https://github.com/ZHUMUJUN/Rook/actions/runs/29845798709) 全绿：Ubuntu Python 3.11/3.12 各 `1731 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1732 passed, 6 skipped`；Quality 为 `470 passed, 5 skipped`、85.19% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -101,12 +101,14 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 该 Pilot 误用了 Formal policy，因只有 6 个能力配对而被不可变报告标记为 `quarantined (insufficient_valid_pairs)`；已增加独立 `pilot.toml` / `rm2-pilot.toml`。对同一指标进行不落盘阈值模拟的结果为 `promoted (capability_success_uplift)`，但原报告不会被改名或重评分。
 - 第一次获授权的 Formal 在证据协议发现 Windows CWD 转义、沙箱工作目录漂移、输出路径歧义和恢复型流事件误分类后被中止；连同有界诊断共启动 18 次调用，其中 17 次形成终态进程制品、1 次在制品前强制停止，没有产生 Formal 报告或简历指标。
 - 获授权的 2-call Adapter v4 smoke 已完整调度，但 Baseline 与 Forced Skill 均经历 4 次 WebSocket 重试、回退 HTTPS 后在 180 秒超时；门禁为 `quarantined (trace_incomplete)`，轨迹完整度 0%，没有 Windows 沙箱错误，也不能作为 Skill 效果结论。
-- Candidate hash 继续冻结为 `bb69239c...bbcf`；Adapter v5 使用同一 ChatGPT 认证端点并设置 `supports_websockets=false`，Adapter/Normalizer/CLI/RM-2/Policy/ScoreCard 专项 `134 passed`，Ruff 与 mypy 已通过。再次 Formal 前必须重新授权 2-call v5 smoke。
+- Candidate hash 继续冻结为 `bb69239c...bbcf`；Adapter v5 使用同一 ChatGPT 认证端点并设置 `supports_websockets=false`，Adapter/Normalizer/CLI/RM-2/Policy/ScoreCard 专项 `134 passed`，Ruff 与 mypy 已通过。
+- 获授权的 2-call Adapter v5 HTTP-only smoke `evaluation-e373ad3d6c394e88b54b67ca60523d0e` 恰好完成 2/2 次调用：两臂进程均 exit 0、各有一个 `turn.completed`，重连/回退/Windows 沙箱失败/基础设施排除均为 0，轨迹完整度 100%；Baseline 为 `wrong_result`，Forced Skill 为 `passed`。
+- 本次 smoke 只有一个配对，因此自动门禁按样本阈值保持 `quarantined (insufficient_valid_pairs)`；它证明 Adapter v5 已具备 Formal 就绪条件，不是简历效果结论。美元成本仍未观测。
 
 ## 下一阶段计划
 
-1. 提交并推送 Windows Formal 证据边界修复，跑通 Windows/Linux × Python 3.11/3.12 远端 CI。
-2. 单独授权并执行 2-call v5 HTTP-only smoke；通过后再为 sealed `suite.toml`、3 次重复的 72-call Formal 单独授权。
+1. 固化并推送 Adapter v5 smoke 脱敏证据，跑通 Windows/Linux × Python 3.11/3.12 远端 CI。
+2. 单独授权 sealed `suite.toml`、3 次重复的 72-call Formal；当前 2-call 授权不延伸到 Formal。
 3. 在不伪造记录的前提下继续累积 3–5 个真实 Skill 的 gate、审批、部署、drift 和 rollback 生命周期。
 4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
@@ -114,4 +116,4 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；第一次 Formal 和 v4 smoke 都被证据门禁正确阻断，验证了 Rook 不会把沙箱或传输污染包装为效果。最终简历成功率、Token 和时延仍必须等待新 v5 HTTP-only smoke 与重新授权的 72-call Formal；Codex 不提供费用字段时，成本继续写 `not observed`。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；第一次 Formal 和 v4 smoke 都被证据门禁正确阻断，验证了 Rook 不会把沙箱或传输污染包装为效果。v5 HTTP-only smoke 已通过；最终简历成功率、Token 和时延仍必须等待重新授权的 72-call Formal，Codex 不提供费用字段时成本继续写 `not observed`。

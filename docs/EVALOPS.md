@@ -321,8 +321,15 @@ authorized calls but quarantined the pair as `trace_incomplete`: each arm spent
 four retries before WebSocket-to-HTTPS fallback and then hit the 180-second
 boundary without `turn.completed`. It produced no Formal result. The redacted
 record is [Adapter v4 smoke evidence](evidence/rm2-v4-smoke-2026-07-21.json).
-Adapter v5's HTTP/SSE-only target fingerprint now requires another separately
-authorized 2-call smoke before a new 72-call Formal authorization.
+The separately authorized Adapter v5 smoke then completed exactly two HTTP/SSE
+calls. Both processes exited successfully with one `turn.completed` event,
+zero reconnect or WebSocket-fallback events, 100% trace completeness, and zero
+infrastructure exclusions. Baseline produced `wrong_result`; Forced Skill
+passed. The decision is still `quarantined (insufficient_valid_pairs)` because
+the smoke intentionally supplies only one pair to a policy with a higher sample
+threshold. This is a passed transport/trace readiness gate, not a Formal result.
+See [Adapter v5 smoke evidence](evidence/rm2-v5-smoke-2026-07-22.json). A new
+72-call Formal execution still requires separate explicit authorization.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
