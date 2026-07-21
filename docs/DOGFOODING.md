@@ -13,6 +13,7 @@ the exam and an immutable approval/release record exists.
 | INC-001 | Native Windows Codex sandbox | `docs/EVALOPS.md` and adapter regression tests | Split temp-root and in-process patch failures reproduced; 2/2 strict smoke and 24/24 Pilot verified the fix | Real infrastructure incident; not a Skill-effect claim |
 | INC-002 | First RM-2 Formal readiness attempt | `docs/evidence/rm2-formal-readiness-2026-07-20.json` | Aborted after CWD, task-contract, sandbox-drift, and stream-classification defects; Candidate unchanged; suite v5 and Adapter v4 hardened | Real infrastructure/evidence incident; no Formal or deployment claim |
 | INC-003 | Adapter v4 live smoke | `docs/evidence/rm2-v4-smoke-2026-07-21.json` | Both arms timed out after four WebSocket retries and HTTPS fallback; gate quarantined incomplete traces; Adapter v5 selects HTTP/SSE up front | Real transport incident; no Formal or Skill-effect claim |
+| INC-004 | Adapter v5 Formal attempt | `docs/evidence/rm2-formal-v5-attempt-2026-07-22.json` | Stopped after one Forced arm timed out without a terminal trace; 32 calls started, 31 process artifacts, 40 not started; transport/sandbox markers 0 | Real fail-closed Agent-timeout incident; no ScoreCard, Formal, deployment, or Skill-effect claim |
 
 Current honest count: one Skill has real model measurement, while zero Skills
 have a real-model gate plus human-approved production deployment. The packaged

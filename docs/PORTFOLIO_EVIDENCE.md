@@ -35,7 +35,8 @@ and trace-derived quarantined candidates.
 | Aborted first Formal authorization | 18 calls started across the aborted run and diagnostics; no Formal result |
 | Adapter v4 smoke | 2/2 calls complete; both timed out after WebSocket retries; quarantined |
 | Adapter v5 HTTP-only smoke | 2/2 calls complete; terminal traces 2/2; reconnect/fallback 0; infrastructure exclusions 0 |
-| Remaining live schedule | Formal 72 with separate explicit authorization |
+| Aborted Adapter v5 Formal | 32 calls started; one Forced arm timed out without a terminal trace; 40 calls not started; no Formal result |
+| Remaining live schedule | Root-cause remediation, new readiness smoke, then a newly authorized Formal |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -142,8 +143,26 @@ The automatic decision is therefore correctly
 `quarantined (insufficient_valid_pairs)`. This does not negate the smoke: the
 readiness contract tests transport, terminal trace capture, and evaluator
 execution, all of which passed. The redacted record is
-[`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json). Formal
-has not run and requires a new explicit 72-call authorization.
+[`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json).
+
+## Aborted Adapter v5 Formal attempt (not a Formal result)
+
+The separately authorized 72-call run stopped fail-closed after
+`holdout-mobile` repetition 3 Forced Skill timed out at 180.140s without a
+terminal turn. The Agent had five failed command executions and the hidden
+validator reported `output_missing`. Thirty-two calls had started: 31 produced
+process artifacts, 30 became evaluated-run records, one completed Baseline was
+left outside an unfinished pair, one Forced call was force-stopped, and 40 calls
+never started.
+
+This did not reproduce the v4 transport incident. Across all 31 process
+artifacts, reconnect, WebSocket fallback, top-level stream error, Windows
+sandbox-failure, and Web Search counts were zero. However, the strict 100% trace
+gate was already unattainable, so continuing would only spend the remaining
+budget on a run that could not become Formal evidence. No ScoreCard, automatic
+decision, success-rate uplift, latency delta, Token delta, regression count, or
+cost metric from this partial attempt is publishable. See
+[`rm2-formal-v5-attempt-2026-07-22.json`](evidence/rm2-formal-v5-attempt-2026-07-22.json).
 
 ## Formal live measurement contract
 

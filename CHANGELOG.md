@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - The separately authorized Adapter v5 readiness smoke completed exactly two
   HTTP/SSE calls with terminal traces, zero reconnect/fallback events, and zero
   infrastructure exclusions; the one-pair result remains non-Formal evidence.
+- The subsequent 72-call Formal attempt stopped fail-closed after a Forced arm
+  timed out without a terminal trace. Thirty-two calls started and 40 did not;
+  no partial ScoreCard or resume metric is published.
 
 ## [0.2.1] - 2026-07-19
 

@@ -76,7 +76,12 @@ completeness, and zero infrastructure exclusions. Baseline produced the wrong
 result while Forced Skill passed. Its automatic decision remains quarantined
 only because a one-pair smoke is below the policy sample threshold; it is
 readiness evidence, not a Formal metric. A 72-call Formal rerun still requires
-separate authorization.
+separate authorization. That authorization was later granted, but the run was
+stopped fail-closed after a Forced-Skill arm timed out at 180 seconds without a
+terminal trace. By then 32 calls had started, 31 process artifacts existed, and
+40 calls had not started. HTTP-only transport remained clean: reconnect,
+fallback, top-level stream error, sandbox-failure, and Web Search counts were
+all zero. No immutable ScoreCard or Formal resume metric was produced.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -94,6 +99,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Formal readiness incident](docs/evidence/rm2-formal-readiness-2026-07-20.json)
 - [Failed Adapter v4 smoke](docs/evidence/rm2-v4-smoke-2026-07-21.json)
 - [Passed Adapter v5 HTTP-only smoke](docs/evidence/rm2-v5-smoke-2026-07-22.json)
+- [Aborted Adapter v5 Formal attempt](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
 
 ## Why Rook
 

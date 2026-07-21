@@ -24,7 +24,8 @@
 | 首次 Formal 授权已中止 | 中止轮次与诊断共启动 18 次调用；没有 Formal 结果 |
 | Adapter v4 smoke | 2/2 次调用完成；两臂均在 WebSocket 重试后超时并被隔离 |
 | Adapter v5 HTTP-only smoke | 2/2 次调用完成；终态轨迹 2/2；重连/回退 0；基础设施排除 0 |
-| 剩余真实调用计划 | 单独授权 Formal 72 次 |
+| Adapter v5 Formal 已中止 | 启动 32 次；一个 Forced 实验臂超时且无终态轨迹；40 次未启动；没有 Formal 结果 |
+| 剩余真实调用计划 | 修复根因，重新做 readiness smoke，再单独授权 Formal |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -92,7 +93,13 @@ Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeee
 
 评测 `evaluation-e373ad3d6c394e88b54b67ca60523d0e` 恰好使用两次获授权的 `gpt-5.4-mini` 调用，并通过受控 HTTP/SSE provider 执行。两个进程都以 0 退出且各产生一个终态 turn；重连、WebSocket 回退、Windows 沙箱失败和基础设施排除均为 0，轨迹完整度 100%。Baseline 为 `wrong_result`，Forced Skill 通过。该轮还观测到时延 127.579s 对 99.500s、Token 65,226 对 58,284，但一个配对不足以形成 Formal 效果结论。
 
-自动决策为 `quarantined (insufficient_valid_pairs)` 是预期行为：本次就绪 smoke 只验证传输、终态轨迹和 evaluator 链路，三项均通过；它不满足正式策略的样本数。脱敏记录见 [`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json)。Formal 尚未运行，72 次调用需要新的单独显式授权。
+自动决策为 `quarantined (insufficient_valid_pairs)` 是预期行为：本次就绪 smoke 只验证传输、终态轨迹和 evaluator 链路，三项均通过；它不满足正式策略的样本数。脱敏记录见 [`rm2-v5-smoke-2026-07-22.json`](evidence/rm2-v5-smoke-2026-07-22.json)。
+
+## Adapter v5 Formal 已中止（不能作为 Formal 结论）
+
+随后单独获授权的 72-call Formal 在 `holdout-mobile` 第 3 次 Forced Skill 达到 180.140 秒且没有终态 turn 后按 fail-closed 停止。该 Agent 出现 5 次命令执行失败，隐藏 Validator 报告 `output_missing`。共启动 32 次调用：31 次形成进程制品，30 次成为 evaluated-run 记录，1 个完成的 Baseline 留在未闭合配对之外，1 个 Forced 调用被强制停止，40 次未启动。
+
+这不是 v4 传输问题复发。31 个进程制品中的重连、WebSocket 回退、顶层流错误、Windows 沙箱失败和 Web Search 均为 0。但严格的 100% 轨迹门槛已无法满足，继续执行只会消耗一个必然不能成为 Formal 证据的轮次。因此该 partial attempt 没有 ScoreCard、自动决策，也不能发布成功率提升、时延、Token、回归或成本指标。脱敏记录见 [`rm2-formal-v5-attempt-2026-07-22.json`](evidence/rm2-formal-v5-attempt-2026-07-22.json)。
 
 ## Formal 真实评测填写合同
 

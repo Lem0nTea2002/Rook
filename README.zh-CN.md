@@ -55,7 +55,7 @@ flowchart LR
 
 修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是最终 72-call Formal 简历结论。
 
-第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。随后 2-call v4 smoke 正确隔离了两个不完整的 WebSocket turn。单独获授权的 Adapter v5 smoke 恰好完成 2/2 次 HTTP/SSE 调用：两臂各有一个终态事件，重连和传输回退均为 0，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。自动门禁仍为 quarantined 仅因为单配对 smoke 未达到策略样本门槛；它只证明就绪，不是 Formal 指标。72-call Formal 仍需另行授权。
+第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。随后 2-call v4 smoke 正确隔离了两个不完整的 WebSocket turn。单独获授权的 Adapter v5 smoke 恰好完成 2/2 次 HTTP/SSE 调用：两臂各有一个终态事件，重连和传输回退均为 0，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。自动门禁仍为 quarantined 仅因为单配对 smoke 未达到策略样本门槛；它只证明就绪，不是 Formal 指标。之后获授权的 72-call Formal 在一个 Forced-Skill 实验臂达到 180 秒且没有终态轨迹后按 fail-closed 停止：共启动 32 次、形成 31 个进程制品，40 次未启动；HTTP-only 重连/回退、顶层流错误、沙箱失败和 Web Search 均为 0。该轮没有生成不可变 ScoreCard 或 Formal 简历指标。
 
 用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
 
@@ -73,6 +73,7 @@ rook eval demo
 - [Formal 就绪事故记录](docs/evidence/rm2-formal-readiness-2026-07-20.json)
 - [Adapter v4 smoke 失败证据](docs/evidence/rm2-v4-smoke-2026-07-21.json)
 - [Adapter v5 HTTP-only smoke 通过证据](docs/evidence/rm2-v5-smoke-2026-07-22.json)
+- [Adapter v5 Formal 中止证据](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
 
 ## 为什么做 Rook
 

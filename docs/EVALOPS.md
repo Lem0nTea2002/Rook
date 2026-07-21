@@ -329,7 +329,18 @@ passed. The decision is still `quarantined (insufficient_valid_pairs)` because
 the smoke intentionally supplies only one pair to a policy with a higher sample
 threshold. This is a passed transport/trace readiness gate, not a Formal result.
 See [Adapter v5 smoke evidence](evidence/rm2-v5-smoke-2026-07-22.json). A new
-72-call Formal execution still requires separate explicit authorization.
+72-call Formal execution was then separately authorized. Rook stopped it
+fail-closed after `holdout-mobile` repetition 3 Forced Skill reached the
+180-second boundary without `turn.completed`. Thirty-two calls had started, 31
+process artifacts existed, and 40 calls had not started. The 31 process
+artifacts contained zero reconnect, WebSocket fallback, top-level stream error,
+Windows sandbox-failure, or Web Search markers, so this was an Agent constraint
+timeout rather than the earlier transport failure. The strict 100% trace gate
+was no longer attainable, so no partial effect metrics, immutable ScoreCard, or
+promotion decision were produced. See the redacted
+[Adapter v5 Formal attempt](evidence/rm2-formal-v5-attempt-2026-07-22.json).
+Any remediation that changes Adapter, Normalizer, suite, or policy identity
+requires a new readiness smoke and a new explicit Formal authorization.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
