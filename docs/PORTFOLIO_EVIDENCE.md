@@ -42,7 +42,8 @@ and trace-derived quarantined candidates.
 | Adapter v7 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
 | Aborted Adapter v7 Formal | 30 calls started; host idle sleep invalidated one deadline; 42 calls not started; no Formal result |
 | Adapter v8 host-sleep remediation | Windows execution-state guard plus fail-closed deadline-overrun classification; offline verified |
-| Remaining live schedule | Authorize a new v8 readiness smoke, then separately authorize a fresh Formal only if it passes |
+| Adapter v8 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
+| Remaining live schedule | Decide whether to separately authorize a fresh 72-call Formal; none is currently authorized |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -233,7 +234,12 @@ failures as cleanup failures, and classifies timeout overruns as
 `codex_timeout_deadline_overrun`. The Candidate, Normalizer, and sealed suite did
 not change. This is offline remediation, not a live result; see
 [`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json).
-A new v8 readiness authorization is required before requesting a fresh Formal.
+A separately authorized v8 smoke then completed exactly two calls with terminal
+traces, 100% trace completeness, zero infrastructure exclusions, and no timeout
+overrun. Baseline produced `wrong_result`; Forced Skill passed. This is a passed
+readiness gate with one pair, not a Formal effect estimate. See
+[`rm2-v8-smoke-2026-07-22.json`](evidence/rm2-v8-smoke-2026-07-22.json).
+A fresh 72-call Formal has not been authorized or started.
 
 ## Formal live measurement contract
 

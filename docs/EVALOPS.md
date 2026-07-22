@@ -413,8 +413,15 @@ timeout exceeds its deadline by more than five seconds. The Codex Adapter maps
 that diagnostic to `codex_timeout_deadline_overrun` as an infrastructure error.
 This remediation is offline-verified only; see the redacted
 [v8 host-sleep remediation](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json).
-Because the Adapter identity changed, v8 needs a new explicitly authorized
-2-call readiness smoke before any fresh Formal authorization.
+Because the Adapter identity changed, v8 required a new explicitly authorized
+2-call readiness smoke. That smoke completed both arms with terminal traces,
+100% trace completeness, zero infrastructure exclusions, and no deadline
+overrun. Baseline produced `wrong_result`; Forced Skill passed. The one-pair
+decision remains `quarantined (insufficient_valid_pairs)` by design and cannot
+serve as a Formal effect estimate. See the redacted
+[Adapter v8 smoke record](evidence/rm2-v8-smoke-2026-07-22.json). A fresh
+72-call Formal requires a separate decision and authorization; none has been
+started under v8.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the

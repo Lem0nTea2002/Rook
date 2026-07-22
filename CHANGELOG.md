@@ -59,6 +59,10 @@ All notable changes to this project are documented here. The format follows [Kee
   retained, 42 calls were not started, and no partial Formal metric is
   published. The host-sleep remediation advances the Adapter to v8 and requires
   a new readiness authorization before any fresh Formal run.
+- A separately authorized Adapter v8 readiness smoke completed exactly two
+  calls with complete terminal traces, zero infrastructure exclusions, and no
+  deadline-overrun marker. The one-pair result remains non-Formal evidence; no
+  new 72-call Formal has been authorized or started.
 
 ## [0.2.1] - 2026-07-19
 

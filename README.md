@@ -104,9 +104,11 @@ after resume, while three other runs exhausted the bounded shell fallback. No
 experiment record, ScoreCard, promotion decision, or Formal resume metric was
 produced, and partial results will not be reused. Adapter v8 now inhibits
 Windows system-idle sleep while EvalOps subprocesses run and classifies a
-deadline overrun as infrastructure failure. That v8 change is offline-verified
-only and requires a new explicitly authorized readiness smoke before any fresh
-Formal request.
+deadline overrun as infrastructure failure. A separately authorized v8 smoke
+then completed exactly 2/2 calls with terminal traces, 100% trace completeness,
+and zero infrastructure exclusions or timeout-overrun markers; Baseline was
+wrong and Forced Skill passed. Its one pair is readiness evidence only. A fresh
+72-call Formal has not been authorized or started.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -131,6 +133,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Passed Adapter v7 readiness smoke](docs/evidence/rm2-v7-smoke-2026-07-22.json)
 - [Aborted Adapter v7 Formal attempt](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
 - [Adapter v8 host-sleep remediation](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
+- [Passed Adapter v8 readiness smoke](docs/evidence/rm2-v8-smoke-2026-07-22.json)
 
 ## Why Rook
 
