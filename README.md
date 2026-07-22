@@ -108,7 +108,12 @@ deadline overrun as infrastructure failure. A separately authorized v8 smoke
 then completed exactly 2/2 calls with terminal traces, 100% trace completeness,
 and zero infrastructure exclusions or timeout-overrun markers; Baseline was
 wrong and Forced Skill passed. Its one pair is readiness evidence only. A fresh
-72-call Formal has not been authorized or started.
+72-call Formal was then authorized but stopped fail-closed after 13 calls
+started: 12 produced complete terminal artifacts, one in-flight call was
+stopped, and 59 were not started. A Forced arm emitted
+`ROOK_SHELL_FALLBACK_EXHAUSTED` after writing the target and failing an auxiliary
+verification assertion, so the zero-exclusion Formal contract was no longer
+attainable. No ScoreCard or Formal resume metric was produced.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -134,6 +139,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Aborted Adapter v7 Formal attempt](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
 - [Adapter v8 host-sleep remediation](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
 - [Passed Adapter v8 readiness smoke](docs/evidence/rm2-v8-smoke-2026-07-22.json)
+- [Aborted Adapter v8 Formal attempt](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
 
 ## Why Rook
 

@@ -420,8 +420,17 @@ overrun. Baseline produced `wrong_result`; Forced Skill passed. The one-pair
 decision remains `quarantined (insufficient_valid_pairs)` by design and cannot
 serve as a Formal effect estimate. See the redacted
 [Adapter v8 smoke record](evidence/rm2-v8-smoke-2026-07-22.json). A fresh
-72-call Formal requires a separate decision and authorization; none has been
-started under v8.
+72-call Formal was subsequently authorized. Rook stopped it fail-closed after
+13 calls started: 12 produced complete terminal artifacts, one in-flight call
+was stopped before artifact persistence, and 59 calls were not started. The
+failing `holdout-application` Forced arm wrote `release.json`, then an auxiliary
+source-normalization assertion failed and the Agent emitted
+`ROOK_SHELL_FALLBACK_EXHAUSTED`. Adapter v8 correctly classified the run as an
+Adapter error; the deterministic evaluator did not run, and the zero-exclusion
+Formal contract was no longer attainable. No experiment record, ScoreCard,
+promotion decision, or Formal metric was produced. See the redacted
+[Adapter v8 Formal attempt](evidence/rm2-formal-v8-attempt-2026-07-22.json).
+Partial data from this attempt must not be reused.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the

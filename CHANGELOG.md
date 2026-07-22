@@ -61,8 +61,11 @@ All notable changes to this project are documented here. The format follows [Kee
   a new readiness authorization before any fresh Formal run.
 - A separately authorized Adapter v8 readiness smoke completed exactly two
   calls with complete terminal traces, zero infrastructure exclusions, and no
-  deadline-overrun marker. The one-pair result remains non-Formal evidence; no
-  new 72-call Formal has been authorized or started.
+  deadline-overrun marker. The one-pair result remains non-Formal evidence.
+- The subsequent v8 Formal stopped fail-closed after 13 calls started. Twelve
+  terminal artifacts were retained, one in-flight call was stopped, and 59
+  calls were not started after a Forced arm emitted the stable shell-fallback
+  exhaustion marker. No partial ScoreCard or resume metric is published.
 
 ## [0.2.1] - 2026-07-19
 

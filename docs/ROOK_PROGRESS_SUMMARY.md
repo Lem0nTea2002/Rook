@@ -17,7 +17,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 分支：`fix/formal-windows-evidence`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
 - Rook Forge v0.2.1 已发布，当前 `main` 基线提交为 `363e9bc`。
-- 当前改动：Adapter v7 Formal 因 Windows 主机在活动子进程期间进入系统空闲睡眠，并出现 3 次有界 Shell fallback 耗尽而按 fail-closed 中止；启动 30 次，没有形成 Formal 报告。Adapter v8 已增加 Windows 防空闲睡眠保护和超期基础设施分类；提交 `541b203` 的 Windows/Linux CI 5/5 job 全绿，随后获授权的 v8 readiness smoke 以 2/2 终态轨迹、100% 轨迹完整度和 0 基础设施排除通过。Candidate 内容未改变。
+- 当前改动：Adapter v8 防空闲睡眠修复的 Windows/Linux CI 5/5 job 全绿，readiness smoke 以 2/2 终态轨迹、100% 轨迹完整度和 0 基础设施排除通过。随后获授权的全新 72-call Formal 因一个 Forced arm 在写入目标后辅助验证断言失败并返回 `ROOK_SHELL_FALLBACK_EXHAUSTED` 而按 fail-closed 中止；启动 13 次，没有形成 Formal 报告。Candidate 内容未改变。
 
 ## 已完成功能
 
@@ -120,16 +120,19 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 提交 `541b203` 已推送；GitHub Actions run `29884679303` 的质量门禁、Ubuntu 3.11/3.12 与 Windows 3.11/3.12 共 5/5 job 全绿。质量门禁为 `482 passed, 5 skipped`、覆盖率 85.09%；Ubuntu 为 `1743 passed, 7 skipped`，Windows 为 `1744 passed, 6 skipped`。
 - 获授权的 Adapter v8 smoke `evaluation-887d35ad04174b67a61b8ae1355ebb98` 恰好执行 2/2 次调用：两臂 exit 0 且各有一个终态 turn，轨迹完整度 100%，基础设施排除、重连、WebSocket、Web Search、Shell fallback 耗尽、Windows 沙箱失败和 deadline overrun 均为 0；Baseline 为 `wrong_result`，Forced Skill 为 `passed`。
 - v8 smoke 的自动门禁为 `quarantined (insufficient_valid_pairs)`，仅因为一个配对低于效果策略样本阈值；readiness 已通过，但该轮不是 Formal 指标，美元成本仍未观测。
+- 随后获授权的 v8 Formal `exp-e01d6b5eea5440d1963eaf02b5bd803e` 启动 13/72 次：12 次形成完整终态进程制品和 evaluated-run 记录，1 次在途调用在制品前停止，59 次未启动；所有已完成进程均 exit 0、清理成功、轨迹完整，重连、Web Search、Windows 沙箱失败和 deadline overrun 均为 0。
+- `holdout-application` repetition 3 Forced arm 已通过直接 Python fallback 写入 `release.json`，但同一进程中的辅助源文件归一化断言失败，Agent 返回稳定的 `ROOK_SHELL_FALLBACK_EXHAUSTED`；Adapter v8 因此记为 `adapter_error`，确定性 evaluator 未执行。严格零排除 Formal 合同已不可满足。
+- 该轮没有 ExperimentRecord、ScoreCard、PromotionDecision 或可写简历的 Formal 成功率/时延/Token 指标；partial 数据不会复用，美元成本仍未观测。
 
 ## 下一阶段计划
 
-1. 提交并推送 Adapter v8 readiness 的脱敏证据更新；该步骤只需文档/JSON 校验，不重复本地全量测试。
-2. 决定是否为全新 72-call Formal 单独授权；当前没有 Formal 调用授权，不能续跑或拼接 v7 partial attempt。
-4. 在不伪造记录的前提下继续累积 3–5 个真实 Skill 的 gate、审批、部署、drift 和 rollback 生命周期。
-5. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
+1. 离线修复“任务写入成功、辅助验证失败却被整体标记为 fallback exhausted”的恢复语义；不得把真实写入失败静默当作成功。
+2. 若 Adapter 身份变化，重新申请恰好 2 次 readiness；只有通过后才能重新讨论全新 Formal，不能续跑或拼接 v8 partial attempt。
+3. 在不伪造记录的前提下继续累积 3–5 个真实 Skill 的 gate、审批、部署、drift 和 rollback 生命周期。
+4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
 ## 当前停点
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；历史 Formal 尝试和 v4/v6 smoke 都被证据边界正确阻断。Adapter v7 Formal 发现主机睡眠后，Rook 没有把 partial 数据包装为效果；Adapter v8 已完成防空闲睡眠与 deadline-overrun 修复，远端跨平台 CI 和真实 2-call readiness 均已通过。最终简历成功率、Token 和时延仍必须等待全新获授权且完整结束的 72-call Formal，Codex 不提供费用字段时成本继续写 `not observed`。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；历史 Formal 尝试都被证据边界正确阻断。Adapter v8 已解决主机睡眠并通过跨平台 CI 与真实 readiness，但新的 Formal 又暴露了“写入成功后辅助验证失败”的恢复语义边界；Rook 没有把 12 条 partial 记录包装为效果。最终简历成功率、Token 和时延仍必须等待修复后重新授权且完整结束的 72-call Formal，Codex 不提供费用字段时成本继续写 `not observed`。

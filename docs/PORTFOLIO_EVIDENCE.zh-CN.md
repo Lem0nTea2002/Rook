@@ -31,7 +31,8 @@
 | Adapter v7 Formal 已中止 | 启动 30 次；主机空闲睡眠使一个截止时间失效；42 次未启动；没有 Formal 结果 |
 | Adapter v8 主机睡眠修复 | Windows 执行状态保护与 fail-closed 超期分类；离线验证通过 |
 | Adapter v8 readiness smoke | 2/2 次终态 turn；轨迹完整度 100%；基础设施排除 0；readiness 通过 |
-| 剩余真实调用计划 | 决定是否单独授权全新 72-call Formal；当前尚未授权 |
+| Adapter v8 Formal 已中止 | 启动 13 次；一个 Forced arm 在写入后验证断言失败并耗尽 fallback；59 次未启动；没有 Formal 结果 |
+| 剩余真实调用计划 | 离线修复写入后验证边界；新的 Adapter 身份必须重新获得 readiness 授权 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -123,7 +124,7 @@ Adapter v7 已禁止工具级 `cwd` 覆盖，要求使用正斜杠相对路径�
 
 随后获授权的执行在 72 次计划调用中启动 30 次后由 Rook 按 fail-closed 停止。保留了 29 个进程制品和 28 个 evaluated-run 记录；42 次未启动，也没有形成 ExperimentRecord、ScoreCard、报告或 PromotionDecision。其中一个请求 180 秒的子进程记录为 18,983,156 ms：Windows 在进程活动期间因 System Idle 进入睡眠，并在恢复后把系统时间前移 18,957,278 ms。另外三次运行耗尽了有界 Shell fallback。这些基础设施失败已经使严格 Formal 门槛不可满足，因此 partial 数据不可发布，也不会复用。脱敏记录见 [`rm2-formal-v7-attempt-2026-07-22.json`](evidence/rm2-formal-v7-attempt-2026-07-22.json)。
 
-Adapter v8 现在会为每个 Windows EvalOps 子进程持有执行状态保护；无法建立保护时在 spawn 前失败，恢复保护失败时记为清理失败，超出截止时间的 timeout 归类为 `codex_timeout_deadline_overrun`。Candidate、Normalizer 和 sealed suite 未改变。离线修复证据见 [`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)。随后单独获授权的 v8 smoke 恰好完成 2 次调用：终态轨迹 2/2、轨迹完整度 100%、基础设施排除 0，也没有 timeout overrun；Baseline 为 `wrong_result`，Forced Skill 通过。单配对仅证明 readiness，不是 Formal 效果估计。脱敏记录见 [`rm2-v8-smoke-2026-07-22.json`](evidence/rm2-v8-smoke-2026-07-22.json)。新的 72-call Formal 尚未授权或启动。
+Adapter v8 现在会为每个 Windows EvalOps 子进程持有执行状态保护；无法建立保护时在 spawn 前失败，恢复保护失败时记为清理失败，超出截止时间的 timeout 归类为 `codex_timeout_deadline_overrun`。Candidate、Normalizer 和 sealed suite 未改变。离线修复证据见 [`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)。随后单独获授权的 v8 smoke 恰好完成 2 次调用：终态轨迹 2/2、轨迹完整度 100%、基础设施排除 0，也没有 timeout overrun；Baseline 为 `wrong_result`，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止。12 次形成完整终态制品，1 次在途调用在制品前停止，59 次未启动。失败的 Forced arm 已写入目标，但辅助源文件归一化断言失败并返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`；Adapter v8 在确定性 evaluator 运行前将其归类为 Adapter 错误，零排除合同已不可满足。没有 Formal ScoreCard 或简历指标。脱敏记录见 [`rm2-formal-v8-attempt-2026-07-22.json`](evidence/rm2-formal-v8-attempt-2026-07-22.json)。
 
 ## Formal 真实评测填写合同
 

@@ -43,7 +43,8 @@ and trace-derived quarantined candidates.
 | Aborted Adapter v7 Formal | 30 calls started; host idle sleep invalidated one deadline; 42 calls not started; no Formal result |
 | Adapter v8 host-sleep remediation | Windows execution-state guard plus fail-closed deadline-overrun classification; offline verified |
 | Adapter v8 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
-| Remaining live schedule | Decide whether to separately authorize a fresh 72-call Formal; none is currently authorized |
+| Aborted Adapter v8 Formal | 13 calls started; one Forced arm exhausted fallback after a post-write assertion; 59 calls not started; no Formal result |
+| Remaining live schedule | Repair the post-write verification boundary offline; any new Adapter identity requires a new readiness authorization |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -239,7 +240,15 @@ traces, 100% trace completeness, zero infrastructure exclusions, and no timeout
 overrun. Baseline produced `wrong_result`; Forced Skill passed. This is a passed
 readiness gate with one pair, not a Formal effect estimate. See
 [`rm2-v8-smoke-2026-07-22.json`](evidence/rm2-v8-smoke-2026-07-22.json).
-A fresh 72-call Formal has not been authorized or started.
+A fresh 72-call Formal was then authorized and stopped fail-closed after 13
+calls started. Twelve runs produced complete terminal artifacts; one in-flight
+call was stopped before artifact persistence and 59 calls were not started. The
+failing Forced arm wrote the requested target, then failed an auxiliary
+source-normalization assertion and emitted `ROOK_SHELL_FALLBACK_EXHAUSTED`.
+Adapter v8 classified the run as an Adapter error before deterministic
+evaluation, so the strict zero-exclusion contract was unattainable. No Formal
+ScoreCard or resume metric exists. See
+[`rm2-formal-v8-attempt-2026-07-22.json`](evidence/rm2-formal-v8-attempt-2026-07-22.json).
 
 ## Formal live measurement contract
 
