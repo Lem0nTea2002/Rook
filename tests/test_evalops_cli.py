@@ -146,7 +146,7 @@ def test_codex_eval_model_is_part_of_target_identity(tmp_path: Path) -> None:
     assert args.model == "gpt-5.6-sol"
     assert args.inherit_proxy is True
     assert target.model == "gpt-5.6-sol"
-    assert target.adapter_version == "codex-evalops-v5"
+    assert target.adapter_version == "codex-evalops-v8"
 
 
 def test_eval_run_parses_bounded_experiment_controls() -> None:
@@ -562,7 +562,7 @@ def test_export_rejects_real_codex_home_even_for_promoted_candidate(
         executable="codex",
         version="1",
         model=None,
-        adapter_version="codex-evalops-v5",
+        adapter_version="codex-evalops-v8",
     )
     decision = PromotionDecision(
             skill_name="export-skill",

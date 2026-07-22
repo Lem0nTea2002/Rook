@@ -57,13 +57,14 @@ def _process_result(
     stdout: str = "",
     stderr: str = "",
     cleanup_error: str | None = None,
+    duration_ms: int = 25,
 ) -> ProcessResult:
     return ProcessResult(
         status=status,
         exit_code=exit_code,
         stdout=stdout,
         stderr=stderr,
-        duration_ms=25,
+        duration_ms=duration_ms,
         error_message=None,
         cleanup_error=cleanup_error,
     )
@@ -326,6 +327,21 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "- Use shell commands for file changes; do not call apply_patch.\n"
         "- Treat the current directory as the complete isolated workspace; do not "
         "run git or search parent directories.\n"
+        "- Do not set or override the shell tool working directory. It already "
+        "starts in the isolated workspace; use relative paths with forward slashes "
+        "inside tool arguments.\n"
+        "- Treat language-mode, profile-loading, and method-invocation errors as "
+        "restricted PowerShell failures.\n"
+        "- After 2 consecutive restricted PowerShell failures, do not try another "
+        "PowerShell variant; switch once to cmd.exe /d /s /c, a direct executable "
+        "such as py, or a dedicated non-shell tool when available.\n"
+        "- Use the fallback to perform the task directly, not for capability probes "
+        "or checks of outputs that were never created.\n"
+        "- A direct py -c fallback must be one physical line with shell-safe "
+        "statements. Do not pass multiline source or escaped newline sequences to "
+        "py -c, and do not use a PowerShell here-string to feed it.\n"
+        "- If the single fallback attempt fails, stop issuing shell commands and "
+        "report ROOK_SHELL_FALLBACK_EXHAUSTED: <short reason>.\n"
         "- Finish with a best-effort result within the task time limit.\n\n"
         "Create result.txt and verify it."
     )
@@ -499,6 +515,171 @@ def test_codex_windows_sandbox_error_fails_closed_after_successful_process(
 
     assert run.status is RunStatus.INFRA_ERROR
     assert run.error_code == "codex_windows_sandbox_error"
+
+
+def test_codex_windows_tool_cwd_escape_has_specific_error_code(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-cwd-escape"
+    workspace.mkdir()
+    stderr = (
+        r"windows sandbox: CreateProcessAsUserW failed: 267 "
+        r"(directory name is invalid) | cwd=C:\work\pair\u{8}aseline"
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(exec_result=_process_result(stderr=stderr)),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_windows_tool_cwd_escape_error"
+    assert run.error_message == (
+        "Codex supplied an escaped Windows tool working directory that the sandbox "
+        "could not start."
+    )
+
+
+def test_codex_timeout_reports_restricted_shell_retry_exhaustion(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-restricted-shell-timeout"
+    workspace.mkdir()
+    events = (
+        {"type": "thread.started", "thread_id": "thread-shell-timeout"},
+        {"type": "turn.started"},
+        {
+            "type": "item.started",
+            "item": {
+                "id": "item-shell-1",
+                "type": "command_execution",
+                "command": "pwsh -Command first",
+                "status": "in_progress",
+                "aggregated_output": "",
+                "exit_code": None,
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-shell-1",
+                "type": "command_execution",
+                "command": "pwsh -Command first",
+                "status": "failed",
+                "aggregated_output": (
+                    "Cannot dot-source this command because it was defined in a "
+                    "different language mode."
+                ),
+                "exit_code": 1,
+            },
+        },
+        {
+            "type": "item.started",
+            "item": {
+                "id": "item-shell-2",
+                "type": "command_execution",
+                "command": "pwsh -Command second",
+                "status": "in_progress",
+                "aggregated_output": "",
+                "exit_code": None,
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-shell-2",
+                "type": "command_execution",
+                "command": "pwsh -Command second",
+                "status": "failed",
+                "aggregated_output": (
+                    "Method invocation is supported only on core types in this "
+                    "language mode."
+                ),
+                "exit_code": 1,
+            },
+        },
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(
+                status=ProcessStatus.TIMEOUT,
+                exit_code=1,
+                stdout="\n".join(json.dumps(event) for event in events) + "\n",
+            )
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.TIMEOUT
+    assert run.error_code == "codex_restricted_shell_timeout"
+    assert run.error_message == (
+        "Codex reached the restricted PowerShell recovery limit before the run "
+        "completed."
+    )
+    assert run.trace is not None
+    assert "codex_restricted_shell_failure_limit_reached" in run.trace.diagnostics
+
+
+def test_codex_timeout_deadline_overrun_is_infrastructure_error(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-timeout-overrun"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(
+                status=ProcessStatus.TIMEOUT,
+                exit_code=1,
+                cleanup_error="timeout_deadline_overrun",
+                duration_ms=18_983_156,
+            )
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_timeout_deadline_overrun"
+    assert run.error_message == (
+        "The host was suspended or the scheduler could not enforce the Codex "
+        "deadline."
+    )
+
+
+def test_codex_completed_fallback_exhaustion_is_an_adapter_error(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-shell-fallback-exhausted"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        event = json.loads(line)
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_SHELL_FALLBACK_EXHAUSTED: restricted shell unavailable"
+            )
+            lines[index] = json.dumps(event)
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.ADAPTER_ERROR
+    assert run.error_code == "codex_shell_fallback_exhausted"
+    assert run.error_message == (
+        "Codex could not recover from the restricted PowerShell environment."
+    )
 
 
 def test_codex_recovered_stream_error_keeps_successful_terminal_result(

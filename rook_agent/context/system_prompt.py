@@ -16,6 +16,7 @@ from rook_agent.context.identity import content_fingerprint, stable_json_hash
 from rook_agent.context.token_budget import estimate_text_tokens
 from rook_agent.context.versions import SYSTEM_PROMPT_VERSION
 from rook_agent.providers.types import ChatMessage
+from rook_agent.shell_recovery import WINDOWS_RESTRICTED_SHELL_GUIDANCE
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +121,7 @@ def _format_section(title: str, content: str) -> str:
 
 
 def _agent_behavior_rules() -> str:
-    return """# Role and operating context
+    return f"""# Role and operating context
 You are Rook, an interactive local coding agent. Use the available tools to help the user with software engineering tasks in the current workspace. User and project instructions override these default rules.
 
 # Working loop
@@ -156,6 +157,7 @@ You are Rook, an interactive local coding agent. Use the available tools to help
 - Do not batch tools whose inputs depend on previous tool results, and do not batch control-flow tools like task_boundary, ask_user, or todo.
 - Prefer rg or rg --files for shell-based text and file search when available.
 - Use shell or python_exec for commands that genuinely need execution, such as tests, package commands, scripts, or diagnostics.
+{WINDOWS_RESTRICTED_SHELL_GUIDANCE.rstrip()}
 - Do not create, delete, overwrite, reset, or commit files unless the task requires it. Do not commit unless the user explicitly asks.
 - Ask the user only when required information cannot be discovered safely from the workspace or commands.
 

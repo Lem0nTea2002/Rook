@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import ctypes
 from ctypes import wintypes
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 import os
 from pathlib import Path
@@ -20,6 +20,7 @@ from rook_agent.agent.cancellation import CancellationToken
 
 
 _CREATE_SUSPENDED = 0x00000004
+_TIMEOUT_OVERRUN_GRACE_SECONDS = 5.0
 
 
 class ProcessStatus(StrEnum):
@@ -89,6 +90,10 @@ class _ProcessLike(Protocol):
     def wait(self, timeout: float | None = None) -> int: ...
 
 
+class _SleepInhibitorLike(Protocol):
+    def close(self) -> str | None: ...
+
+
 class _ProcessSetupError(RuntimeError):
     def __init__(
         self,
@@ -109,6 +114,63 @@ class ProcessRunner:
     _DRAIN_GRACE_SECONDS = 0.75
 
     def run(
+        self,
+        request: ProcessRequest,
+        *,
+        cancellation_token: CancellationToken | None = None,
+    ) -> ProcessResult:
+        started = time.monotonic()
+        if cancellation_token is not None and cancellation_token.is_cancelled:
+            return ProcessResult(
+                status=ProcessStatus.CANCELLED,
+                exit_code=None,
+                stdout="",
+                stderr="",
+                duration_ms=0,
+                error_message="process cancelled before spawn",
+            )
+        try:
+            sleep_inhibitor = _acquire_sleep_inhibitor()
+        except Exception as exc:
+            return ProcessResult(
+                status=ProcessStatus.SPAWN_ERROR,
+                exit_code=None,
+                stdout="",
+                stderr="",
+                duration_ms=_elapsed_ms(started),
+                error_message=(
+                    "process sleep inhibition failed: " + type(exc).__name__
+                ),
+            )
+
+        close_error: str | None = None
+        try:
+            result = self._run_without_sleep_guard(
+                request,
+                cancellation_token=cancellation_token,
+            )
+        finally:
+            if sleep_inhibitor is not None:
+                close_error = sleep_inhibitor.close()
+        if close_error is None:
+            return result
+        cleanup_errors: list[str] = []
+        _extend_error(cleanup_errors, result.cleanup_error)
+        _extend_error(cleanup_errors, close_error)
+        cleanup_error = _join_errors(cleanup_errors)
+        status = result.status
+        error_message = result.error_message
+        if status is ProcessStatus.SUCCEEDED:
+            status = ProcessStatus.FAILED
+            error_message = "process cleanup failed"
+        return replace(
+            result,
+            status=status,
+            cleanup_error=cleanup_error,
+            error_message=error_message,
+        )
+
+    def _run_without_sleep_guard(
         self,
         request: ProcessRequest,
         *,
@@ -186,6 +248,15 @@ class ProcessRunner:
             _extend_error(cleanup_errors, windows_job.close())
 
         cleanup_errors.extend(io_errors)
+        duration_ms = _elapsed_ms(started)
+        if terminal_status is ProcessStatus.TIMEOUT:
+            _extend_error(
+                cleanup_errors,
+                _timeout_overrun_diagnostic(
+                    timeout_seconds=request.timeout_seconds,
+                    duration_ms=duration_ms,
+                ),
+            )
         cleanup_error = _join_errors(cleanup_errors)
         if terminal_status is None:
             terminal_status = (
@@ -207,7 +278,7 @@ class ProcessRunner:
             exit_code=process.returncode,
             stdout=_decode_output(stdout_parts),
             stderr=_decode_output(stderr_parts),
-            duration_ms=_elapsed_ms(started),
+            duration_ms=duration_ms,
             error_message=error_message,
             cleanup_error=cleanup_error,
         )
@@ -316,6 +387,62 @@ class _WindowsJob:
         if not succeeded:
             return "job_close_failed"
         return None
+
+
+class _WindowsSleepInhibitor:
+    """Prevent system-idle sleep while a Windows EvalOps process is active."""
+
+    _CONTINUOUS = 0x80000000
+    _SYSTEM_REQUIRED = 0x00000001
+
+    def __init__(self, kernel32: object) -> None:
+        self._kernel32 = kernel32
+        self._active = True
+
+    @classmethod
+    def acquire(cls) -> _WindowsSleepInhibitor:
+        if os.name != "nt":
+            raise OSError("Windows execution state is unavailable")
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32.SetThreadExecutionState.restype = wintypes.DWORD
+        kernel32.SetThreadExecutionState.argtypes = (wintypes.DWORD,)
+        previous = kernel32.SetThreadExecutionState(
+            cls._CONTINUOUS | cls._SYSTEM_REQUIRED
+        )
+        if not previous:
+            raise ctypes.WinError(ctypes.get_last_error())  # type: ignore[attr-defined]
+        return cls(kernel32)
+
+    def close(self) -> str | None:
+        if not self._active:
+            return None
+        self._active = False
+        try:
+            restored = self._kernel32.SetThreadExecutionState(  # type: ignore[attr-defined]
+                self._CONTINUOUS
+            )
+        except Exception as exc:
+            return f"sleep_inhibitor_restore_{type(exc).__name__}"
+        if not restored:
+            return "sleep_inhibitor_restore_failed"
+        return None
+
+
+def _acquire_sleep_inhibitor() -> _SleepInhibitorLike | None:
+    if os.name != "nt":
+        return None
+    return _WindowsSleepInhibitor.acquire()
+
+
+def _timeout_overrun_diagnostic(
+    *,
+    timeout_seconds: float,
+    duration_ms: int,
+) -> str | None:
+    allowed_ms = int((timeout_seconds + _TIMEOUT_OVERRUN_GRACE_SECONDS) * 1000)
+    if duration_ms > allowed_ms:
+        return "timeout_deadline_overrun"
+    return None
 
 
 def _spawn_process(

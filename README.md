@@ -82,6 +82,31 @@ terminal trace. By then 32 calls had started, 31 process artifacts existed, and
 40 calls had not started. HTTP-only transport remained clean: reconnect,
 fallback, top-level stream error, sandbox-failure, and Web Search counts were
 all zero. No immutable ScoreCard or Formal resume metric was produced.
+The failed trace was then replayed offline: after two restricted PowerShell
+failures the Agent still retried shell variants and probes, finding a working
+launcher too late. Adapter v6 now defines a two-failure prompt boundary, one
+direct fallback attempt, explicit exhaustion feedback, and Normalizer v2 audit
+codes. A separately authorized two-call v6 smoke then reached a terminal turn
+and emitted the stable exhaustion marker in both arms instead of repeating the
+180-second silent timeout. It still failed readiness: a model-supplied Windows
+path encoded `\b` as a backspace in Baseline, while the Forced arm's direct
+`py -c` fallback passed escaped newlines literally. Both runs were excluded, so
+no Skill-effect or Formal metric was produced.
+Adapter v7 now forbids tool-level `cwd` overrides, requires forward-slash
+relative paths, constrains direct `py -c` recovery to one physical line, and
+classifies escaped-cwd error 267 separately. A separately authorized v7
+readiness smoke then completed exactly 2/2 calls with terminal traces, 100%
+trace completeness, and zero infrastructure exclusions; Baseline was wrong and
+Forced Skill passed. The following Formal run was stopped fail-closed after 30
+calls started (29 process artifacts, 28 evaluated-run records, 42 not started).
+One 180-second subprocess crossed a host idle-sleep interval and was terminated
+after resume, while three other runs exhausted the bounded shell fallback. No
+experiment record, ScoreCard, promotion decision, or Formal resume metric was
+produced, and partial results will not be reused. Adapter v8 now inhibits
+Windows system-idle sleep while EvalOps subprocesses run and classifies a
+deadline overrun as infrastructure failure. That v8 change is offline-verified
+only and requires a new explicitly authorized readiness smoke before any fresh
+Formal request.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -100,6 +125,12 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Failed Adapter v4 smoke](docs/evidence/rm2-v4-smoke-2026-07-21.json)
 - [Passed Adapter v5 HTTP-only smoke](docs/evidence/rm2-v5-smoke-2026-07-22.json)
 - [Aborted Adapter v5 Formal attempt](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
+- [Adapter v6 bounded-recovery smoke](docs/evidence/rm2-v6-smoke-2026-07-22.json)
+- [Adapter v7 offline follow-up](docs/evidence/rm2-v6-smoke-remediation-2026-07-22.json)
+- [Adapter v6 restricted-shell remediation](docs/evidence/rm2-formal-v5-shell-remediation-2026-07-22.json)
+- [Passed Adapter v7 readiness smoke](docs/evidence/rm2-v7-smoke-2026-07-22.json)
+- [Aborted Adapter v7 Formal attempt](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
+- [Adapter v8 host-sleep remediation](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
 
 ## Why Rook
 

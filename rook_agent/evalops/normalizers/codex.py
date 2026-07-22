@@ -16,9 +16,19 @@ from rook_agent.evalops.models import (
     Usage,
     plain_data,
 )
+from rook_agent.shell_recovery import (
+    RESTRICTED_POWERSHELL_FAILURE_LIMIT,
+    is_restricted_powershell_failure,
+    is_shell_fallback_exhausted_report,
+)
 
 
-NORMALIZER_VERSION = "codex-exec-jsonl-v1"
+NORMALIZER_VERSION = "codex-exec-jsonl-v2"
+RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC = (
+    "codex_restricted_shell_failure_limit_reached"
+)
+RESTRICTED_POWERSHELL_RECOVERED_DIAGNOSTIC = "codex_restricted_shell_recovered"
+SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC = "codex_shell_fallback_exhausted"
 _TOP_LEVEL_EVENTS = {
     "thread.started",
     "turn.started",
@@ -46,6 +56,8 @@ class _TraceState:
         self.terminal_seen = False
         self.final_answer: str | None = None
         self.usage = Usage()
+        self.consecutive_restricted_shell_failures = 0
+        self.restricted_shell_recovery_required = False
 
     def diagnose(self, code: str, *, fatal: bool) -> None:
         destination = self.fatal_diagnostics if fatal else self.diagnostics
@@ -182,6 +194,8 @@ class CodexTraceNormalizer:
             state.diagnose("codex_turn_started_missing", fatal=True)
         if not state.terminal_seen:
             state.diagnose("codex_turn_terminal_missing", fatal=True)
+        if is_shell_fallback_exhausted_report(state.final_answer):
+            state.diagnose(SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC, fatal=False)
         diagnostics = tuple(
             dict.fromkeys((*state.diagnostics, *state.fatal_diagnostics))
         )
@@ -364,6 +378,33 @@ def _command_execution(
     elif requested_command != command:
         state.diagnose("codex_command_changed", fatal=True)
     ok = status == "completed" and exit_code == 0
+    recovery_data: dict[str, object] = {}
+    if ok:
+        if state.restricted_shell_recovery_required:
+            state.diagnose(
+                RESTRICTED_POWERSHELL_RECOVERED_DIAGNOSTIC,
+                fatal=False,
+            )
+            recovery_data["shell_recovery_succeeded"] = True
+        state.consecutive_restricted_shell_failures = 0
+        state.restricted_shell_recovery_required = False
+    elif is_restricted_powershell_failure(output):
+        state.consecutive_restricted_shell_failures += 1
+        recovery_data["consecutive_restricted_shell_failures"] = (
+            state.consecutive_restricted_shell_failures
+        )
+        if (
+            state.consecutive_restricted_shell_failures
+            >= RESTRICTED_POWERSHELL_FAILURE_LIMIT
+        ):
+            state.restricted_shell_recovery_required = True
+            state.diagnose(
+                RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC,
+                fatal=False,
+            )
+            recovery_data["shell_recovery_required"] = True
+    else:
+        state.consecutive_restricted_shell_failures = 0
     state.emit(
         "tool_completed",
         raw=raw,
@@ -377,6 +418,7 @@ def _command_execution(
             "exit_code": exit_code,
             "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
             "output_bytes": len(output.encode("utf-8")),
+            **recovery_data,
         },
     )
 
@@ -578,4 +620,10 @@ _TOP_LEVEL_NORMALIZERS: dict[str, TopLevelHandler] = {
 assert set(_TOP_LEVEL_NORMALIZERS) == _TOP_LEVEL_EVENTS
 
 
-__all__ = ["CodexTraceNormalizer", "NORMALIZER_VERSION"]
+__all__ = [
+    "CodexTraceNormalizer",
+    "NORMALIZER_VERSION",
+    "RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC",
+    "RESTRICTED_POWERSHELL_RECOVERED_DIAGNOSTIC",
+    "SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC",
+]

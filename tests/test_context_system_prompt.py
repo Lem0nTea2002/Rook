@@ -141,6 +141,9 @@ def test_system_prompt_contains_english_agent_behavior_rules() -> None:
     assert "Do not batch tools whose inputs depend on previous tool results" in content
     assert "Prefer rg or rg --files" in content
     assert "Use todo for multi-step coding tasks" in content
+    assert "After 2 consecutive restricted PowerShell failures" in content
+    assert "Do not pass multiline source or escaped newline sequences to py -c" in content
+    assert "ROOK_SHELL_FALLBACK_EXHAUSTED" in content
     assert "infer them from repo files, docs, or neighboring tests" in content
     assert "complete this order: verify the requested behavior, then inspect the relevant diff or status" in content
     assert "Stop calling tools and provide a final answer only after that verification and diff/status review are sufficient" in content
@@ -175,10 +178,10 @@ def test_system_prompt_includes_external_few_shots() -> None:
     assert "For code changes, inspect the relevant diff or status before the final answer." in content
 
 
-def test_system_prompt_version_is_v12() -> None:
+def test_system_prompt_version_is_v14() -> None:
     entry = SystemPromptBuilder().build(_inputs())
 
-    assert "prompt_version=v12" in entry.messages[0].content
+    assert "prompt_version=v14" in entry.messages[0].content
 
 
 def test_system_prompt_token_estimate_uses_shared_estimator() -> None:

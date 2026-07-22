@@ -31,6 +31,8 @@ from rook_agent.evalops.models import (
 )
 from rook_agent.evalops.normalizers.codex import (
     NORMALIZER_VERSION,
+    RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC,
+    SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC,
     CodexTraceNormalizer,
 )
 from rook_agent.evalops.process import (
@@ -40,6 +42,7 @@ from rook_agent.evalops.process import (
     ProcessStatus,
 )
 from rook_agent.evalops.workspace import hash_workspace
+from rook_agent.shell_recovery import WINDOWS_RESTRICTED_SHELL_GUIDANCE
 
 
 _REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -98,6 +101,7 @@ _WINDOWS_SANDBOX_FAILURE_MARKERS = (
     "windows sandbox: runner failed during",
     "windows sandbox: setup refresh",
 )
+_WINDOWS_TOOL_CWD_ESCAPE_MARKERS = ("\\u{", "\x08")
 _RECOVERED_RECONNECT = re.compile(
     r"\AReconnecting\.\.\. [1-9][0-9]*/[1-9][0-9]* \([^\r\n]+\)\Z"
 )
@@ -122,7 +126,11 @@ _WINDOWS_SHELL_WRITE_GUIDANCE = (
     "- Use shell commands for file changes; do not call apply_patch.\n"
     "- Treat the current directory as the complete isolated workspace; do not "
     "run git or search parent directories.\n"
-    "- Finish with a best-effort result within the task time limit.\n"
+    "- Do not set or override the shell tool working directory. It already "
+    "starts in the isolated workspace; use relative paths with forward slashes "
+    "inside tool arguments.\n"
+    + WINDOWS_RESTRICTED_SHELL_GUIDANCE
+    + "- Finish with a best-effort result within the task time limit.\n"
 )
 _CONTENT_EXPERIMENT_GUIDANCE = (
     "- Use only the task inputs and any explicitly named Skill; do not search "
@@ -395,6 +403,12 @@ class CodexCliAdapter:
             )
             if (
                 self._platform_name == "win32"
+                and _contains_windows_tool_cwd_escape(sanitized_stderr)
+            ):
+                status = RunStatus.INFRA_ERROR
+                error_code = "codex_windows_tool_cwd_escape_error"
+            elif (
+                self._platform_name == "win32"
                 and _contains_windows_sandbox_failure(sanitized_stderr)
             ):
                 status = RunStatus.INFRA_ERROR
@@ -510,11 +524,7 @@ class CodexCliAdapter:
         latency_ms: int,
         error_code: str | None,
     ) -> AgentRun:
-        error_message = (
-            None
-            if error_code is None
-            else "Codex EvalOps run did not produce an admissible result."
-        )
+        error_message = _error_message(error_code)
         try:
             workspace_result_hash = hash_workspace(prepared.workspace)
         except Exception:
@@ -659,6 +669,13 @@ def _run_status(
     if cancelled or result.status is ProcessStatus.CANCELLED:
         return RunStatus.USER_CANCELLED, "codex_cancelled"
     if result.status is ProcessStatus.TIMEOUT:
+        if _contains_cleanup_diagnostic(
+            result.cleanup_error,
+            "timeout_deadline_overrun",
+        ):
+            return RunStatus.INFRA_ERROR, "codex_timeout_deadline_overrun"
+        if RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC in trace.diagnostics:
+            return RunStatus.TIMEOUT, "codex_restricted_shell_timeout"
         return RunStatus.TIMEOUT, "codex_timeout"
     if result.status is ProcessStatus.SPAWN_ERROR:
         return RunStatus.INFRA_ERROR, "codex_spawn_error"
@@ -672,6 +689,8 @@ def _run_status(
         return RunStatus.ADAPTER_ERROR, "codex_normalizer_error"
     if "codex_web_search_policy_violation" in trace.diagnostics:
         return RunStatus.UNSAFE_ACTION, "codex_web_search_policy_violation"
+    if SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC in trace.diagnostics:
+        return RunStatus.ADAPTER_ERROR, "codex_shell_fallback_exhausted"
     if not trace.trace_complete:
         return RunStatus.ADAPTER_ERROR, "codex_trace_incomplete"
     terminal_types = tuple(
@@ -698,6 +717,29 @@ def _run_status(
     return RunStatus.PASSED, None
 
 
+def _error_message(error_code: str | None) -> str | None:
+    if error_code is None:
+        return None
+    if error_code == "codex_restricted_shell_timeout":
+        return (
+            "Codex reached the restricted PowerShell recovery limit before the run "
+            "completed."
+        )
+    if error_code == "codex_shell_fallback_exhausted":
+        return "Codex could not recover from the restricted PowerShell environment."
+    if error_code == "codex_windows_tool_cwd_escape_error":
+        return (
+            "Codex supplied an escaped Windows tool working directory that the "
+            "sandbox could not start."
+        )
+    if error_code == "codex_timeout_deadline_overrun":
+        return (
+            "The host was suspended or the scheduler could not enforce the Codex "
+            "deadline."
+        )
+    return "Codex EvalOps run did not produce an admissible result."
+
+
 def _looks_like_auth_failure(stdout: str, stderr: str) -> bool:
     combined = f"{stdout}\n{stderr}".casefold()
     return any(marker in combined for marker in _AUTH_FAILURE_MARKERS)
@@ -706,6 +748,19 @@ def _looks_like_auth_failure(stdout: str, stderr: str) -> bool:
 def _contains_windows_sandbox_failure(stderr: str) -> bool:
     folded = stderr.casefold()
     return any(marker in folded for marker in _WINDOWS_SANDBOX_FAILURE_MARKERS)
+
+
+def _contains_windows_tool_cwd_escape(stderr: str) -> bool:
+    folded = stderr.casefold()
+    return (
+        "windows sandbox: createprocessasuserw failed: 267" in folded
+        and "cwd=" in folded
+        and any(marker in stderr for marker in _WINDOWS_TOOL_CWD_ESCAPE_MARKERS)
+    )
+
+
+def _contains_cleanup_diagnostic(value: str | None, diagnostic: str) -> bool:
+    return isinstance(value, str) and diagnostic in value.split(";")
 
 
 def _is_recovered_reconnect(message: object) -> bool:

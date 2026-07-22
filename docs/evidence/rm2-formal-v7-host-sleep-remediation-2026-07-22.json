@@ -1,0 +1,48 @@
+{
+  "artifact_kind": "redacted_host_sleep_timeout_remediation",
+  "authorization": {
+    "external_calls_used_for_remediation": 0,
+    "live_retest_authorized": false,
+    "model_costs_incurred_for_remediation": false,
+    "new_readiness_authorization_required": true
+  },
+  "source_incident": {
+    "evidence": "rm2-formal-v7-attempt-2026-07-22.json",
+    "experiment_id": "exp-1e1c359c31ea4cdc886c287767749352",
+    "long_run_duration_ms": 18983156,
+    "system_time_increment_ms": 18957278
+  },
+  "root_cause": {
+    "classification": "host_idle_sleep",
+    "summary": "Windows entered System Idle sleep while a Codex subprocess was active. The runner could not execute its deadline loop while the host slept and terminated the run immediately after resume.",
+    "timeout_logic_failure": false
+  },
+  "remediation": {
+    "adapter_version": "codex-evalops-v8",
+    "candidate_changed": false,
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "process_runner_changes": [
+      "Hold SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) for each Windows EvalOps subprocess.",
+      "Fail closed before spawn when sleep inhibition cannot be established.",
+      "Surface sleep-inhibitor restore failures as process cleanup failures.",
+      "Add timeout_deadline_overrun when terminal duration exceeds the configured deadline by more than five seconds."
+    ],
+    "stable_error_code": "codex_timeout_deadline_overrun"
+  },
+  "offline_verification": {
+    "complete_core_result": "1740 passed, 10 skipped in 350.45s",
+    "evalops_coverage_result": "480 passed, 7 skipped; 86.03% coverage",
+    "external_calls": 0,
+    "expanded_evalops_and_context_result": "494 passed, 7 skipped",
+    "first_complete_core_attempt": "1739 passed, 10 skipped, 1 transient Windows permission failure",
+    "transient_failure_focused_rerun": "3 passed",
+    "ruff": "passed",
+    "mypy": "passed",
+    "targeted_result": "102 passed, 1 skipped"
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "live_claim": false,
+    "status": "offline_remediation_complete_pending_new_live_readiness_smoke"
+  }
+}

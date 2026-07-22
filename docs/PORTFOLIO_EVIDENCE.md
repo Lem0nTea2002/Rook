@@ -36,7 +36,13 @@ and trace-derived quarantined candidates.
 | Adapter v4 smoke | 2/2 calls complete; both timed out after WebSocket retries; quarantined |
 | Adapter v5 HTTP-only smoke | 2/2 calls complete; terminal traces 2/2; reconnect/fallback 0; infrastructure exclusions 0 |
 | Aborted Adapter v5 Formal | 32 calls started; one Forced arm timed out without a terminal trace; 40 calls not started; no Formal result |
-| Remaining live schedule | Root-cause remediation, new readiness smoke, then a newly authorized Formal |
+| Adapter v6 shell remediation | Two-failure threshold, one fallback attempt, explicit exhaustion marker; offline replay complete |
+| Adapter v6 bounded-recovery smoke | 2/2 terminal turns and stable exhaustion markers; 2 infrastructure exclusions; readiness failed |
+| Adapter v7 offline follow-up | Explicit cwd prohibited; single-line direct Python fallback; escaped-cwd error code; live trace shape replayed |
+| Adapter v7 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
+| Aborted Adapter v7 Formal | 30 calls started; host idle sleep invalidated one deadline; 42 calls not started; no Formal result |
+| Adapter v8 host-sleep remediation | Windows execution-state guard plus fail-closed deadline-overrun classification; offline verified |
+| Remaining live schedule | Authorize a new v8 readiness smoke, then separately authorize a fresh Formal only if it passes |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -163,6 +169,71 @@ budget on a run that could not become Formal evidence. No ScoreCard, automatic
 decision, success-rate uplift, latency delta, Token delta, regression count, or
 cost metric from this partial attempt is publishable. See
 [`rm2-formal-v5-attempt-2026-07-22.json`](evidence/rm2-formal-v5-attempt-2026-07-22.json).
+
+The five failures were not a WebSocket or sandbox-start recurrence. They came
+from a restricted PowerShell profile/language-mode boundary, nested quoting,
+blocked method invocation, and cascading checks of an output that had never
+been written. The Agent did try alternate launchers, but only after repeated
+PowerShell variants and probes had consumed most of the 180-second boundary.
+
+Adapter v6 now supplies a two-consecutive-failure prompt threshold and permits
+one direct fallback attempt; another failure must produce the stable
+`ROOK_SHELL_FALLBACK_EXHAUSTED` report. Normalizer v2 audits threshold, recovery,
+and exhaustion and maps threshold-plus-timeout to
+`codex_restricted_shell_timeout`. The original raw trace replays into these
+diagnostics, but the remediation itself is offline evidence and requires a new
+2-call readiness smoke. See
+[`rm2-formal-v5-shell-remediation-2026-07-22.json`](evidence/rm2-formal-v5-shell-remediation-2026-07-22.json).
+
+That Adapter v6 smoke was separately authorized for exactly two calls. Both
+arms reached a terminal turn and emitted the stable exhaustion marker in less
+than 85 seconds, validating bounded stop behavior. Readiness still failed:
+Baseline was classified `codex_windows_sandbox_error` after a `\b` path escape
+became a backspace, and Forced Skill was classified
+`codex_shell_fallback_exhausted` after its direct `py -c` fallback received
+literal escaped newlines. The gate was
+`quarantined (excess_infrastructure_exclusions)` with 0 valid pairs, so these
+results are incident evidence rather than Skill-effect evidence. See
+[`rm2-v6-smoke-2026-07-22.json`](evidence/rm2-v6-smoke-2026-07-22.json).
+
+Adapter v7 now prohibits tool-level `cwd` overrides, requires relative
+forward-slash paths, rejects multiline/escaped-newline `py -c` recovery
+patterns in its guidance, recognizes the live Constrained Language error, and
+classifies escaped-cwd error 267 separately. The Candidate and suite remain
+unchanged. This follow-up has offline replay and regression coverage; see
+[`rm2-v6-smoke-remediation-2026-07-22.json`](evidence/rm2-v6-smoke-remediation-2026-07-22.json).
+
+## Completed Adapter v7 smoke (readiness gate passed)
+
+Evaluation `evaluation-1611cc03d158454c8121b016f1c94f2c` used exactly two
+authorized `gpt-5.4-mini` calls. Both processes exited 0 with terminal turns,
+100% trace completeness, and zero infrastructure exclusions, reconnect events,
+shell-fallback markers, Web Search events, or Windows sandbox failures. Baseline
+produced `wrong_result`; Forced Skill passed. The automatic decision remains
+`quarantined (insufficient_valid_pairs)` because a one-pair smoke is not an
+effect study. The redacted readiness record is
+[`rm2-v7-smoke-2026-07-22.json`](evidence/rm2-v7-smoke-2026-07-22.json).
+
+## Aborted Adapter v7 Formal attempt (not a Formal result)
+
+The subsequent authorized run started 30 of 72 calls before Rook stopped it
+fail-closed. It retained 29 process artifacts and 28 evaluated-run records; 42
+calls were not started, and no experiment record, ScoreCard, report, or
+promotion decision exists. One requested 180-second subprocess reported
+18,983,156 ms because Windows entered System Idle sleep while the process was
+active and advanced system time by 18,957,278 ms after resume. Three other runs
+exhausted the bounded shell fallback. These infrastructure failures made the
+strict Formal gate unattainable, so the partial results are not publishable and
+will not be reused. See
+[`rm2-formal-v7-attempt-2026-07-22.json`](evidence/rm2-formal-v7-attempt-2026-07-22.json).
+
+Adapter v8 now holds a Windows execution-state guard for every EvalOps
+subprocess, fails closed if it cannot establish the guard, records restore
+failures as cleanup failures, and classifies timeout overruns as
+`codex_timeout_deadline_overrun`. The Candidate, Normalizer, and sealed suite did
+not change. This is offline remediation, not a live result; see
+[`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json).
+A new v8 readiness authorization is required before requesting a fresh Formal.
 
 ## Formal live measurement contract
 

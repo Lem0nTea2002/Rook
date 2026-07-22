@@ -25,7 +25,12 @@
 | Adapter v4 smoke | 2/2 次调用完成；两臂均在 WebSocket 重试后超时并被隔离 |
 | Adapter v5 HTTP-only smoke | 2/2 次调用完成；终态轨迹 2/2；重连/回退 0；基础设施排除 0 |
 | Adapter v5 Formal 已中止 | 启动 32 次；一个 Forced 实验臂超时且无终态轨迹；40 次未启动；没有 Formal 结果 |
-| 剩余真实调用计划 | 修复根因，重新做 readiness smoke，再单独授权 Formal |
+| Adapter v6 有界恢复 smoke | 2/2 次终态 turn 与稳定耗尽标记；2 个基础设施排除；readiness 失败 |
+| Adapter v7 离线后续修复 | 禁止显式 cwd；单行直接 Python fallback；独立 cwd 转义错误码；真实轨迹形状已回放 |
+| Adapter v7 readiness smoke | 2/2 次终态 turn；轨迹完整度 100%；基础设施排除 0；readiness 通过 |
+| Adapter v7 Formal 已中止 | 启动 30 次；主机空闲睡眠使一个截止时间失效；42 次未启动；没有 Formal 结果 |
+| Adapter v8 主机睡眠修复 | Windows 执行状态保护与 fail-closed 超期分类；离线验证通过 |
+| 剩余真实调用计划 | 重新授权 v8 readiness smoke，仅在通过后再单独授权全新 Formal |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -100,6 +105,24 @@ Candidate 继续冻结在 SHA-256 `bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeee
 随后单独获授权的 72-call Formal 在 `holdout-mobile` 第 3 次 Forced Skill 达到 180.140 秒且没有终态 turn 后按 fail-closed 停止。该 Agent 出现 5 次命令执行失败，隐藏 Validator 报告 `output_missing`。共启动 32 次调用：31 次形成进程制品，30 次成为 evaluated-run 记录，1 个完成的 Baseline 留在未闭合配对之外，1 个 Forced 调用被强制停止，40 次未启动。
 
 这不是 v4 传输问题复发。31 个进程制品中的重连、WebSocket 回退、顶层流错误、Windows 沙箱失败和 Web Search 均为 0。但严格的 100% 轨迹门槛已无法满足，继续执行只会消耗一个必然不能成为 Formal 证据的轮次。因此该 partial attempt 没有 ScoreCard、自动决策，也不能发布成功率提升、时延、Token、回归或成本指标。脱敏记录见 [`rm2-formal-v5-attempt-2026-07-22.json`](evidence/rm2-formal-v5-attempt-2026-07-22.json)。
+
+5 次失败的根因已经由原始 JSONL 逐条复盘：外层 PowerShell profile 与受限语言模式冲突，嵌套 PowerShell 转义破坏变量，Constrained Language 禁止方法调用，随后又检查了尚未生成的输出。Agent 后来尝试了 `cmd` 和 Python launcher，但由于没有数字化重试上限，先后进行了多轮改写和能力探测；找到可用的 `py` 时已经接近 180 秒边界，未能完成真正写入。
+
+Adapter v6 将通用策略固定为：连续 2 次受限 PowerShell 失败后，禁止继续改写 PowerShell，只允许使用 `cmd.exe /d /s /c`、`py` 等直接可执行程序或专用非 shell 工具完成一次 fallback；fallback 不得用于无关能力探测。fallback 再失败时必须停止 shell 调用并返回 `ROOK_SHELL_FALLBACK_EXHAUSTED: <short reason>`。Normalizer v2 会记录阈值触发、恢复和耗尽诊断，并把达到阈值后的超时细分为 `codex_restricted_shell_timeout`。旧轨迹离线回放能够触发新诊断，但仍是不完整轨迹，不能转化为 Formal 结果。脱敏修复记录见 [`rm2-formal-v5-shell-remediation-2026-07-22.json`](evidence/rm2-formal-v5-shell-remediation-2026-07-22.json)。
+
+随后单独授权的 Adapter v6 smoke 恰好执行 2 次调用。两臂都在 85 秒内产生终态 turn 并返回稳定耗尽标记，证明有界停止生效；但 readiness 仍失败。Baseline 的模型工具参数把路径中的 `\b` 编码成退格，触发 `codex_windows_sandbox_error`；Forced Skill 的直接 `py -c` fallback 把转义换行作为字面量传入，触发 `codex_shell_fallback_exhausted`。门禁为 `quarantined (excess_infrastructure_exclusions)`，有效配对为 0；这是事故与恢复行为证据，不是 Skill 效果证据。脱敏记录见 [`rm2-v6-smoke-2026-07-22.json`](evidence/rm2-v6-smoke-2026-07-22.json)。
+
+Adapter v7 已禁止工具级 `cwd` 覆盖，要求使用正斜杠相对路径，禁止多行/字面转义换行的 `py -c` 恢复写法，并把 error 267 + 转义 cwd 细分为独立错误码；真实出现的 Constrained Language 错误也纳入分类。Candidate 与 suite 均未改变。离线回放和回归证据见 [`rm2-v6-smoke-remediation-2026-07-22.json`](evidence/rm2-v6-smoke-remediation-2026-07-22.json)。
+
+## Adapter v7 smoke 已完成（readiness 通过）
+
+评测 `evaluation-1611cc03d158454c8121b016f1c94f2c` 恰好使用两次获授权的 `gpt-5.4-mini` 调用。两个进程均以 0 退出并产生终态 turn，轨迹完整度 100%；基础设施排除、重连、Shell fallback 耗尽、Web Search 和 Windows 沙箱失败均为 0。Baseline 为 `wrong_result`，Forced Skill 通过。自动决策保持 `quarantined (insufficient_valid_pairs)` 是因为单配对 smoke 不能充当效果研究。脱敏 readiness 证据见 [`rm2-v7-smoke-2026-07-22.json`](evidence/rm2-v7-smoke-2026-07-22.json)。
+
+## Adapter v7 Formal 已中止（不能作为 Formal 结论）
+
+随后获授权的执行在 72 次计划调用中启动 30 次后由 Rook 按 fail-closed 停止。保留了 29 个进程制品和 28 个 evaluated-run 记录；42 次未启动，也没有形成 ExperimentRecord、ScoreCard、报告或 PromotionDecision。其中一个请求 180 秒的子进程记录为 18,983,156 ms：Windows 在进程活动期间因 System Idle 进入睡眠，并在恢复后把系统时间前移 18,957,278 ms。另外三次运行耗尽了有界 Shell fallback。这些基础设施失败已经使严格 Formal 门槛不可满足，因此 partial 数据不可发布，也不会复用。脱敏记录见 [`rm2-formal-v7-attempt-2026-07-22.json`](evidence/rm2-formal-v7-attempt-2026-07-22.json)。
+
+Adapter v8 现在会为每个 Windows EvalOps 子进程持有执行状态保护；无法建立保护时在 spawn 前失败，恢复保护失败时记为清理失败，超出截止时间的 timeout 归类为 `codex_timeout_deadline_overrun`。Candidate、Normalizer 和 sealed suite 未改变。该项只有离线修复证据，不是 live 结果，见 [`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)。必须重新获得 v8 readiness 授权，通过后才能申请全新 Formal。
 
 ## Formal 真实评测填写合同
 

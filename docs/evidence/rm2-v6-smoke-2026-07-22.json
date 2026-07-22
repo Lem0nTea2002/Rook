@@ -1,0 +1,98 @@
+{
+  "artifact_kind": "redacted_live_readiness_smoke",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "formal_calls_authorized": 0,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v6",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-0b193738a0bc4b8cbbd5fbd8807b55b9",
+    "experiment_id": "exp-4f241c783b104640bd5a36f771327a40",
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "suite_fingerprint": "d00abb6eddaa7a96cb359d686ed618de",
+    "suite_id": "release-manifest-v2-windows-path-smoke-v2"
+  },
+  "execution": {
+    "completed_runs": 2,
+    "formal_continuation_started": false,
+    "planned_runs": 2,
+    "process_artifacts_after": 122,
+    "process_artifacts_before": 120,
+    "repetitions": 1,
+    "treatment_family": "content"
+  },
+  "runs": [
+    {
+      "command_executions": 7,
+      "error_code": "codex_windows_sandbox_error",
+      "failed_command_executions": 3,
+      "input_tokens": 42734,
+      "latency_ms": 84641,
+      "output_tokens": 4024,
+      "process_exit_code": 0,
+      "run_id": "codex-6f11cf6f64b164de4d804583",
+      "shell_fallback_exhausted_marker_count": 1,
+      "status": "infra_error",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "baseline"
+    },
+    {
+      "command_executions": 4,
+      "error_code": "codex_shell_fallback_exhausted",
+      "failed_command_executions": 2,
+      "input_tokens": 42119,
+      "latency_ms": 70906,
+      "output_tokens": 2678,
+      "process_exit_code": 0,
+      "run_id": "codex-8337ba448cdeaed47c949ad7",
+      "shell_fallback_exhausted_marker_count": 1,
+      "status": "adapter_error",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "forced_skill"
+    }
+  ],
+  "audit": {
+    "cost_usd": null,
+    "reconnect_event_count": 0,
+    "top_level_stream_error_count": 0,
+    "web_search_event_count": 0,
+    "websocket_fallback_event_count": 0
+  },
+  "observed_failures": [
+    {
+      "run": "baseline",
+      "summary": "A model-supplied Windows working-directory string encoded the backslash-b sequence as a backspace, causing CreateProcessAsUserW error 267; later direct Python writing also failed because multiline source was placed inside python -c quoting."
+    },
+    {
+      "run": "forced_skill",
+      "summary": "Constrained Language rejected a non-core .NET file-write method; the single direct py fallback then failed because escaped newlines were passed literally to python -c."
+    }
+  ],
+  "behavioral_result": {
+    "bounded_stop_observed": true,
+    "both_arms_emitted_stable_exhaustion_marker": true,
+    "both_arms_reached_terminal_turn": true,
+    "previous_180_second_silent_timeout_reproduced": false
+  },
+  "gate": {
+    "infra_exclusion_count": 2,
+    "infra_exclusion_rate": 1.0,
+    "reason_code": "excess_infrastructure_exclusions",
+    "status": "quarantined",
+    "valid_content_pair_count": 0
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "readiness_passed": false,
+    "resume_metric_produced": false,
+    "status": "live_bounded_recovery_verified_but_evaluation_readiness_failed"
+  }
+}
