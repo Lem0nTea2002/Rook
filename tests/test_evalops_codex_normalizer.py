@@ -90,6 +90,7 @@ def test_codex_normalizer_maps_success_fixture_in_raw_order() -> None:
             plain_data(raw_events[event.raw_offset]), length=32
         )
     assert trace.trace_complete is True
+    assert trace.normalizer_version == "codex-exec-jsonl-v3"
     assert trace.final_answer == "All tests pass."
     assert trace.usage.input_tokens == 100
     assert trace.usage.cached_input_tokens == 20
@@ -295,6 +296,25 @@ def test_codex_normalizer_recognizes_explicit_shell_fallback_exhaustion() -> Non
 
     assert trace.trace_complete is True
     assert "codex_shell_fallback_exhausted" in trace.diagnostics
+
+
+def test_codex_normalizer_distinguishes_post_write_verification_inconclusive() -> None:
+    events = list(_fixture_events("success.jsonl"))
+    for event in events:
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: release.json was "
+                "written before an auxiliary assertion failed"
+            )
+
+    trace = CodexTraceNormalizer().normalize(tuple(events), target=_target())
+
+    assert trace.trace_complete is True
+    assert "codex_post_write_verification_inconclusive" in trace.diagnostics
+    assert "codex_shell_fallback_exhausted" not in trace.diagnostics
 
 
 def test_codex_normalizer_maps_file_change_without_inventing_a_request() -> None:

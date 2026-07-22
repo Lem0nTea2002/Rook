@@ -337,11 +337,18 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "such as py, or a dedicated non-shell tool when available.\n"
         "- Use the fallback to perform the task directly, not for capability probes "
         "or checks of outputs that were never created.\n"
+        "- Keep the required mutation separate from auxiliary verification. Do not "
+        "append readback assertions, source-equality checks, file inventories, tests, "
+        "or other verification to the fallback mutation command.\n"
         "- A direct py -c fallback must be one physical line with shell-safe "
         "statements. Do not pass multiline source or escaped newline sequences to "
         "py -c, and do not use a PowerShell here-string to feed it.\n"
-        "- If the single fallback attempt fails, stop issuing shell commands and "
-        "report ROOK_SHELL_FALLBACK_EXHAUSTED: <short reason>.\n"
+        "- Report ROOK_SHELL_FALLBACK_EXHAUSTED only when the fallback fails before "
+        "completing the required mutation.\n"
+        "- If the requested output was written but an auxiliary verification fails, "
+        "stop issuing shell commands and report "
+        "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: <short reason>. The external "
+        "evaluator will determine correctness.\n"
         "- Finish with a best-effort result within the task time limit.\n\n"
         "Create result.txt and verify it."
     )
@@ -680,6 +687,39 @@ def test_codex_completed_fallback_exhaustion_is_an_adapter_error(
     assert run.error_message == (
         "Codex could not recover from the restricted PowerShell environment."
     )
+
+
+def test_codex_post_write_verification_inconclusive_reaches_evaluator_boundary(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-post-write-verification"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        event = json.loads(line)
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: result.txt was written "
+                "before an auxiliary assertion failed"
+            )
+            lines[index] = json.dumps(event)
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.PASSED
+    assert run.error_code is None
+    assert run.trace is not None
+    assert "codex_post_write_verification_inconclusive" in run.trace.diagnostics
+    assert "codex_shell_fallback_exhausted" not in run.trace.diagnostics
 
 
 def test_codex_recovered_stream_error_keeps_successful_terminal_result(

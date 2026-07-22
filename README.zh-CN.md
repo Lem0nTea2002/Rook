@@ -59,7 +59,7 @@ flowchart LR
 
 随后单独获授权的 Adapter v6 2-call smoke 在两臂都产生终态 turn 和稳定的 `ROOK_SHELL_FALLBACK_EXHAUSTED`，没有复现 180 秒静默超时，证明有界停止生效；但 readiness 仍未通过。Baseline 的模型工具参数把 Windows 路径中的 `\b` 编码成退格，触发 `CreateProcessAsUserW` 错误 267；Forced Skill 从受限 PowerShell 切到 `py -c` 后，又把转义换行作为字面量传入而语法失败。两臂均被基础设施排除，因此没有 Skill 效果或 Formal 指标。
 
-Adapter v7 进一步禁止模型覆盖工具 `cwd`，要求只使用正斜杠相对路径，并把直接 `py -c` 恢复限制为单物理行；error 267 + 转义 cwd 也有了独立错误码。随后单独获授权的 v7 readiness smoke 恰好完成 2/2 次调用：两臂都有终态轨迹，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。之后的 Formal 在启动 30 次调用后按 fail-closed 停止（29 个进程制品、28 个 evaluated-run 记录、42 次未启动）。其中一个 180 秒子进程跨越了主机系统空闲睡眠并在恢复后才被终止，另外三次运行耗尽了有界 Shell fallback。该轮没有形成 ExperimentRecord、ScoreCard、PromotionDecision 或 Formal 简历指标，partial 结果不会复用。Adapter v8 现在会在 Windows EvalOps 子进程运行期间阻止系统空闲睡眠，并把超出截止时间的异常归类为基础设施失败。随后单独获授权的 v8 smoke 恰好完成 2/2 次调用：终态轨迹 2/2、轨迹完整度 100%，基础设施排除和超期标记均为 0；Baseline 错误，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止：12 次形成完整终态制品，1 次在途调用被停止，59 次未启动。一个 Forced arm 写入目标后因辅助验证断言失败而返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`，零排除 Formal 合同已不可满足；没有生成 ScoreCard 或 Formal 简历指标。
+Adapter v7 进一步禁止模型覆盖工具 `cwd`，要求只使用正斜杠相对路径，并把直接 `py -c` 恢复限制为单物理行；error 267 + 转义 cwd 也有了独立错误码。随后单独获授权的 v7 readiness smoke 恰好完成 2/2 次调用：两臂都有终态轨迹，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。之后的 Formal 在启动 30 次调用后按 fail-closed 停止（29 个进程制品、28 个 evaluated-run 记录、42 次未启动）。其中一个 180 秒子进程跨越了主机系统空闲睡眠并在恢复后才被终止，另外三次运行耗尽了有界 Shell fallback。该轮没有形成 ExperimentRecord、ScoreCard、PromotionDecision 或 Formal 简历指标，partial 结果不会复用。Adapter v8 现在会在 Windows EvalOps 子进程运行期间阻止系统空闲睡眠，并把超出截止时间的异常归类为基础设施失败。随后单独获授权的 v8 smoke 恰好完成 2/2 次调用：终态轨迹 2/2、轨迹完整度 100%，基础设施排除和超期标记均为 0；Baseline 错误，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止：12 次形成完整终态制品，1 次在途调用被停止，59 次未启动。一个 Forced arm 写入目标后因辅助验证断言失败而返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`，零排除 Formal 合同已不可满足；没有生成 ScoreCard 或 Formal 简历指标。Adapter v9 现已在离线环境中把 fallback 必需写入与辅助验证分离：真正写入失败仍 fail closed，已完成写入但后续验证不确定时交给隐藏确定性 evaluator 判定。v9 尚未运行真实调用，下一步必须单独授权恰好 2 次 readiness smoke。
 
 用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
 
@@ -86,6 +86,7 @@ rook eval demo
 - [Adapter v8 主机睡眠修复证据](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
 - [Adapter v8 readiness smoke 通过证据](docs/evidence/rm2-v8-smoke-2026-07-22.json)
 - [Adapter v8 Formal 中止证据](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
+- [Adapter v9 写入后验证边界修复](docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)
 
 ## 为什么做 Rook
 

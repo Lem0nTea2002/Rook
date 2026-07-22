@@ -18,17 +18,21 @@ from rook_agent.evalops.models import (
 )
 from rook_agent.shell_recovery import (
     RESTRICTED_POWERSHELL_FAILURE_LIMIT,
+    is_post_write_verification_inconclusive_report,
     is_restricted_powershell_failure,
     is_shell_fallback_exhausted_report,
 )
 
 
-NORMALIZER_VERSION = "codex-exec-jsonl-v2"
+NORMALIZER_VERSION = "codex-exec-jsonl-v3"
 RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC = (
     "codex_restricted_shell_failure_limit_reached"
 )
 RESTRICTED_POWERSHELL_RECOVERED_DIAGNOSTIC = "codex_restricted_shell_recovered"
 SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC = "codex_shell_fallback_exhausted"
+POST_WRITE_VERIFICATION_INCONCLUSIVE_DIAGNOSTIC = (
+    "codex_post_write_verification_inconclusive"
+)
 _TOP_LEVEL_EVENTS = {
     "thread.started",
     "turn.started",
@@ -196,6 +200,11 @@ class CodexTraceNormalizer:
             state.diagnose("codex_turn_terminal_missing", fatal=True)
         if is_shell_fallback_exhausted_report(state.final_answer):
             state.diagnose(SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC, fatal=False)
+        if is_post_write_verification_inconclusive_report(state.final_answer):
+            state.diagnose(
+                POST_WRITE_VERIFICATION_INCONCLUSIVE_DIAGNOSTIC,
+                fatal=False,
+            )
         diagnostics = tuple(
             dict.fromkeys((*state.diagnostics, *state.fatal_diagnostics))
         )
@@ -623,6 +632,7 @@ assert set(_TOP_LEVEL_NORMALIZERS) == _TOP_LEVEL_EVENTS
 __all__ = [
     "CodexTraceNormalizer",
     "NORMALIZER_VERSION",
+    "POST_WRITE_VERIFICATION_INCONCLUSIVE_DIAGNOSTIC",
     "RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC",
     "RESTRICTED_POWERSHELL_RECOVERED_DIAGNOSTIC",
     "SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC",

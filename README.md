@@ -113,7 +113,11 @@ started: 12 produced complete terminal artifacts, one in-flight call was
 stopped, and 59 were not started. A Forced arm emitted
 `ROOK_SHELL_FALLBACK_EXHAUSTED` after writing the target and failing an auxiliary
 verification assertion, so the zero-exclusion Formal contract was no longer
-attainable. No ScoreCard or Formal resume metric was produced.
+attainable. No ScoreCard or Formal resume metric was produced. Adapter v9 now
+separates the fallback mutation from auxiliary verification and lets a hidden
+deterministic evaluator decide a completed write whose later check is
+inconclusive. The v9 change is offline-verified only and requires a separately
+authorized 2-call readiness smoke.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -140,6 +144,7 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Adapter v8 host-sleep remediation](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
 - [Passed Adapter v8 readiness smoke](docs/evidence/rm2-v8-smoke-2026-07-22.json)
 - [Aborted Adapter v8 Formal attempt](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
+- [Adapter v9 post-write remediation](docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)
 
 ## Why Rook
 

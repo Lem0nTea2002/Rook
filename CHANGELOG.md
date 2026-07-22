@@ -33,6 +33,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - A timeout that exceeds its configured deadline by more than five seconds now
   carries `timeout_deadline_overrun`; Codex Adapter v8 maps it to the stable
   infrastructure code `codex_timeout_deadline_overrun`.
+- Restricted-shell recovery now keeps the required mutation separate from
+  auxiliary verification. A real mutation failure still emits
+  `ROOK_SHELL_FALLBACK_EXHAUSTED`, while a completed write followed by an
+  inconclusive auxiliary check emits
+  `ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE` and reaches the deterministic
+  evaluator instead of becoming an infrastructure exclusion.
 
 ### Changed
 
@@ -66,6 +72,10 @@ All notable changes to this project are documented here. The format follows [Kee
   terminal artifacts were retained, one in-flight call was stopped, and 59
   calls were not started after a Forced arm emitted the stable shell-fallback
   exhaustion marker. No partial ScoreCard or resume metric is published.
+- The post-write recovery remediation advances the Rook system prompt to v15,
+  Codex Normalizer to v3, and Codex Adapter identity to v9. It is offline
+  verified only; v9 requires a separately authorized two-call readiness smoke
+  before any new Formal authorization.
 
 ## [0.2.1] - 2026-07-19
 

@@ -44,7 +44,8 @@ and trace-derived quarantined candidates.
 | Adapter v8 host-sleep remediation | Windows execution-state guard plus fail-closed deadline-overrun classification; offline verified |
 | Adapter v8 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
 | Aborted Adapter v8 Formal | 13 calls started; one Forced arm exhausted fallback after a post-write assertion; 59 calls not started; no Formal result |
-| Remaining live schedule | Repair the post-write verification boundary offline; any new Adapter identity requires a new readiness authorization |
+| Adapter v9 post-write remediation | Mutation and auxiliary verification separated; deterministic evaluator retains authority; 105 focused offline tests passed |
+| Remaining live schedule | A new Adapter identity requires a separately authorized 2-call readiness smoke |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -249,6 +250,15 @@ Adapter v8 classified the run as an Adapter error before deterministic
 evaluation, so the strict zero-exclusion contract was unattainable. No Formal
 ScoreCard or resume metric exists. See
 [`rm2-formal-v8-attempt-2026-07-22.json`](evidence/rm2-formal-v8-attempt-2026-07-22.json).
+
+Adapter v9 and Normalizer v3 now distinguish an uncompleted fallback mutation
+from an inconclusive check after a completed write. The former remains an
+Adapter error; the latter is preserved as
+`codex_post_write_verification_inconclusive` and proceeds to the deterministic
+evaluator, which remains the only authority for task correctness. Prompt v15
+also prohibits bundling the write and auxiliary assertions in one fallback
+command. This is offline remediation, not live readiness or Formal evidence;
+see [`rm2-formal-v8-post-write-remediation-2026-07-22.json`](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json).
 
 ## Formal live measurement contract
 

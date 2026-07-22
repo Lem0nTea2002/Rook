@@ -432,6 +432,16 @@ promotion decision, or Formal metric was produced. See the redacted
 [Adapter v8 Formal attempt](evidence/rm2-formal-v8-attempt-2026-07-22.json).
 Partial data from this attempt must not be reused.
 
+Adapter v9 separates the required fallback mutation from auxiliary verification.
+`ROOK_SHELL_FALLBACK_EXHAUSTED` remains a fail-closed Adapter error only when
+the required mutation did not complete. If the output was written and only an
+auxiliary check is inconclusive, the Agent reports
+`ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE`; Normalizer v3 preserves that audit
+diagnostic while allowing the deterministic evaluator to decide the workspace
+result. The system prompt is v15. This remediation has only offline evidence;
+see [Adapter v9 post-write remediation](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json).
+A new v9 two-call readiness smoke requires separate authorization.
+
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
 72-call Formal immutable report may populate final resume success, Token, and
