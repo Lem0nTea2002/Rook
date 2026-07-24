@@ -34,10 +34,11 @@ Each invocation creates a new `run-<id>` directory. It never writes a Skill into
 4. Verify that gate decisions remain inactive before explicit human approval.
 5. Approve and deploy v1 independently to both targets.
 6. Approve and replace it with v2.
-7. Roll both targets back through the transactional release path to the previously approved v1.
-8. Verify Registry pointers, Rook discovery, Codex `SKILL.md`, reports, and content hashes agree.
+7. Modify the Rook-managed Codex `SKILL.md`, verify it becomes `drifted`, then restore the exact managed bytes and verify it becomes `active`.
+8. Roll both targets back through the transactional release path to the previously approved v1.
+9. Verify Registry pointers, Rook discovery, Codex `SKILL.md`, reports, and content hashes agree.
 
-对应中文：保存两个不可变 Candidate 版本；对 Fake Rook/Fake Codex 执行四类隔离配对考试；生成 ScoreCard 和门禁结果；证明门禁通过不会自动上线；分别审批并部署 v1、v2；最后通过事务发布路径把两个目标回滚到已审批的 v1，并核对 Registry、运行时发现、Codex 文件、报告与哈希一致。
+对应中文：保存两个不可变 Candidate 版本；对 Fake Rook/Fake Codex 执行四类隔离配对考试；生成 ScoreCard 和门禁结果；证明门禁通过不会自动上线；分别审批并部署 v1、v2；手工修改受管 Codex Skill 并验证 `drifted`，恢复原始字节后重新变为 `active`；最后通过事务发布路径把两个目标回滚到已审批的 v1，并核对 Registry、运行时发现、Codex 文件、报告与哈希一致。
 
 ## Artifacts / 产物
 
@@ -58,3 +59,8 @@ Each invocation creates a new `run-<id>` directory. It never writes a Skill into
 This demo proves orchestration, policy, approval, deployment, drift-safe ownership, and rollback behavior. It does **not** prove that a real model improves on real tasks. Only separately authorized live Calibration/Pilot/Formal reports can support model-effect claims.
 
 本演示证明编排、门禁、审批、部署、所有权保护和回滚链路正确，但**不能**证明真实模型在真实任务上获得提升。模型效果只能由另行授权的 Calibration/Pilot/Formal 报告支持。
+
+A redacted record from an actual local execution is checked in as
+[`forge-lifecycle-2026-07-24.json`](evidence/forge-lifecycle-2026-07-24.json).
+It contains real immutable approval/release IDs and artifact hashes while
+retaining the explicit Fake-Agent claim boundary.
