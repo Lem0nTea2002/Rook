@@ -85,12 +85,12 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- v0.2.2 发布前质量门禁：`485 passed, 5 skipped`，覆盖率 `85.10%`。
-- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1746 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1747 passed, 6 skipped`。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
+- 当前质量门禁：`492 passed, 5 skipped`，覆盖率 `85.12%`。
+- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1753 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1754 passed, 6 skipped`。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - `rook-agent 0.2.2` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/漂移检测/回滚全链路通过。
 - v0.2.2 wheel SHA-256 为 `4aa5cf99301a5a96cd656dfd228569f0cb471d3e8457cd9fd630f46cc66fdf19`；sdist SHA-256 为 `c01a5bc176d3f876ddf2aa39265e25517b0a46b1922a22833265bebaef04c7f3`。
-- GitHub Actions PR #8 全绿：Ubuntu Python 3.11/3.12 各 `1746 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1747 passed, 6 skipped`；Quality 为 `485 passed, 5 skipped`、85.10% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
+- GitHub Actions [run 30081163723](https://github.com/ZHUMUJUN/Rook/actions/runs/30081163723) 全绿：Ubuntu Python 3.11/3.12 各 `1753 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1754 passed, 6 skipped`；Quality 为 `492 passed, 5 skipped`、85.12% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。

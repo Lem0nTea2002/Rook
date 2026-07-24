@@ -74,7 +74,7 @@ and release IDs plus artifact hashes.
 | Evidence | Result | Boundary |
 | --- | --- | --- |
 | Release | [v0.2.2](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.2), wheel + sdist, five required CI jobs green | Published and fresh-install verified |
-| Cross-platform CI | Ubuntu: 1746 passed / 7 skipped; Windows: 1747 passed / 6 skipped; Python 3.11/3.12 | Offline; no Codex process or model cost |
+| Cross-platform CI | Ubuntu: 1753 passed / 7 skipped; Windows: 1754 passed / 6 skipped; Python 3.11/3.12 | Offline; no Codex process or model cost |
 | Adapter v9 readiness | 2/2 terminal calls; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
 | Real-repository holdouts | 2 Skills, 2 public repositories, 4 Direct/Regression/Adversarial cases | Staged and quarantined; no live model claim |

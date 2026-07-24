@@ -203,7 +203,7 @@ SLIDES = (
                 "Evidence boundary",
                 (
                     "v9 readiness: 2/2, infra exclusions 0",
-                    "Linux 1746 / Windows 1747 passed",
+                    "Linux 1753 / Windows 1754 passed",
                     "72-call Formal: not measured",
                 ),
             ),

@@ -116,7 +116,7 @@ Codex 只部署到当前仓库 `.agents/skills/<name>`，并写入所有权 mani
 
 | 证据 | 结果 | 可以证明什么 |
 | --- | --- | --- |
-| 跨平台离线 CI | Linux 1746 passed / 7 skipped；Windows 1747 passed / 6 skipped | 工程基线与安全路径可重复 |
+| 跨平台离线 CI | Linux 1753 passed / 7 skipped；Windows 1754 passed / 6 skipped | 工程基线与安全路径可重复 |
 | 24-call Pilot | 12/12 可比配对；Baseline 25%，Forced 100%；时延 -22.7%；Token -12.9% | 真实模型上观测到正向 Pilot 信号 |
 | Adapter v9 readiness | 2/2 终态；轨迹 100%；基础设施排除 0 | 当前 Adapter 执行边界就绪 |
 | 本地治理 dogfood | 审批、双目标部署、漂移检测、恢复、双回滚 | 控制面确实执行了真实事务 |
