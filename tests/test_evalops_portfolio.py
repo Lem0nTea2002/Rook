@@ -79,7 +79,7 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
     assert evidence["authorization"]["formal_authorized"] is False
     assert "prompt" not in json.dumps(evidence).casefold()
     assert "pipx install rook-agent" not in english_readme + chinese_readme
-    assert "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1" in english_readme
+    assert "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.2" in english_readme
 
 
 def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tmp_path: Path) -> None:
