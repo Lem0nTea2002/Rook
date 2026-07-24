@@ -129,7 +129,7 @@ rook eval demo
 推荐用 `pipx` 安装已打标签的 GitHub release：
 
 ```sh
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1"
+pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.2"
 ```
 
 也可以从本地克隆目录安装：

@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-24
+
 ### Fixed
 
 - Native Windows Codex workspaces now use slash-normalized `-C` arguments so
@@ -122,6 +124,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ZHUMUJUN/Rook/tree/v0.2.0

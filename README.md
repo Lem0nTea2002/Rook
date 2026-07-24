@@ -187,7 +187,7 @@ Detailed subsystem design lives in the docs, not in this README.
 Install the tagged GitHub release with `pipx`:
 
 ```sh
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.1"
+pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.2"
 ```
 
 Or install from a local clone:
