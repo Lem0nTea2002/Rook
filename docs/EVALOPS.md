@@ -440,7 +440,28 @@ auxiliary check is inconclusive, the Agent reports
 diagnostic while allowing the deterministic evaluator to decide the workspace
 result. The system prompt is v15. This remediation has only offline evidence;
 see [Adapter v9 post-write remediation](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json).
-A new v9 two-call readiness smoke requires separate authorization.
+A new v9 two-call readiness smoke requires separate authorization. It uses the
+single-case `post-write-smoke.toml` manifest so both arms exercise the exact
+`holdout-application` boundary that stopped the v8 Formal run:
+
+```powershell
+rook eval run `
+  --skill-path <printed-candidate-version-directory> `
+  --suite evals\suites\release-manifest-v2\post-write-smoke.toml `
+  --agents codex `
+  --model gpt-5.4-mini `
+  --families content `
+  --phase full `
+  --repetitions 1 `
+  --measurement-only `
+  --allow-external `
+  --allow-costs `
+  --inherit-proxy
+```
+
+This schedules exactly one Baseline/Forced pair. Passing readiness requires two
+terminal traces, complete deterministic evaluations, and zero infrastructure
+exclusions; the one pair remains ineligible as a Formal effect estimate.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
