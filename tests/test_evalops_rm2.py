@@ -14,6 +14,7 @@ from rook_agent.evalops.evaluators import EvaluatorFactory
 from rook_agent.evalops.models import (
     CaseCategory,
     EvaluationStatus,
+    NetworkPolicy,
     NormalizedTrace,
     TreatmentFamily,
 )
@@ -284,6 +285,20 @@ def test_windows_path_smoke_is_candidate_locked_and_exactly_one_pair() -> None:
     assert len(smoke.cases) == 1
     assert smoke.cases[0].id == "holdout-catalog-windows-path-smoke"
     assert smoke.cases[0].timeout_seconds == 180
+
+
+def test_post_write_smoke_is_candidate_locked_and_targets_failed_formal_case() -> None:
+    smoke = load_eval_suite(_SUITE_ROOT / "post-write-smoke.toml")
+
+    assert smoke.id == "release-manifest-v2-post-write-smoke-v1"
+    assert smoke.candidate_content_hash == _CANDIDATE_CONTENT_HASH
+    assert len(smoke.cases) == 1
+    assert smoke.cases[0].id == "holdout-application-post-write-smoke"
+    assert smoke.cases[0].timeout_seconds == 180
+    assert smoke.cases[0].network_policy == NetworkPolicy.DISABLED
+    assert smoke.cases[0].evaluator.options["command"][-1] == (
+        "--case=holdout-application"
+    )
 
 
 def test_positive_holdout_tasks_define_repository_root_output() -> None:
