@@ -14,10 +14,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 分支：`agent/portfolio-story`
+- 分支：`main`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
-- Rook Forge v0.2.2 已发布，当前 `main` 基线提交为 `94e866a`。
-- 当前改动：Adapter v9 readiness 已在之前失败的 application case 上恰好完成 2/2 次真实调用，轨迹完整度 100%、基础设施排除 0，readiness 通过；单配对自动门禁按样本阈值保持 `quarantined`，没有伪装成 Formal。新增两个不同类型的真实仓库 Skill holdout，并实际执行一次本地审批、双目标部署、漂移检测、恢复和双目标回滚。
+- Rook Forge v0.2.2 已发布；Adapter v9 suite 基线为 `94e866a`，作品集与证据 PR #9 合并提交为 `8e56e14`。
+- 当前状态：Adapter v9 readiness 已在之前失败的 application case 上恰好完成 2/2 次真实调用，轨迹完整度 100%、基础设施排除 0，readiness 通过；单配对自动门禁按样本阈值保持 `quarantined`，没有伪装成 Formal。新增两个不同类型的真实仓库 Skill holdout，并实际执行一次本地审批、双目标部署、漂移检测、恢复和双目标回滚。
 
 ## 已完成功能
 
@@ -90,7 +90,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - `rook-agent 0.2.2` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/漂移检测/回滚全链路通过。
 - v0.2.2 wheel SHA-256 为 `4aa5cf99301a5a96cd656dfd228569f0cb471d3e8457cd9fd630f46cc66fdf19`；sdist SHA-256 为 `c01a5bc176d3f876ddf2aa39265e25517b0a46b1922a22833265bebaef04c7f3`。
-- GitHub Actions [run 30081163723](https://github.com/ZHUMUJUN/Rook/actions/runs/30081163723) 全绿：Ubuntu Python 3.11/3.12 各 `1753 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1754 passed, 6 skipped`；Quality 为 `492 passed, 5 skipped`、85.12% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
+- GitHub Actions [run 30081525920](https://github.com/ZHUMUJUN/Rook/actions/runs/30081525920) 全绿：Ubuntu Python 3.11/3.12 各 `1753 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1754 passed, 6 skipped`；Quality 为 `492 passed, 5 skipped`、85.12% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
