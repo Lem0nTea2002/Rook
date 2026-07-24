@@ -47,6 +47,10 @@ _PROXY_ENV_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy", "no_proxy
 _PROXY_ENDPOINT_KEYS = frozenset({"all_proxy", "http_proxy", "https_proxy"})
 _PROXY_SCHEMES = frozenset({"http", "https", "socks5", "socks5h"})
 _WORKSPACE_PROCESS_NONCE = uuid.uuid4().hex[:12]
+_ADAPTER_VERSIONS = {
+    AgentType.ROOK: "rook-evalops-v1",
+    AgentType.CODEX: "codex-evalops-v9",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -617,7 +621,7 @@ def _target_for(
         executable=capabilities.executable_path or agent_type.value,
         version=capabilities.version or "unavailable",
         model=target_model,
-        adapter_version="evalops-v1",
+        adapter_version=_ADAPTER_VERSIONS[agent_type],
     )
 
 

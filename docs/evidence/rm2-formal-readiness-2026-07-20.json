@@ -1,0 +1,81 @@
+{
+  "artifact_kind": "redacted_formal_readiness_incident",
+  "authorization": {
+    "allowed_calls": 72,
+    "calls_started": 18,
+    "external_calls": true,
+    "force_cancelled_before_process_artifact": 1,
+    "model_costs_acknowledged": true,
+    "terminal_process_artifacts": 17,
+    "usd_cost_observed": false
+  },
+  "candidate": {
+    "changed_during_remediation": false,
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "name": "release-manifest-v2-normalizer",
+    "version": 1
+  },
+  "formal_attempt": {
+    "formal_result": false,
+    "reason_code": "formal_protocol_invalidated",
+    "resume_eligible": false,
+    "status": "aborted"
+  },
+  "observations": [
+    {
+      "reason_code": "windows_workdir_escape",
+      "summary": "A native backslash CWD argument containing a backslash-b sequence was interpreted as a control character by the Windows sandbox boundary."
+    },
+    {
+      "reason_code": "ambiguous_output_location",
+      "summary": "Positive holdout tasks did not explicitly require the validated output at repository root."
+    },
+    {
+      "reason_code": "windows_sandbox_workdir_drift",
+      "summary": "The Codex Windows sandbox intermittently launched a tool from a drifted work directory and emitted CreateProcessAsUserW error 267."
+    },
+    {
+      "reason_code": "recovered_stream_error_misclassified",
+      "summary": "A bounded reconnect event followed by a successful terminal event was previously classified as infrastructure failure."
+    }
+  ],
+  "provenance": {
+    "adapter_version_after_remediation": "codex-evalops-v4",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_after_remediation": "codex-cli 0.144.6",
+    "codex_cli_at_start": "codex-cli 0.144.1",
+    "formal_policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "formal_suite_fingerprint_after_remediation": "8f7f181e6803a6a606e78d963c185c72",
+    "formal_suite_version_after_remediation": "5",
+    "model": "gpt-5.4-mini",
+    "recorded_at": "2026-07-20",
+    "repository_base_commit": "363e9bc80009aa8845719d863202ccf3edc535a8",
+    "smoke_policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "smoke_suite_fingerprint_after_remediation": "d00abb6eddaa7a96cb359d686ed618de"
+  },
+  "remediation": {
+    "formal_timeout_seconds": 180,
+    "generic_stream_errors_fail_closed": true,
+    "recovered_reconnect_requires_successful_terminal": true,
+    "root_output_contract_explicit": true,
+    "windows_cwd_uses_forward_slashes": true,
+    "windows_sandbox_markers_fail_closed": true
+  },
+  "remaining_gate": {
+    "formal_authorization_required_again": true,
+    "formal_calls": 72,
+    "live_v4_smoke_calls": 2,
+    "live_v4_smoke_required_first": true
+  },
+  "validation": {
+    "mypy": "passed",
+    "offline_replay": {
+      "diagnostic": "codex_stream_error",
+      "status": "passed",
+      "trace_complete": true,
+      "windows_sandbox_failure": false
+    },
+    "ruff": "passed",
+    "targeted_tests": 133
+  }
+}

@@ -35,6 +35,40 @@ def _fixture_events(name: str) -> tuple[dict[str, object], ...]:
     )
 
 
+def _command_events(
+    item_id: str,
+    command: str,
+    *,
+    status: str,
+    output: str,
+    exit_code: int,
+) -> tuple[dict[str, object], dict[str, object]]:
+    return (
+        {
+            "type": "item.started",
+            "item": {
+                "id": item_id,
+                "type": "command_execution",
+                "command": command,
+                "status": "in_progress",
+                "aggregated_output": "",
+                "exit_code": None,
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": item_id,
+                "type": "command_execution",
+                "command": command,
+                "status": status,
+                "aggregated_output": output,
+                "exit_code": exit_code,
+            },
+        },
+    )
+
+
 def test_codex_normalizer_maps_success_fixture_in_raw_order() -> None:
     raw_events = _fixture_events("success.jsonl")
 
@@ -56,6 +90,7 @@ def test_codex_normalizer_maps_success_fixture_in_raw_order() -> None:
             plain_data(raw_events[event.raw_offset]), length=32
         )
     assert trace.trace_complete is True
+    assert trace.normalizer_version == "codex-exec-jsonl-v3"
     assert trace.final_answer == "All tests pass."
     assert trace.usage.input_tokens == 100
     assert trace.usage.cached_input_tokens == 20
@@ -79,6 +114,207 @@ def test_codex_normalizer_maps_command_execution() -> None:
     assert command.exit_code == 0
     assert command.data["exit_code"] == 0
     assert command.data["status"] == "completed"
+
+
+def test_codex_normalizer_audits_bounded_restricted_shell_recovery() -> None:
+    events = (
+        {"type": "thread.started", "thread_id": "thread-shell-recovery"},
+        {"type": "turn.started"},
+        *_command_events(
+            "item-1",
+            "pwsh -Command first",
+            status="failed",
+            output=(
+                "Cannot dot-source this command because it was defined in a "
+                "different language mode."
+            ),
+            exit_code=1,
+        ),
+        *_command_events(
+            "item-2",
+            "pwsh -Command second",
+            status="failed",
+            output=(
+                "Method invocation is supported only on core types in this "
+                "language mode."
+            ),
+            exit_code=1,
+        ),
+        *_command_events(
+            "item-3",
+            "cmd /d /s /c echo recovered",
+            status="completed",
+            output="recovered",
+            exit_code=0,
+        ),
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-final",
+                "type": "agent_message",
+                "text": "Recovered and completed.",
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 10,
+                "cached_input_tokens": 0,
+                "output_tokens": 5,
+            },
+        },
+    )
+
+    trace = CodexTraceNormalizer().normalize(events, target=_target())
+
+    assert trace.trace_complete is True
+    assert "codex_restricted_shell_failure_limit_reached" in trace.diagnostics
+    assert "codex_restricted_shell_recovered" in trace.diagnostics
+    completed = [event for event in trace.events if event.type == "tool_completed"]
+    assert completed[0].data["consecutive_restricted_shell_failures"] == 1
+    assert completed[1].data["consecutive_restricted_shell_failures"] == 2
+    assert completed[1].data["shell_recovery_required"] is True
+    assert completed[2].data["shell_recovery_succeeded"] is True
+
+
+def test_codex_normalizer_replays_live_multiline_fallback_exhaustion_shape() -> None:
+    events = (
+        {"type": "thread.started", "thread_id": "thread-live-fallback-shape"},
+        {"type": "turn.started"},
+        *_command_events(
+            "item-1",
+            "pwsh -Command write-output",
+            status="failed",
+            output=(
+                "Cannot create type. Only core types are supported in this "
+                "language mode."
+            ),
+            exit_code=1,
+        ),
+        *_command_events(
+            "item-2",
+            r'py -c "data = {};\nfor line in lines: data[line] = True"',
+            status="failed",
+            output=(
+                "SyntaxError: unexpected character after line continuation "
+                "character"
+            ),
+            exit_code=1,
+        ),
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-final",
+                "type": "agent_message",
+                "text": (
+                    "ROOK_SHELL_FALLBACK_EXHAUSTED: direct py invocation failed "
+                    "because multiline source was passed through command quoting"
+                ),
+            },
+        },
+        {
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 10,
+                "cached_input_tokens": 0,
+                "output_tokens": 5,
+            },
+        },
+    )
+
+    trace = CodexTraceNormalizer().normalize(events, target=_target())
+
+    assert trace.trace_complete is True
+    assert trace.final_answer is not None
+    assert trace.final_answer.startswith("ROOK_SHELL_FALLBACK_EXHAUSTED:")
+    assert "codex_shell_fallback_exhausted" in trace.diagnostics
+    completed = [event for event in trace.events if event.type == "tool_completed"]
+    assert len(completed) == 2
+    assert all(event.ok is False for event in completed)
+    assert completed[0].data["consecutive_restricted_shell_failures"] == 1
+
+
+def test_codex_normalizer_resets_restricted_shell_counter_after_success() -> None:
+    events = (
+        {"type": "thread.started", "thread_id": "thread-shell-reset"},
+        {"type": "turn.started"},
+        *_command_events(
+            "item-1",
+            "pwsh -Command first",
+            status="failed",
+            output=(
+                "Cannot dot-source this command because it was defined in a "
+                "different language mode."
+            ),
+            exit_code=1,
+        ),
+        *_command_events(
+            "item-2",
+            "cmd /d /s /c echo ok",
+            status="completed",
+            output="ok",
+            exit_code=0,
+        ),
+        *_command_events(
+            "item-3",
+            "pwsh -Command third",
+            status="failed",
+            output=(
+                "Method invocation is supported only on core types in this "
+                "language mode."
+            ),
+            exit_code=1,
+        ),
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-final",
+                "type": "agent_message",
+                "text": "Completed.",
+            },
+        },
+        {"type": "turn.completed"},
+    )
+
+    trace = CodexTraceNormalizer().normalize(events, target=_target())
+
+    assert "codex_restricted_shell_failure_limit_reached" not in trace.diagnostics
+
+
+def test_codex_normalizer_recognizes_explicit_shell_fallback_exhaustion() -> None:
+    events = list(_fixture_events("success.jsonl"))
+    for event in events:
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_SHELL_FALLBACK_EXHAUSTED: direct executable unavailable"
+            )
+
+    trace = CodexTraceNormalizer().normalize(tuple(events), target=_target())
+
+    assert trace.trace_complete is True
+    assert "codex_shell_fallback_exhausted" in trace.diagnostics
+
+
+def test_codex_normalizer_distinguishes_post_write_verification_inconclusive() -> None:
+    events = list(_fixture_events("success.jsonl"))
+    for event in events:
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: release.json was "
+                "written before an auxiliary assertion failed"
+            )
+
+    trace = CodexTraceNormalizer().normalize(tuple(events), target=_target())
+
+    assert trace.trace_complete is True
+    assert "codex_post_write_verification_inconclusive" in trace.diagnostics
+    assert "codex_shell_fallback_exhausted" not in trace.diagnostics
 
 
 def test_codex_normalizer_maps_file_change_without_inventing_a_request() -> None:

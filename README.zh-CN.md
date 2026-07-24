@@ -53,7 +53,13 @@ flowchart LR
 
 版本化证据协议包含 12-case 开发/Pilot suite，以及完全不重叠、覆盖服务目录、应用、包、部署、运维和 ML 服务仓库形态的 12-case sealed Formal holdout。Formal manifest 锁定 Candidate content hash；Candidate 一旦变化，会在任何模型调用前失败。Fake Agent 控制实验只证明控制面正确。
 
-修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是尚待授权的 72-call Formal 简历结论。
+修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是最终 72-call Formal 简历结论。
+
+第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。随后 2-call v4 smoke 正确隔离了两个不完整的 WebSocket turn。单独获授权的 Adapter v5 smoke 恰好完成 2/2 次 HTTP/SSE 调用：两臂各有一个终态事件，重连和传输回退均为 0，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。自动门禁仍为 quarantined 仅因为单配对 smoke 未达到策略样本门槛；它只证明就绪，不是 Formal 指标。之后获授权的 72-call Formal 在一个 Forced-Skill 实验臂达到 180 秒且没有终态轨迹后按 fail-closed 停止：共启动 32 次、形成 31 个进程制品，40 次未启动；HTTP-only 重连/回退、顶层流错误、沙箱失败和 Web Search 均为 0。该轮没有生成不可变 ScoreCard 或 Formal 简历指标。
+
+随后单独获授权的 Adapter v6 2-call smoke 在两臂都产生终态 turn 和稳定的 `ROOK_SHELL_FALLBACK_EXHAUSTED`，没有复现 180 秒静默超时，证明有界停止生效；但 readiness 仍未通过。Baseline 的模型工具参数把 Windows 路径中的 `\b` 编码成退格，触发 `CreateProcessAsUserW` 错误 267；Forced Skill 从受限 PowerShell 切到 `py -c` 后，又把转义换行作为字面量传入而语法失败。两臂均被基础设施排除，因此没有 Skill 效果或 Formal 指标。
+
+Adapter v7 进一步禁止模型覆盖工具 `cwd`，要求只使用正斜杠相对路径，并把直接 `py -c` 恢复限制为单物理行；error 267 + 转义 cwd 也有了独立错误码。随后单独获授权的 v7 readiness smoke 恰好完成 2/2 次调用：两臂都有终态轨迹，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。之后的 Formal 在启动 30 次调用后按 fail-closed 停止（29 个进程制品、28 个 evaluated-run 记录、42 次未启动）。其中一个 180 秒子进程跨越了主机系统空闲睡眠并在恢复后才被终止，另外三次运行耗尽了有界 Shell fallback。该轮没有形成 ExperimentRecord、ScoreCard、PromotionDecision 或 Formal 简历指标，partial 结果不会复用。Adapter v8 现在会在 Windows EvalOps 子进程运行期间阻止系统空闲睡眠，并把超出截止时间的异常归类为基础设施失败。随后单独获授权的 v8 smoke 恰好完成 2/2 次调用：终态轨迹 2/2、轨迹完整度 100%，基础设施排除和超期标记均为 0；Baseline 错误，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止：12 次形成完整终态制品，1 次在途调用被停止，59 次未启动。一个 Forced arm 写入目标后因辅助验证断言失败而返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`，零排除 Formal 合同已不可满足；没有生成 ScoreCard 或 Formal 简历指标。Adapter v9 现已在离线环境中把 fallback 必需写入与辅助验证分离：真正写入失败仍 fail closed，已完成写入但后续验证不确定时交给隐藏确定性 evaluator 判定。v9 尚未运行真实调用，下一步必须单独授权恰好 2 次 readiness smoke。
 
 用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
 
@@ -68,6 +74,19 @@ rook eval demo
 - [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
 - [Dogfooding 与事故记录](docs/DOGFOODING.md)
 - [脱敏 Pilot 证据](docs/evidence/rm2-pilot-summary.json)
+- [Formal 就绪事故记录](docs/evidence/rm2-formal-readiness-2026-07-20.json)
+- [Adapter v4 smoke 失败证据](docs/evidence/rm2-v4-smoke-2026-07-21.json)
+- [Adapter v5 HTTP-only smoke 通过证据](docs/evidence/rm2-v5-smoke-2026-07-22.json)
+- [Adapter v5 Formal 中止证据](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
+- [Adapter v6 受限 Shell 修复证据](docs/evidence/rm2-formal-v5-shell-remediation-2026-07-22.json)
+- [Adapter v6 有界恢复 smoke 证据](docs/evidence/rm2-v6-smoke-2026-07-22.json)
+- [Adapter v7 离线后续修复证据](docs/evidence/rm2-v6-smoke-remediation-2026-07-22.json)
+- [Adapter v7 readiness smoke 通过证据](docs/evidence/rm2-v7-smoke-2026-07-22.json)
+- [Adapter v7 Formal 中止证据](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
+- [Adapter v8 主机睡眠修复证据](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
+- [Adapter v8 readiness smoke 通过证据](docs/evidence/rm2-v8-smoke-2026-07-22.json)
+- [Adapter v8 Formal 中止证据](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
+- [Adapter v9 写入后验证边界修复](docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)
 
 ## 为什么做 Rook
 

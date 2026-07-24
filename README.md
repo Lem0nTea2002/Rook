@@ -63,7 +63,61 @@ completed 24/24 calls with 12 comparable pairs, zero infrastructure exclusions,
 Forced Skill 100% (+75pp), 22.7% lower median latency, and 12.9% lower median
 Token use. The immutable run accidentally used the Formal sample threshold and
 was quarantined; the dedicated Pilot policy now fixes that boundary. These are
-Pilot measurements, not the pending 72-call Formal resume result.
+Pilot measurements, not a final 72-call Formal resume result.
+
+The first authorized Formal attempt was stopped after its evidence protocol
+exposed Windows work-directory, task-contract, and recovered-stream
+classification defects. Eighteen calls were started across the aborted attempt
+and bounded diagnostics; no Formal metric was produced. The frozen Candidate
+did not change. A 2-call v4 smoke then isolated two incomplete WebSocket turns.
+The separately authorized Adapter v5 smoke completed exactly 2/2 HTTP/SSE calls
+with one terminal event per arm, zero reconnect/fallback events, 100% trace
+completeness, and zero infrastructure exclusions. Baseline produced the wrong
+result while Forced Skill passed. Its automatic decision remains quarantined
+only because a one-pair smoke is below the policy sample threshold; it is
+readiness evidence, not a Formal metric. A 72-call Formal rerun still requires
+separate authorization. That authorization was later granted, but the run was
+stopped fail-closed after a Forced-Skill arm timed out at 180 seconds without a
+terminal trace. By then 32 calls had started, 31 process artifacts existed, and
+40 calls had not started. HTTP-only transport remained clean: reconnect,
+fallback, top-level stream error, sandbox-failure, and Web Search counts were
+all zero. No immutable ScoreCard or Formal resume metric was produced.
+The failed trace was then replayed offline: after two restricted PowerShell
+failures the Agent still retried shell variants and probes, finding a working
+launcher too late. Adapter v6 now defines a two-failure prompt boundary, one
+direct fallback attempt, explicit exhaustion feedback, and Normalizer v2 audit
+codes. A separately authorized two-call v6 smoke then reached a terminal turn
+and emitted the stable exhaustion marker in both arms instead of repeating the
+180-second silent timeout. It still failed readiness: a model-supplied Windows
+path encoded `\b` as a backspace in Baseline, while the Forced arm's direct
+`py -c` fallback passed escaped newlines literally. Both runs were excluded, so
+no Skill-effect or Formal metric was produced.
+Adapter v7 now forbids tool-level `cwd` overrides, requires forward-slash
+relative paths, constrains direct `py -c` recovery to one physical line, and
+classifies escaped-cwd error 267 separately. A separately authorized v7
+readiness smoke then completed exactly 2/2 calls with terminal traces, 100%
+trace completeness, and zero infrastructure exclusions; Baseline was wrong and
+Forced Skill passed. The following Formal run was stopped fail-closed after 30
+calls started (29 process artifacts, 28 evaluated-run records, 42 not started).
+One 180-second subprocess crossed a host idle-sleep interval and was terminated
+after resume, while three other runs exhausted the bounded shell fallback. No
+experiment record, ScoreCard, promotion decision, or Formal resume metric was
+produced, and partial results will not be reused. Adapter v8 now inhibits
+Windows system-idle sleep while EvalOps subprocesses run and classifies a
+deadline overrun as infrastructure failure. A separately authorized v8 smoke
+then completed exactly 2/2 calls with terminal traces, 100% trace completeness,
+and zero infrastructure exclusions or timeout-overrun markers; Baseline was
+wrong and Forced Skill passed. Its one pair is readiness evidence only. A fresh
+72-call Formal was then authorized but stopped fail-closed after 13 calls
+started: 12 produced complete terminal artifacts, one in-flight call was
+stopped, and 59 were not started. A Forced arm emitted
+`ROOK_SHELL_FALLBACK_EXHAUSTED` after writing the target and failing an auxiliary
+verification assertion, so the zero-exclusion Formal contract was no longer
+attainable. No ScoreCard or Formal resume metric was produced. Adapter v9 now
+separates the fallback mutation from auxiliary verification and lets a hidden
+deterministic evaluator decide a completed write whose later check is
+inconclusive. The v9 change is offline-verified only and requires a separately
+authorized 2-call readiness smoke.
 
 Run the complete zero-cost lifecycle from Candidate creation through dual-target rollback with one command:
 
@@ -78,6 +132,19 @@ The command uses deterministic Fake Agents only and writes its isolated Registry
 - [Portfolio evidence and claim boundary](docs/PORTFOLIO_EVIDENCE.md)
 - [Dogfooding and incident ledger](docs/DOGFOODING.md)
 - [Redacted Pilot evidence](docs/evidence/rm2-pilot-summary.json)
+- [Formal readiness incident](docs/evidence/rm2-formal-readiness-2026-07-20.json)
+- [Failed Adapter v4 smoke](docs/evidence/rm2-v4-smoke-2026-07-21.json)
+- [Passed Adapter v5 HTTP-only smoke](docs/evidence/rm2-v5-smoke-2026-07-22.json)
+- [Aborted Adapter v5 Formal attempt](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
+- [Adapter v6 bounded-recovery smoke](docs/evidence/rm2-v6-smoke-2026-07-22.json)
+- [Adapter v7 offline follow-up](docs/evidence/rm2-v6-smoke-remediation-2026-07-22.json)
+- [Adapter v6 restricted-shell remediation](docs/evidence/rm2-formal-v5-shell-remediation-2026-07-22.json)
+- [Passed Adapter v7 readiness smoke](docs/evidence/rm2-v7-smoke-2026-07-22.json)
+- [Aborted Adapter v7 Formal attempt](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
+- [Adapter v8 host-sleep remediation](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
+- [Passed Adapter v8 readiness smoke](docs/evidence/rm2-v8-smoke-2026-07-22.json)
+- [Aborted Adapter v8 Formal attempt](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
+- [Adapter v9 post-write remediation](docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)
 
 ## Why Rook
 

@@ -121,6 +121,93 @@ def test_process_runner_reports_timeout(tmp_path: Path) -> None:
     assert time.monotonic() - started < 5
 
 
+def test_process_runner_holds_sleep_inhibitor_for_process_lifetime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeSleepInhibitor:
+        def close(self) -> str | None:
+            events.append("close")
+            return None
+
+    def acquire() -> FakeSleepInhibitor:
+        events.append("acquire")
+        return FakeSleepInhibitor()
+
+    monkeypatch.setattr(
+        process_module,
+        "_acquire_sleep_inhibitor",
+        acquire,
+        raising=False,
+    )
+
+    result = ProcessRunner().run(_request(tmp_path, "print('done')"))
+
+    assert result.status is ProcessStatus.SUCCEEDED
+    assert events == ["acquire", "close"]
+
+
+def test_process_runner_fails_closed_when_sleep_inhibitor_cannot_start(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_acquire() -> None:
+        raise OSError("sleep inhibition unavailable")
+
+    monkeypatch.setattr(
+        process_module,
+        "_acquire_sleep_inhibitor",
+        fail_acquire,
+        raising=False,
+    )
+
+    result = ProcessRunner().run(_request(tmp_path, "raise SystemExit('must not run')"))
+
+    assert result.status is ProcessStatus.SPAWN_ERROR
+    assert result.exit_code is None
+    assert result.error_message == "process sleep inhibition failed: OSError"
+
+
+def test_process_runner_surfaces_sleep_inhibitor_restore_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailedRestoreSleepInhibitor:
+        def close(self) -> str:
+            return "sleep_inhibitor_restore_failed"
+
+    monkeypatch.setattr(
+        process_module,
+        "_acquire_sleep_inhibitor",
+        lambda: FailedRestoreSleepInhibitor(),
+    )
+
+    result = ProcessRunner().run(_request(tmp_path, "print('done')"))
+
+    assert result.status is ProcessStatus.FAILED
+    assert result.cleanup_error == "sleep_inhibitor_restore_failed"
+    assert result.error_message == "process cleanup failed"
+
+
+def test_timeout_deadline_overrun_diagnostic_distinguishes_host_stall() -> None:
+    assert (
+        process_module._timeout_overrun_diagnostic(  # type: ignore[attr-defined]
+            timeout_seconds=180,
+            duration_ms=18_983_156,
+        )
+        == "timeout_deadline_overrun"
+    )
+    assert (
+        process_module._timeout_overrun_diagnostic(  # type: ignore[attr-defined]
+            timeout_seconds=180,
+            duration_ms=180_110,
+        )
+        is None
+    )
+
+
 def test_process_runner_keeps_deadline_while_descendant_holds_output_pipes(
     tmp_path: Path,
 ) -> None:

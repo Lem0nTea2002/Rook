@@ -153,6 +153,13 @@ This is required because EvalOps ignores user configuration and must not fall
 back to a read-only or machine-specific Windows backend. Rook never uses the
 dangerous no-sandbox flag for EvalOps.
 
+Rook serializes the Codex `-C` workspace argument with forward slashes on
+Windows while retaining the native `Path` as the outer process CWD. This keeps
+sequences such as `\b` in a generated `baseline` directory from becoming
+control characters at the inner sandbox boundary. Any Windows sandbox setup,
+runner refresh, or `CreateProcessAsUserW` failure in stderr is normalized as a
+fail-closed infrastructure error even when the outer process later exits zero.
+
 For the same Windows subprocess, Rook sets
 `sandbox_workspace_write.exclude_tmpdir_env_var=true`. This prevents Codex
 from granting model-run tools a second writable root for `TEMP`/`TMPDIR`,
@@ -171,6 +178,22 @@ than `apply_patch`. Content-effect runs also work only from task inputs and an
 explicitly named Candidate instead of searching for missing repository
 guidance. Baseline must still finish with a best-effort result, so lack of the
 Candidate is measured as task failure instead of an infrastructure timeout.
+
+Codex can emit a transient JSONL reconnect error before recovering. Rook accepts
+only the exact bounded `Reconnecting... n/m (...)` event when the process exits
+successfully and exactly one `turn.completed` event follows. The diagnostic is
+retained in the trace. Generic stream errors, missing terminal events, Windows
+sandbox markers, and unsuccessful processes remain infrastructure failures.
+
+Codex's built-in ChatGPT provider prefers WebSockets. On networks where that
+transport is blocked, the CLI can consume its full reconnect budget before
+falling back to HTTPS. Adapter v5 therefore defines a controlled provider for
+the same `https://chatgpt.com/backend-api/codex` endpoint, keeps
+`requires_openai_auth=true`, uses the Responses wire API, and sets
+`supports_websockets=false`. Every EvalOps call starts with HTTP/SSE while still
+using the existing ChatGPT login. These exact overrides are passed after
+`--ignore-user-config`, so ambient provider configuration cannot change the
+experiment transport.
 
 Codex EvalOps also disables user plugins and memories. For the content-effect
 pair, Rook sets `skills.include_instructions=false`: Baseline receives no
@@ -266,7 +289,9 @@ holdout with three repetitions. Its case IDs and fixture hashes are disjoint
 from Pilot, and the manifest locks the frozen Candidate content hash. A changed
 Candidate is rejected before any Agent call. Never use `suite.toml` for a
 24-call Pilot: its policy requires 18 capability pairs, which only the 72-call
-Formal plan can supply.
+Formal plan can supply. Suite v5 makes the repository-root output contract
+explicit and gives each Agent arm 180 seconds; these protocol changes produce a
+new suite fingerprint without changing the Candidate.
 
 ```powershell
 rook eval run `
@@ -282,6 +307,140 @@ rook eval run `
   --allow-costs `
   --inherit-proxy
 ```
+
+The first authorized Formal attempt was aborted after the protocol exposed
+Windows CWD serialization, intermittent sandbox work-directory drift, an
+ambiguous output-location contract, and recovered-stream classification bugs.
+Eighteen calls were started across that attempt and its bounded diagnostics;
+17 produced terminal process artifacts and one was force-cancelled before an
+artifact. No immutable Formal result was produced, so none of those values are
+resume evidence. See the redacted
+[Formal readiness incident](evidence/rm2-formal-readiness-2026-07-20.json).
+Suite v5 and Adapter v4 required a fresh 2-call smoke. That smoke completed both
+authorized calls but quarantined the pair as `trace_incomplete`: each arm spent
+four retries before WebSocket-to-HTTPS fallback and then hit the 180-second
+boundary without `turn.completed`. It produced no Formal result. The redacted
+record is [Adapter v4 smoke evidence](evidence/rm2-v4-smoke-2026-07-21.json).
+The separately authorized Adapter v5 smoke then completed exactly two HTTP/SSE
+calls. Both processes exited successfully with one `turn.completed` event,
+zero reconnect or WebSocket-fallback events, 100% trace completeness, and zero
+infrastructure exclusions. Baseline produced `wrong_result`; Forced Skill
+passed. The decision is still `quarantined (insufficient_valid_pairs)` because
+the smoke intentionally supplies only one pair to a policy with a higher sample
+threshold. This is a passed transport/trace readiness gate, not a Formal result.
+See [Adapter v5 smoke evidence](evidence/rm2-v5-smoke-2026-07-22.json). A new
+72-call Formal execution was then separately authorized. Rook stopped it
+fail-closed after `holdout-mobile` repetition 3 Forced Skill reached the
+180-second boundary without `turn.completed`. Thirty-two calls had started, 31
+process artifacts existed, and 40 calls had not started. The 31 process
+artifacts contained zero reconnect, WebSocket fallback, top-level stream error,
+Windows sandbox-failure, or Web Search markers, so this was an Agent constraint
+timeout rather than the earlier transport failure. The strict 100% trace gate
+was no longer attainable, so no partial effect metrics, immutable ScoreCard, or
+promotion decision were produced. See the redacted
+[Adapter v5 Formal attempt](evidence/rm2-formal-v5-attempt-2026-07-22.json).
+Any remediation that changes Adapter, Normalizer, suite, or policy identity
+requires a new readiness smoke and a new explicit Formal authorization.
+
+The timeout trace contained ten completed shell commands, five failures, and no
+terminal turn. The first two failures exposed an outer PowerShell profile
+language-mode conflict, nested quoting damage, and a constrained-language method
+restriction. The Agent then retried shell variants, checked an output that had
+never been created, and spent late attempts probing launchers. It eventually
+found that `py` worked, but too late to execute the requested transformation
+inside the 180-second boundary. This was not `CommandNotFound`, authentication,
+transport, Web Search, or sandbox startup failure.
+
+Adapter v6 adds a shared bounded recovery contract to both Rook and Codex EvalOps:
+after two consecutive restricted PowerShell failures, the Agent must stop trying
+PowerShell variants and make one direct attempt with `cmd.exe /d /s /c`, a direct
+executable such as `py`, or a dedicated non-shell tool. It must use that attempt
+for the task rather than a capability probe. If it fails, the Agent reports
+`ROOK_SHELL_FALLBACK_EXHAUSTED: <short reason>` and stops issuing shell commands.
+Normalizer v2 records threshold, recovery, and exhaustion diagnostics without
+including raw command output in normalized events. A timeout after the threshold
+now reports `codex_restricted_shell_timeout`. The original trace replays into the
+new threshold and recovery diagnostics, but remains incomplete and cannot become
+Formal evidence. See the redacted
+[remediation record](evidence/rm2-formal-v5-shell-remediation-2026-07-22.json).
+
+A separately authorized Adapter v6 smoke then ran exactly one Baseline/Forced
+pair. Both calls exited normally, produced one terminal turn, and emitted the
+stable exhaustion marker in 84.641s and 70.906s, so the prior silent 180-second
+retry failure did not recur. The evaluation readiness gate nevertheless failed:
+Baseline hit `codex_windows_sandbox_error` after a model-supplied path encoded
+`\b` as a backspace, and Forced Skill hit `codex_shell_fallback_exhausted` when
+escaped newlines were passed literally to `py -c`. Both runs were excluded and
+the gate was `quarantined (excess_infrastructure_exclusions)`. See the redacted
+[Adapter v6 smoke record](evidence/rm2-v6-smoke-2026-07-22.json). No further
+live calls or Formal continuation were authorized by that smoke.
+
+Adapter v7 addresses both newly observed shapes without changing the Candidate
+or sealed suite. Its EvalOps prompt prohibits tool-level working-directory
+overrides and requires relative forward-slash paths. Shared Windows recovery
+guidance prohibits multiline or escaped-newline `py -c` source, and the Adapter
+now reports error 267 with an escaped `cwd` as
+`codex_windows_tool_cwd_escape_error`. The live `Cannot create type` message is
+also recognized as a restricted PowerShell failure. See the offline
+[v7 follow-up](evidence/rm2-v6-smoke-remediation-2026-07-22.json).
+
+A separately authorized Adapter v7 readiness smoke then completed exactly one
+Baseline/Forced pair. Both processes exited successfully with a terminal turn,
+100% trace completeness, and zero infrastructure exclusions, reconnect events,
+shell-fallback markers, Web Search events, or Windows sandbox failures. Baseline
+produced `wrong_result`; Forced Skill passed. The one-pair automatic decision was
+correctly `quarantined (insufficient_valid_pairs)`, so the result is readiness
+evidence rather than a Formal effect estimate. See the redacted
+[Adapter v7 smoke record](evidence/rm2-v7-smoke-2026-07-22.json).
+
+The separately authorized v7 Formal attempt was stopped fail-closed after 30
+calls started. It retained 29 process artifacts and 28 evaluated-run records;
+42 calls never started, and no experiment record, ScoreCard, promotion decision,
+or report was written. Windows Event Log shows that the host entered System Idle
+sleep during one 180-second subprocess and corrected the clock forward by
+18,957,278 ms after resume, which closely matches the observed 18,983,156 ms run
+duration. A sleeping host cannot execute the runner's deadline loop. Three other
+runs exhausted the bounded shell fallback, so the strict Formal evidence gate
+was already unattainable. The process tree was stopped, partial results were not
+scored, and they must not be combined with a future run. See the redacted
+[Adapter v7 Formal attempt](evidence/rm2-formal-v7-attempt-2026-07-22.json).
+
+Adapter v8 holds
+`SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)` around each Windows
+EvalOps subprocess, fails closed if the guard cannot be acquired, surfaces guard
+restore failures as cleanup failures, and adds `timeout_deadline_overrun` when a
+timeout exceeds its deadline by more than five seconds. The Codex Adapter maps
+that diagnostic to `codex_timeout_deadline_overrun` as an infrastructure error.
+This remediation is offline-verified only; see the redacted
+[v8 host-sleep remediation](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json).
+Because the Adapter identity changed, v8 required a new explicitly authorized
+2-call readiness smoke. That smoke completed both arms with terminal traces,
+100% trace completeness, zero infrastructure exclusions, and no deadline
+overrun. Baseline produced `wrong_result`; Forced Skill passed. The one-pair
+decision remains `quarantined (insufficient_valid_pairs)` by design and cannot
+serve as a Formal effect estimate. See the redacted
+[Adapter v8 smoke record](evidence/rm2-v8-smoke-2026-07-22.json). A fresh
+72-call Formal was subsequently authorized. Rook stopped it fail-closed after
+13 calls started: 12 produced complete terminal artifacts, one in-flight call
+was stopped before artifact persistence, and 59 calls were not started. The
+failing `holdout-application` Forced arm wrote `release.json`, then an auxiliary
+source-normalization assertion failed and the Agent emitted
+`ROOK_SHELL_FALLBACK_EXHAUSTED`. Adapter v8 correctly classified the run as an
+Adapter error; the deterministic evaluator did not run, and the zero-exclusion
+Formal contract was no longer attainable. No experiment record, ScoreCard,
+promotion decision, or Formal metric was produced. See the redacted
+[Adapter v8 Formal attempt](evidence/rm2-formal-v8-attempt-2026-07-22.json).
+Partial data from this attempt must not be reused.
+
+Adapter v9 separates the required fallback mutation from auxiliary verification.
+`ROOK_SHELL_FALLBACK_EXHAUSTED` remains a fail-closed Adapter error only when
+the required mutation did not complete. If the output was written and only an
+auxiliary check is inconclusive, the Agent reports
+`ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE`; Normalizer v3 preserves that audit
+diagnostic while allowing the deterministic evaluator to decide the workspace
+result. The system prompt is v15. This remediation has only offline evidence;
+see [Adapter v9 post-write remediation](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json).
+A new v9 two-call readiness smoke requires separate authorization.
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the

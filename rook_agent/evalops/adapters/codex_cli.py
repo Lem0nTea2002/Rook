@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import sys
@@ -30,6 +31,8 @@ from rook_agent.evalops.models import (
 )
 from rook_agent.evalops.normalizers.codex import (
     NORMALIZER_VERSION,
+    RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC,
+    SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC,
     CodexTraceNormalizer,
 )
 from rook_agent.evalops.process import (
@@ -39,6 +42,7 @@ from rook_agent.evalops.process import (
     ProcessStatus,
 )
 from rook_agent.evalops.workspace import hash_workspace
+from rook_agent.shell_recovery import WINDOWS_RESTRICTED_SHELL_GUIDANCE
 
 
 _REPARSE_POINT_ATTRIBUTE = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -91,6 +95,24 @@ _AUTH_FAILURE_MARKERS = (
     "not logged in",
     "unauthorized",
 )
+_WINDOWS_SANDBOX_FAILURE_MARKERS = (
+    "windows sandbox: createprocessasuserw failed:",
+    "windows sandbox: runner error:",
+    "windows sandbox: runner failed during",
+    "windows sandbox: setup refresh",
+)
+_WINDOWS_TOOL_CWD_ESCAPE_MARKERS = ("\\u{", "\x08")
+_RECOVERED_RECONNECT = re.compile(
+    r"\AReconnecting\.\.\. [1-9][0-9]*/[1-9][0-9]* \([^\r\n]+\)\Z"
+)
+_HTTP_ONLY_PROVIDER_OVERRIDES = (
+    'model_provider="rook-chatgpt-http"',
+    'model_providers.rook-chatgpt-http.name="Rook ChatGPT HTTP"',
+    'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"',
+    'model_providers.rook-chatgpt-http.wire_api="responses"',
+    "model_providers.rook-chatgpt-http.requires_openai_auth=true",
+    "model_providers.rook-chatgpt-http.supports_websockets=false",
+)
 _BASELINE_ISOLATION_MARKERS = (
     ".agents/skills/",
     ".agents\\skills\\",
@@ -102,11 +124,20 @@ _BASELINE_ISOLATION_MARKERS = (
 _WINDOWS_SHELL_WRITE_GUIDANCE = (
     "Execution constraints for this Windows workspace:\n"
     "- Use shell commands for file changes; do not call apply_patch.\n"
-    "- Finish with a best-effort result within the task time limit.\n"
+    "- Treat the current directory as the complete isolated workspace; do not "
+    "run git or search parent directories.\n"
+    "- Do not set or override the shell tool working directory. It already "
+    "starts in the isolated workspace; use relative paths with forward slashes "
+    "inside tool arguments.\n"
+    + WINDOWS_RESTRICTED_SHELL_GUIDANCE
+    + "- Finish with a best-effort result within the task time limit.\n"
 )
 _CONTENT_EXPERIMENT_GUIDANCE = (
     "- Use only the task inputs and any explicitly named Skill; do not search "
     "for other repository guidance.\n"
+    "- Do not search for conventions or examples beyond files named by the task; "
+    "make a direct best-effort attempt when the task does not supply a rule.\n"
+    "- Stop after creating and verifying the requested output.\n"
 )
 
 
@@ -371,6 +402,18 @@ class CodexCliAdapter:
                 cancelled=token.is_cancelled,
             )
             if (
+                self._platform_name == "win32"
+                and _contains_windows_tool_cwd_escape(sanitized_stderr)
+            ):
+                status = RunStatus.INFRA_ERROR
+                error_code = "codex_windows_tool_cwd_escape_error"
+            elif (
+                self._platform_name == "win32"
+                and _contains_windows_sandbox_failure(sanitized_stderr)
+            ):
+                status = RunStatus.INFRA_ERROR
+                error_code = "codex_windows_sandbox_error"
+            if (
                 prepared.spec.treatment is Treatment.BASELINE
                 and _contains_baseline_isolation_marker(sanitized_events)
             ):
@@ -481,11 +524,7 @@ class CodexCliAdapter:
         latency_ms: int,
         error_code: str | None,
     ) -> AgentRun:
-        error_message = (
-            None
-            if error_code is None
-            else "Codex EvalOps run did not produce an admissible result."
-        )
+        error_message = _error_message(error_code)
         try:
             workspace_result_hash = hash_workspace(prepared.workspace)
         except Exception:
@@ -524,6 +563,12 @@ def _command(
     windows_sandbox: str | None,
     network_policy: NetworkPolicy,
 ) -> tuple[str, ...]:
+    # Codex forwards ``-C`` through its sandbox configuration.  On Windows a
+    # native path segment such as ``\baseline`` can otherwise be decoded as
+    # the JSON escape ``\b`` and turn into an invalid working directory.
+    workspace_argument = (
+        workspace.as_posix() if windows_sandbox is not None else str(workspace)
+    )
     command = [
         executable_path,
         "exec",
@@ -540,6 +585,12 @@ def _command(
         raise ValueError(
             "Codex EvalOps currently supports only disabled Agent network access"
         )
+    # The built-in ChatGPT provider prefers WebSockets and waits through its
+    # complete reconnect budget before falling back to HTTPS. EvalOps needs a
+    # deterministic transport boundary, so use the same authenticated ChatGPT
+    # endpoint through a controlled provider that starts with HTTP/SSE.
+    for override in _HTTP_ONLY_PROVIDER_OVERRIDES:
+        command.extend(("-c", override))
     command.extend(
         (
             "-c",
@@ -563,7 +614,7 @@ def _command(
             "workspace-write",
             "--skip-git-repo-check",
             "-C",
-            str(workspace),
+            workspace_argument,
         )
     )
     if windows_sandbox is not None:
@@ -584,9 +635,10 @@ def _prompt(
 ) -> str:
     guidance = ""
     if windows_compatibility:
-        guidance = _WINDOWS_SHELL_WRITE_GUIDANCE
-        if spec.treatment_family is TreatmentFamily.CONTENT:
-            guidance += _CONTENT_EXPERIMENT_GUIDANCE
+        guidance += _WINDOWS_SHELL_WRITE_GUIDANCE
+    if spec.treatment_family is TreatmentFamily.CONTENT:
+        guidance += _CONTENT_EXPERIMENT_GUIDANCE
+    if guidance:
         guidance += "\n"
     if spec.treatment is Treatment.FORCED_SKILL:
         if staged_skill is None:
@@ -617,6 +669,13 @@ def _run_status(
     if cancelled or result.status is ProcessStatus.CANCELLED:
         return RunStatus.USER_CANCELLED, "codex_cancelled"
     if result.status is ProcessStatus.TIMEOUT:
+        if _contains_cleanup_diagnostic(
+            result.cleanup_error,
+            "timeout_deadline_overrun",
+        ):
+            return RunStatus.INFRA_ERROR, "codex_timeout_deadline_overrun"
+        if RESTRICTED_POWERSHELL_FAILURE_DIAGNOSTIC in trace.diagnostics:
+            return RunStatus.TIMEOUT, "codex_restricted_shell_timeout"
         return RunStatus.TIMEOUT, "codex_timeout"
     if result.status is ProcessStatus.SPAWN_ERROR:
         return RunStatus.INFRA_ERROR, "codex_spawn_error"
@@ -630,6 +689,8 @@ def _run_status(
         return RunStatus.ADAPTER_ERROR, "codex_normalizer_error"
     if "codex_web_search_policy_violation" in trace.diagnostics:
         return RunStatus.UNSAFE_ACTION, "codex_web_search_policy_violation"
+    if SHELL_FALLBACK_EXHAUSTED_DIAGNOSTIC in trace.diagnostics:
+        return RunStatus.ADAPTER_ERROR, "codex_shell_fallback_exhausted"
     if not trace.trace_complete:
         return RunStatus.ADAPTER_ERROR, "codex_trace_incomplete"
     terminal_types = tuple(
@@ -643,14 +704,67 @@ def _run_status(
         return RunStatus.INFRA_ERROR, "codex_turn_failed"
     if terminal_types != ("run_completed",):
         return RunStatus.ADAPTER_ERROR, "codex_terminal_invalid"
-    if any(event.type == "run_error" for event in trace.events):
+    stream_errors = tuple(event for event in trace.events if event.type == "run_error")
+    if stream_errors and not all(
+        _is_recovered_reconnect(event.data.get("message"))
+        for event in stream_errors
+    ):
         return RunStatus.INFRA_ERROR, "codex_stream_error"
+    # Codex emits top-level ``error`` events for transient reconnect attempts.
+    # A later, unique ``turn.completed`` plus a successful process exit proves
+    # that a strictly shaped reconnect recovered; the normalizer retains the
+    # diagnostic without converting it into an infrastructure exclusion.
     return RunStatus.PASSED, None
+
+
+def _error_message(error_code: str | None) -> str | None:
+    if error_code is None:
+        return None
+    if error_code == "codex_restricted_shell_timeout":
+        return (
+            "Codex reached the restricted PowerShell recovery limit before the run "
+            "completed."
+        )
+    if error_code == "codex_shell_fallback_exhausted":
+        return "Codex could not recover from the restricted PowerShell environment."
+    if error_code == "codex_windows_tool_cwd_escape_error":
+        return (
+            "Codex supplied an escaped Windows tool working directory that the "
+            "sandbox could not start."
+        )
+    if error_code == "codex_timeout_deadline_overrun":
+        return (
+            "The host was suspended or the scheduler could not enforce the Codex "
+            "deadline."
+        )
+    return "Codex EvalOps run did not produce an admissible result."
 
 
 def _looks_like_auth_failure(stdout: str, stderr: str) -> bool:
     combined = f"{stdout}\n{stderr}".casefold()
     return any(marker in combined for marker in _AUTH_FAILURE_MARKERS)
+
+
+def _contains_windows_sandbox_failure(stderr: str) -> bool:
+    folded = stderr.casefold()
+    return any(marker in folded for marker in _WINDOWS_SANDBOX_FAILURE_MARKERS)
+
+
+def _contains_windows_tool_cwd_escape(stderr: str) -> bool:
+    folded = stderr.casefold()
+    return (
+        "windows sandbox: createprocessasuserw failed: 267" in folded
+        and "cwd=" in folded
+        and any(marker in stderr for marker in _WINDOWS_TOOL_CWD_ESCAPE_MARKERS)
+    )
+
+
+def _contains_cleanup_diagnostic(value: str | None, diagnostic: str) -> bool:
+    return isinstance(value, str) and diagnostic in value.split(";")
+
+
+def _is_recovered_reconnect(message: object) -> bool:
+    return isinstance(message, str) and _RECOVERED_RECONNECT.fullmatch(message) is not None
 
 
 def _contains_baseline_isolation_marker(events: object) -> bool:

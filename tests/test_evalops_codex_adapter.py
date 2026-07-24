@@ -5,7 +5,7 @@ from dataclasses import replace
 from decimal import Decimal
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -13,7 +13,7 @@ from tests.evalops_adapter_contract import assert_adapter_contract
 from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.adapters import AgentAdapter
-from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter
+from rook_agent.evalops.adapters.codex_cli import CodexCliAdapter, _command
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.models import (
     AgentTarget,
@@ -57,13 +57,14 @@ def _process_result(
     stdout: str = "",
     stderr: str = "",
     cleanup_error: str | None = None,
+    duration_ms: int = 25,
 ) -> ProcessResult:
     return ProcessResult(
         status=status,
         exit_code=exit_code,
         stdout=stdout,
         stderr=stderr,
-        duration_ms=25,
+        duration_ms=duration_ms,
         error_message=None,
         cleanup_error=cleanup_error,
     )
@@ -291,6 +292,18 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "--disable",
         "memories",
         "-c",
+        'model_provider="rook-chatgpt-http"',
+        "-c",
+        'model_providers.rook-chatgpt-http.name="Rook ChatGPT HTTP"',
+        "-c",
+        'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"',
+        "-c",
+        'model_providers.rook-chatgpt-http.wire_api="responses"',
+        "-c",
+        "model_providers.rook-chatgpt-http.requires_openai_auth=true",
+        "-c",
+        "model_providers.rook-chatgpt-http.supports_websockets=false",
+        "-c",
         'web_search="disabled"',
         "-c",
         "sandbox_workspace_write.network_access=false",
@@ -300,7 +313,7 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "workspace-write",
         "--skip-git-repo-check",
         "-C",
-        str(workspace.resolve()),
+        workspace.resolve().as_posix(),
         "-c",
         'windows.sandbox="unelevated"',
         "-c",
@@ -312,12 +325,79 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert prepared.stdin_text == (
         "Execution constraints for this Windows workspace:\n"
         "- Use shell commands for file changes; do not call apply_patch.\n"
+        "- Treat the current directory as the complete isolated workspace; do not "
+        "run git or search parent directories.\n"
+        "- Do not set or override the shell tool working directory. It already "
+        "starts in the isolated workspace; use relative paths with forward slashes "
+        "inside tool arguments.\n"
+        "- Treat language-mode, profile-loading, and method-invocation errors as "
+        "restricted PowerShell failures.\n"
+        "- After 2 consecutive restricted PowerShell failures, do not try another "
+        "PowerShell variant; switch once to cmd.exe /d /s /c, a direct executable "
+        "such as py, or a dedicated non-shell tool when available.\n"
+        "- Use the fallback to perform the task directly, not for capability probes "
+        "or checks of outputs that were never created.\n"
+        "- Keep the required mutation separate from auxiliary verification. Do not "
+        "append readback assertions, source-equality checks, file inventories, tests, "
+        "or other verification to the fallback mutation command.\n"
+        "- A direct py -c fallback must be one physical line with shell-safe "
+        "statements. Do not pass multiline source or escaped newline sequences to "
+        "py -c, and do not use a PowerShell here-string to feed it.\n"
+        "- Report ROOK_SHELL_FALLBACK_EXHAUSTED only when the fallback fails before "
+        "completing the required mutation.\n"
+        "- If the requested output was written but an auxiliary verification fails, "
+        "stop issuing shell commands and report "
+        "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: <short reason>. The external "
+        "evaluator will determine correctness.\n"
         "- Finish with a best-effort result within the task time limit.\n\n"
         "Create result.txt and verify it."
     )
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_command_forces_http_transport_without_changing_auth_endpoint(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-http-only"
+    workspace.mkdir()
+    prepared = _adapter(tmp_path, ScriptedProcessRunner()).prepare(
+        _spec(tmp_path), workspace
+    )
+
+    assert 'model_provider="rook-chatgpt-http"' in prepared.command
+    assert (
+        'model_providers.rook-chatgpt-http.base_url="https://chatgpt.com/backend-api/codex"'
+        in prepared.command
+    )
+    assert (
+        "model_providers.rook-chatgpt-http.requires_openai_auth=true"
+        in prepared.command
+    )
+    assert (
+        "model_providers.rook-chatgpt-http.supports_websockets=false"
+        in prepared.command
+    )
+
+
+def test_codex_windows_command_uses_slash_normalized_workspace_argument() -> None:
+    workspace = PureWindowsPath(
+        r"C:\Users\runner\AppData\Local\Temp\rook-evalops\base\baseline"
+    )
+
+    command = _command(
+        r"C:\Tools\codex.exe",
+        workspace=workspace,
+        model="gpt-test",
+        include_skill_instructions=False,
+        windows_sandbox="unelevated",
+        network_policy=NetworkPolicy.DISABLED,
+    )
+
+    cwd_index = command.index("-C") + 1
+    assert command[cwd_index] == workspace.as_posix()
+    assert "\\b" not in command[cwd_index]
 
 
 def test_codex_prepare_windows_keeps_os_temp_without_synthesizing_nested_root(
@@ -424,6 +504,247 @@ def test_codex_disabled_network_web_search_is_a_policy_violation(
     assert "unexpected" not in persisted
 
 
+def test_codex_windows_sandbox_error_fails_closed_after_successful_process(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-sandbox-error"
+    workspace.mkdir()
+    stderr = (
+        "windows sandbox: CreateProcessAsUserW failed: 267 "
+        "(directory name is invalid)"
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(exec_result=_process_result(stderr=stderr)),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_windows_sandbox_error"
+
+
+def test_codex_windows_tool_cwd_escape_has_specific_error_code(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-cwd-escape"
+    workspace.mkdir()
+    stderr = (
+        r"windows sandbox: CreateProcessAsUserW failed: 267 "
+        r"(directory name is invalid) | cwd=C:\work\pair\u{8}aseline"
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(exec_result=_process_result(stderr=stderr)),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_windows_tool_cwd_escape_error"
+    assert run.error_message == (
+        "Codex supplied an escaped Windows tool working directory that the sandbox "
+        "could not start."
+    )
+
+
+def test_codex_timeout_reports_restricted_shell_retry_exhaustion(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-restricted-shell-timeout"
+    workspace.mkdir()
+    events = (
+        {"type": "thread.started", "thread_id": "thread-shell-timeout"},
+        {"type": "turn.started"},
+        {
+            "type": "item.started",
+            "item": {
+                "id": "item-shell-1",
+                "type": "command_execution",
+                "command": "pwsh -Command first",
+                "status": "in_progress",
+                "aggregated_output": "",
+                "exit_code": None,
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-shell-1",
+                "type": "command_execution",
+                "command": "pwsh -Command first",
+                "status": "failed",
+                "aggregated_output": (
+                    "Cannot dot-source this command because it was defined in a "
+                    "different language mode."
+                ),
+                "exit_code": 1,
+            },
+        },
+        {
+            "type": "item.started",
+            "item": {
+                "id": "item-shell-2",
+                "type": "command_execution",
+                "command": "pwsh -Command second",
+                "status": "in_progress",
+                "aggregated_output": "",
+                "exit_code": None,
+            },
+        },
+        {
+            "type": "item.completed",
+            "item": {
+                "id": "item-shell-2",
+                "type": "command_execution",
+                "command": "pwsh -Command second",
+                "status": "failed",
+                "aggregated_output": (
+                    "Method invocation is supported only on core types in this "
+                    "language mode."
+                ),
+                "exit_code": 1,
+            },
+        },
+    )
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(
+                status=ProcessStatus.TIMEOUT,
+                exit_code=1,
+                stdout="\n".join(json.dumps(event) for event in events) + "\n",
+            )
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.TIMEOUT
+    assert run.error_code == "codex_restricted_shell_timeout"
+    assert run.error_message == (
+        "Codex reached the restricted PowerShell recovery limit before the run "
+        "completed."
+    )
+    assert run.trace is not None
+    assert "codex_restricted_shell_failure_limit_reached" in run.trace.diagnostics
+
+
+def test_codex_timeout_deadline_overrun_is_infrastructure_error(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-timeout-overrun"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(
+                status=ProcessStatus.TIMEOUT,
+                exit_code=1,
+                cleanup_error="timeout_deadline_overrun",
+                duration_ms=18_983_156,
+            )
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.INFRA_ERROR
+    assert run.error_code == "codex_timeout_deadline_overrun"
+    assert run.error_message == (
+        "The host was suspended or the scheduler could not enforce the Codex "
+        "deadline."
+    )
+
+
+def test_codex_completed_fallback_exhaustion_is_an_adapter_error(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-shell-fallback-exhausted"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        event = json.loads(line)
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_SHELL_FALLBACK_EXHAUSTED: restricted shell unavailable"
+            )
+            lines[index] = json.dumps(event)
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.ADAPTER_ERROR
+    assert run.error_code == "codex_shell_fallback_exhausted"
+    assert run.error_message == (
+        "Codex could not recover from the restricted PowerShell environment."
+    )
+
+
+def test_codex_post_write_verification_inconclusive_reaches_evaluator_boundary(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-post-write-verification"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        event = json.loads(line)
+        if (
+            event.get("type") == "item.completed"
+            and event.get("item", {}).get("type") == "agent_message"
+        ):
+            event["item"]["text"] = (
+                "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE: result.txt was written "
+                "before an auxiliary assertion failed"
+            )
+            lines[index] = json.dumps(event)
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.PASSED
+    assert run.error_code is None
+    assert run.trace is not None
+    assert "codex_post_write_verification_inconclusive" in run.trace.diagnostics
+    assert "codex_shell_fallback_exhausted" not in run.trace.diagnostics
+
+
+def test_codex_recovered_stream_error_keeps_successful_terminal_result(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-recovered-stream"
+    workspace.mkdir()
+    lines = (FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8").splitlines()
+    lines.insert(-1, '{"type":"error","message":"Reconnecting... 2/5 (request timed out)"}')
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(
+            exec_result=_process_result(stdout="\n".join(lines) + "\n")
+        ),
+    )
+
+    run = adapter.run(adapter.prepare(_spec(tmp_path), workspace))
+
+    assert run.status is RunStatus.PASSED
+    assert run.error_code is None
+    assert run.trace is not None
+    assert run.trace.trace_complete is True
+    assert "codex_stream_error" in run.trace.diagnostics
+
+
 def test_codex_prepare_does_not_set_windows_backend_on_linux(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace-linux"
     workspace.mkdir()
@@ -458,6 +779,25 @@ def test_codex_content_pair_hides_unrelated_skill_catalog(tmp_path: Path) -> Non
 
     assert "skills.include_instructions=false" in prepared.command
     assert "do not search for other repository guidance" in prepared.stdin_text
+    assert "make a direct best-effort attempt" in prepared.stdin_text
+    assert "Stop after creating and verifying" in prepared.stdin_text
+
+
+def test_codex_content_guidance_is_platform_independent(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace-content-linux"
+    workspace.mkdir()
+    adapter = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        platform_name="linux",
+    )
+    spec = _spec(tmp_path, treatment_family=TreatmentFamily.CONTENT)
+
+    prepared = adapter.prepare(spec, workspace)
+
+    assert "do not search for other repository guidance" in prepared.stdin_text
+    assert "make a direct best-effort attempt" in prepared.stdin_text
+    assert "Stop after creating and verifying" in prepared.stdin_text
 
 
 def test_codex_routing_pair_keeps_skill_discovery_enabled(tmp_path: Path) -> None:

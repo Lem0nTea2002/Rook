@@ -26,6 +26,9 @@ from tests.test_evalops_runner import _candidate, _target
 _ROOT = Path(__file__).parents[1]
 _SUITE_ROOT = _ROOT / "evals" / "suites" / "release-manifest-v2"
 _CANDIDATE_ROOT = _ROOT / "evals" / "candidates" / "release-manifest-v2"
+_CANDIDATE_CONTENT_HASH = (
+    "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
+)
 
 
 def _validator_module():
@@ -61,6 +64,7 @@ def test_rm2_manifests_are_strict_versioned_and_bounded() -> None:
     assert calibration.id == "release-manifest-v2-calibration"
     assert pilot.id == "release-manifest-v2-pilot"
     assert full.id == "release-manifest-v2-formal-holdout"
+    assert full.version == "5"
     assert len({calibration.fingerprint, pilot.fingerprint, full.fingerprint}) == 3
     assert set(case.id for case in pilot.cases).isdisjoint(
         case.id for case in full.cases
@@ -69,7 +73,7 @@ def test_rm2_manifests_are_strict_versioned_and_bounded() -> None:
         case.category for case in full.cases
     )
     assert all(case.evaluator.kind == "command" for case in full.cases)
-    assert all(case.timeout_seconds == 120 for case in full.cases)
+    assert all(case.timeout_seconds == 180 for case in full.cases)
     assert all(case.network_policy.value == "disabled" for case in full.cases)
     assert pilot.policy.data["min_capability_pairs"] == 6
     assert pilot.policy.data["require_positive_capability_uplift_ci"] is True
@@ -270,6 +274,35 @@ def test_formal_holdout_is_disjoint_from_pilot_content() -> None:
     }
 
     assert pilot_hashes.isdisjoint(formal_hashes)
+
+
+def test_windows_path_smoke_is_candidate_locked_and_exactly_one_pair() -> None:
+    smoke = load_eval_suite(_SUITE_ROOT / "windows-path-smoke.toml")
+
+    assert smoke.id == "release-manifest-v2-windows-path-smoke-v2"
+    assert smoke.candidate_content_hash == _CANDIDATE_CONTENT_HASH
+    assert len(smoke.cases) == 1
+    assert smoke.cases[0].id == "holdout-catalog-windows-path-smoke"
+    assert smoke.cases[0].timeout_seconds == 180
+
+
+def test_positive_holdout_tasks_define_repository_root_output() -> None:
+    suite = load_eval_suite(_SUITE_ROOT / "suite.toml")
+    positive_ids = {
+        "holdout-catalog",
+        "holdout-application",
+        "holdout-package",
+        "holdout-chart",
+        "holdout-mobile",
+        "holdout-ml-service",
+        "holdout-comment",
+        "holdout-secret",
+        "holdout-instruction",
+    }
+
+    for case in suite.cases:
+        if case.id in positive_ids:
+            assert "at the repository root" in case.task
 
 
 def test_rm2_candidate_and_tasks_do_not_leak_hidden_answers() -> None:

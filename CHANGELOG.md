@@ -4,6 +4,79 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Native Windows Codex workspaces now use slash-normalized `-C` arguments so
+  backslash escape sequences cannot corrupt the sandbox working directory.
+- Codex Windows sandbox setup and `CreateProcessAsUserW` failures now fail
+  closed as infrastructure errors, including runs whose outer process exits
+  successfully.
+- A bounded Codex reconnect event is accepted only when the process succeeds
+  and a unique terminal event follows; generic stream errors still fail closed.
+- Codex EvalOps now uses a controlled HTTP/SSE-only ChatGPT provider so blocked
+  WebSocket connections cannot consume the run budget before HTTPS fallback.
+- Windows agents now receive a versioned recovery policy after two consecutive
+  restricted-language failures: one direct fallback attempt followed by a
+  stable exhaustion marker instead of silent retries to the run deadline.
+- Codex JSONL normalization now audits restricted-shell threshold, recovery,
+  and exhaustion states and reports a specific restricted-shell timeout code.
+- Codex EvalOps Adapter v7 now prohibits model-supplied tool working directories,
+  requires relative forward-slash paths, and reports escaped Windows `cwd`
+  failures separately as `codex_windows_tool_cwd_escape_error`.
+- Rook system prompt v14 requires direct `py -c` recovery to remain a single
+  shell-safe physical line and recognizes the live Constrained Language
+  `Cannot create type` failure shape.
+- Windows EvalOps subprocesses now hold
+  `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)` so system-idle
+  sleep cannot suspend the runner's deadline loop. Guard acquisition fails
+  closed, and guard restoration failures are recorded as cleanup failures.
+- A timeout that exceeds its configured deadline by more than five seconds now
+  carries `timeout_deadline_overrun`; Codex Adapter v8 maps it to the stable
+  infrastructure code `codex_timeout_deadline_overrun`.
+- Restricted-shell recovery now keeps the required mutation separate from
+  auxiliary verification. A real mutation failure still emits
+  `ROOK_SHELL_FALLBACK_EXHAUSTED`, while a completed write followed by an
+  inconclusive auxiliary check emits
+  `ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE` and reaches the deterministic
+  evaluator instead of becoming an infrastructure exclusion.
+
+### Changed
+
+- The RM-2 Formal holdout now has an explicit repository-root output contract,
+  a 180-second run boundary, and a new suite/Adapter fingerprint. The first
+  authorized Formal attempt was aborted and is recorded as non-resume evidence.
+- The separately authorized Adapter v5 readiness smoke completed exactly two
+  HTTP/SSE calls with terminal traces, zero reconnect/fallback events, and zero
+  infrastructure exclusions; the one-pair result remains non-Formal evidence.
+- The subsequent 72-call Formal attempt stopped fail-closed after a Forced arm
+  timed out without a terminal trace. Thirty-two calls started and 40 did not;
+  no partial ScoreCard or resume metric is published.
+- The restricted-shell remediation advances the Rook system prompt to v13,
+  Codex Adapter to v6, and Codex Normalizer to v2. A separately authorized
+  two-call smoke verified terminal bounded-stop feedback in both arms, but both
+  runs were infrastructure-excluded, so readiness and Formal remain blocked.
+- Follow-up remediation advances the system prompt to v14 and Codex Adapter to
+  v7. It is offline-verified against the redacted v6 smoke failure shapes and
+  was then verified by a separately authorized 2-call readiness smoke with zero
+  infrastructure exclusions and complete terminal traces.
+- The subsequent v7 Formal attempt stopped fail-closed after 30 calls started.
+  Windows entered system-idle sleep during one subprocess, invalidating the
+  wall-clock boundary; 29 process artifacts and 28 evaluated-run records were
+  retained, 42 calls were not started, and no partial Formal metric is
+  published. The host-sleep remediation advances the Adapter to v8 and requires
+  a new readiness authorization before any fresh Formal run.
+- A separately authorized Adapter v8 readiness smoke completed exactly two
+  calls with complete terminal traces, zero infrastructure exclusions, and no
+  deadline-overrun marker. The one-pair result remains non-Formal evidence.
+- The subsequent v8 Formal stopped fail-closed after 13 calls started. Twelve
+  terminal artifacts were retained, one in-flight call was stopped, and 59
+  calls were not started after a Forced arm emitted the stable shell-fallback
+  exhaustion marker. No partial ScoreCard or resume metric is published.
+- The post-write recovery remediation advances the Rook system prompt to v15,
+  Codex Normalizer to v3, and Codex Adapter identity to v9. It is offline
+  verified only; v9 requires a separately authorized two-call readiness smoke
+  before any new Formal authorization.
+
 ## [0.2.1] - 2026-07-19
 
 ### Added
