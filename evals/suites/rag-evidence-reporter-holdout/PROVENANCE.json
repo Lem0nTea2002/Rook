@@ -1,0 +1,29 @@
+{
+  "snapshot_kind": "summary_objects_extracted_from_real_public_repository_reports",
+  "repository": "https://github.com/ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+  "commit": "656c23d61a3324944a89736c82d5fba4dbea59e6",
+  "license": "MIT",
+  "files": [
+    {
+      "fixture": "fixtures/compare-retrieval/reports/baseline.json",
+      "source_path": "project/evaluation/reports/retrieval_benchmark_baseline_hybrid_20260318_162200.json",
+      "git_blob_sha1": "07abb8ba5bd9ec067f2d40e6ef17b76e75be44fe",
+      "fixture_sha256": "cabfd1e8ab14fb808ac5a590aebda18199e9f9dc1957955f51567b3bc388edbe",
+      "transformation": "selected top-level benchmark identity and summary object only"
+    },
+    {
+      "fixture": "fixtures/compare-retrieval/reports/rerank.json",
+      "source_path": "project/evaluation/reports/retrieval_benchmark_hybrid_rerank_20260318_163722.json",
+      "git_blob_sha1": "7ee8d49b49f4fa37a6dd927135c34cc342d6bafd",
+      "fixture_sha256": "f17768435d20207b87960f7c045cfd98b5ade3158cefa46a1d7150d9ee24051b",
+      "transformation": "selected top-level benchmark identity and summary object only"
+    },
+    {
+      "fixture": "fixtures/skipped-ragas/reports/answer.json",
+      "source_path": "project/evaluation/reports/benchmark_baseline_hybrid_20260318_150503.json",
+      "git_blob_sha1": "ae1e17e351737a78cf92007bd2a5b445b8d14399",
+      "fixture_sha256": "efb551efc1d8027df7930dd512eb85b993a0f1de15551c0e2fd87078045ba5ab",
+      "transformation": "selected top-level benchmark identity and summary object only"
+    }
+  ]
+}
