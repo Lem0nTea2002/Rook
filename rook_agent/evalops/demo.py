@@ -147,6 +147,28 @@ def _execute_demo(run_root: Path, workspace_root: Path) -> ForgeDemoResult:
     _require_rook_discovery(run_root, expected_version=2)
     _require_codex_install(run_root, candidates, expected_version=2)
 
+    codex_target = next(
+        target for target in targets if target.type is AgentType.CODEX
+    )
+    codex_skill = (
+        run_root / ".agents" / "skills" / _SKILL_NAME / "SKILL.md"
+    )
+    managed_content = codex_skill.read_bytes()
+    codex_skill.write_bytes(managed_content + b"\n# operator drift\n")
+    state_after_tamper = releases.deployment_state(_SKILL_NAME, AgentType.CODEX)
+    _require(
+        state_after_tamper == "drifted",
+        "a hand-modified Codex deployment was not reported as drifted",
+    )
+    codex_skill.write_bytes(managed_content)
+    state_after_remediation = releases.deployment_state(
+        _SKILL_NAME, AgentType.CODEX
+    )
+    _require(
+        state_after_remediation == "active",
+        "the restored Codex deployment did not return to active",
+    )
+
     rollbacks = tuple(
         releases.rollback(
             skill_name=_SKILL_NAME,
@@ -220,11 +242,18 @@ def _execute_demo(run_root: Path, workspace_root: Path) -> ForgeDemoResult:
             "v2": {record.target.type.value: record.release_id for record in second_releases},
         },
         "rollbacks": {record.target.type.value: record.release_id for record in rollbacks},
+        "drift": {
+            "target": codex_target.type.value,
+            "state_after_tamper": state_after_tamper,
+            "state_after_remediation": state_after_remediation,
+        },
         "final_active_versions": dict(final_versions),
         "checks": {
             "automatic_gate_did_not_deploy": True,
             "rook_discovery_matches_registry": True,
             "codex_content_matches_candidate": True,
+            "codex_drift_detected": True,
+            "codex_drift_remediated_before_rollback": True,
             "dual_target_rollback_restored_v1": True,
         },
     }
@@ -390,6 +419,7 @@ def _render_summary(final_versions: tuple[tuple[str, int], ...]) -> str:
         "- v1 gate: promoted, then held inactive until explicit approval.\n"
         "- v1 release: deployed independently to Rook and the isolated Codex repository.\n"
         "- v2 gate and release: promoted, approved, and deployed without bypassing governance.\n"
+        "- drift: a hand-modified Codex deployment was detected, then restored before release mutation.\n"
         "- rollback: both targets restored the previously approved v1 artifact.\n"
         f"- final Rook version: {versions['rook']}\n"
         f"- final Codex version: {versions['codex']}\n"

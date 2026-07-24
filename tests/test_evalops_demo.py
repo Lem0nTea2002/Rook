@@ -77,9 +77,14 @@ def test_fake_demo_runs_candidate_to_dual_approval_deployment_and_rollback(
     assert payload["checks"] == {
         "automatic_gate_did_not_deploy": True,
         "codex_content_matches_candidate": True,
+        "codex_drift_detected": True,
+        "codex_drift_remediated_before_rollback": True,
         "dual_target_rollback_restored_v1": True,
         "rook_discovery_matches_registry": True,
     }
+    assert payload["drift"]["target"] == "codex"
+    assert payload["drift"]["state_after_tamper"] == "drifted"
+    assert payload["drift"]["state_after_remediation"] == "active"
 
 
 @pytest.mark.skipif(

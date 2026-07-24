@@ -463,6 +463,17 @@ This schedules exactly one Baseline/Forced pair. Passing readiness requires two
 terminal traces, complete deterministic evaluations, and zero infrastructure
 exclusions; the one pair remains ineligible as a Formal effect estimate.
 
+The separately authorized v9 smoke completed exactly those two calls. Both
+processes exited 0 with one terminal event, trace completeness was 100%, and
+infrastructure exclusions, Web Search, reconnect, stream-error, and Windows
+sandbox-failure counts were all zero. Baseline failed the hidden evaluator with
+`source_modified`; Forced Skill passed. The automatic gate correctly remained
+`quarantined (insufficient_valid_pairs)`, because readiness is not an effect
+study. The redacted record is
+[`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json).
+A new 72-call Formal still requires its own explicit external-call and
+model-cost authorization.
+
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
 72-call Formal immutable report may populate final resume success, Token, and

@@ -16,6 +16,7 @@
 6. [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) 与 [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md)：理解两个主要扩展点。
 7. [Rook Forge Skill 治理](EVALOPS.md)：理解隔离配对考试、自动门禁、人工审批、双目标部署与回滚。
 8. [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md)：查看可复现控制案例、Calibration 观测、贡献边界和仍需 Formal 测量的指标。
+9. [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)：查看两个公开仓库、四个隐藏 Validator 案例及其隔离边界。
 
 如果想先用一条命令、零模型费用体验完整链路，请运行 `rook eval demo`，并查看 [Rook Forge 离线演示](DEMO.md)。
 
@@ -42,6 +43,9 @@
 - [SWE-bench Lite 手册](SWE_LITE_RUNBOOK.zh-CN.md) / [English](SWE_LITE_RUNBOOK.md)
 - [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md) / [English](PORTFOLIO_EVIDENCE.md)
 - [Rook Forge 离线演示](DEMO.md)
+- [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)
+- [Codex Formal 加固时间线](incidents/CODEX_FORMAL_HARDENING.md)
+- [技术文章：把 Skill 当成软件发布](articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
 
 ## 维护约定
 

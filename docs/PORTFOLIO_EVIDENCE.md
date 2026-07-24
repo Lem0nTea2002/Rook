@@ -45,7 +45,8 @@ and trace-derived quarantined candidates.
 | Adapter v8 readiness smoke | 2/2 terminal turns; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
 | Aborted Adapter v8 Formal | 13 calls started; one Forced arm exhausted fallback after a post-write assertion; 59 calls not started; no Formal result |
 | Adapter v9 post-write remediation | Mutation and auxiliary verification separated; deterministic evaluator retains authority; 105 focused offline tests passed |
-| Remaining live schedule | A new Adapter identity requires a separately authorized 2-call readiness smoke |
+| Adapter v9 readiness smoke | 2/2 terminal turns on the previously failing application case; 100% trace completeness; 0 infrastructure exclusions; readiness passed |
+| Remaining live schedule | A separately authorized fresh 72-call Formal |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -259,6 +260,14 @@ evaluator, which remains the only authority for task correctness. Prompt v15
 also prohibits bundling the write and auxiliary assertions in one fallback
 command. This is offline remediation, not live readiness or Formal evidence;
 see [`rm2-formal-v8-post-write-remediation-2026-07-22.json`](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json).
+The separately authorized v9 readiness smoke then completed exactly two calls
+on the previously failing application case. Both arms produced terminal traces,
+the deterministic evaluator ran for both, trace completeness was 100%, and
+infrastructure exclusions were zero. Baseline was wrong and Forced Skill
+passed. Its automatic `quarantined (insufficient_valid_pairs)` result is
+expected for a one-pair transport/readiness gate and is not a Formal effect
+estimate. See
+[`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json).
 
 ## Formal live measurement contract
 

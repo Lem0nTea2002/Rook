@@ -1,0 +1,20 @@
+{
+  "snapshot_kind": "selected_files_from_real_public_repository",
+  "repository": "https://github.com/ZHUMUJUN/Rook",
+  "commit": "94e866a50f60d1ff3dca9102b7031e2cfd71b4a9",
+  "license": "MIT",
+  "files": [
+    {
+      "fixture": "fixtures/harden-rook-ci/.github/workflows/offline-tests.yml",
+      "source_path": ".github/workflows/offline-tests.yml",
+      "git_blob_sha1": "518fa2e0289193cf23bed7bd51ea8b6a6e8099ee",
+      "transformation": "none"
+    },
+    {
+      "fixture": "fixtures/preserve-dependabot/.github/dependabot.yml",
+      "source_path": ".github/dependabot.yml",
+      "git_blob_sha1": "68a36c88b49d4df0a8a6a1878a6a5421d34a5ec3",
+      "transformation": "none"
+    }
+  ]
+}

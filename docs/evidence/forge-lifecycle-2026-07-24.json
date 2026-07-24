@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "real_local_control_plane_dogfood",
+  "recorded_at": "2026-07-24T08:36:20Z",
+  "skill_name": "rook-forge-demo-skill",
+  "exam": {
+    "agent": "fake",
+    "external_calls": false,
+    "model_costs": false,
+    "claim_boundary": "Proves real local Registry, approval, filesystem deployment, drift detection, and rollback behavior. It does not measure real-model Skill effectiveness."
+  },
+  "candidates": [
+    {
+      "version": 1,
+      "content_hash": "e5d122204e7d2c0b9528bb767316ab28d0590b32c0091b9c41b1dc1041b7dfba"
+    },
+    {
+      "version": 2,
+      "content_hash": "4789f3730380341c3f9fc18c3c249ba5ec3f5cac3e8334aca2a979588ed4d50f"
+    }
+  ],
+  "evaluations": [
+    {
+      "version": 1,
+      "evaluation_id": "evaluation-adc92972ca764f21a663f63799cc59be",
+      "gate_status": "promoted",
+      "report_sha256": "889196ce47bae14610513815163c784b32e0caca28928405034e1fc12a74d651"
+    },
+    {
+      "version": 2,
+      "evaluation_id": "evaluation-6b910f5a95f24671b9f5e2a560118f20",
+      "gate_status": "promoted",
+      "report_sha256": "2828a443da785bddac3111cf30f7c0fc7e6c89179596752e488ad1bc0da9db26"
+    }
+  ],
+  "approvals": {
+    "v1": {
+      "rook": "approval-d7ef3e6ba87b40d9a53d7ada532681ed",
+      "codex": "approval-8adc6faa2db34725991a52432ae1ffa7"
+    },
+    "v2": {
+      "rook": "approval-8b85fddff7524e0c8d723dc73f82cec5",
+      "codex": "approval-1010ecfd83a9421aafacd769a36d2e71"
+    }
+  },
+  "deployments": {
+    "v1": {
+      "rook": "release-7260805f76ac49419ec5d1e759554148",
+      "codex": "release-4197dd50f5f04034b8ca3282d29cd542"
+    },
+    "v2": {
+      "rook": "release-1812a4ef2d474fe6815600f4377d9d92",
+      "codex": "release-e1a22895f97f470ca2553400cf08fb3a"
+    }
+  },
+  "drift": {
+    "target": "codex",
+    "mutation": "Appended an operator marker to the Rook-managed SKILL.md.",
+    "state_after_tamper": "drifted",
+    "state_after_exact_restore": "active"
+  },
+  "rollbacks": {
+    "rook": {
+      "release_id": "release-31ca8a12271547eab2ab265e1035cab5",
+      "from_version": 2,
+      "to_version": 1
+    },
+    "codex": {
+      "release_id": "release-0a00c54754974ff3977d355de1cf6c45",
+      "from_version": 2,
+      "to_version": 1
+    }
+  },
+  "final_state": {
+    "rook_active_version": 1,
+    "codex_active_version": 1,
+    "latest_eligible_version": 2,
+    "codex_skill_sha256": "e5d122204e7d2c0b9528bb767316ab28d0590b32c0091b9c41b1dc1041b7dfba",
+    "managed_manifest_sha256": "110260b4faa26f863338b579708e80e2d542c5c12ef6c822831e3dc9f1b968ba",
+    "registry_sha256": "f9cd5eff409ebe453ea52a4e811a6ccde8fa48425b9bc2fde7a49764b021e59d",
+    "demo_summary_sha256": "939ed49bfa75a374ff1b80a5c0c2d9fc0f50f768594bc6afd8c9441560e46ffb"
+  }
+}

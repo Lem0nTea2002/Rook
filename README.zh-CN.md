@@ -22,20 +22,19 @@
 
 ---
 
-Rook 是一个能真实运行的本地 Python Coding Agent。**Rook Forge** 是它内置的 Skill 治理控制面：自动生成或人工编写的 Skill 先接受隔离配对考试和自动安全门禁，再经人工显式审批，按 Rook/Codex 目标独立部署，并通过不可变审计记录完成失效检测和回滚。实现包继续使用 `rook_agent.evalops`。
+## 问题
 
-如果你想真正理解 coding agent 是怎么工作的，Rook 会尽量把关键环节展示出来，而不是把它们藏在黑盒后面。
+Rook 是一个能真实运行的本地 Python Coding Agent。**Rook Forge** 解决的是
+“写完 Skill”到“敢让 Agent 使用”之间的治理空白：自动生成或人工编写的
+Skill 先隔离，再与无 Skill 基线做配对考试；安全或回归失败会被阻断，门禁
+通过后仍需人工审批，随后按 Rook/Codex 独立部署，并支持 stale、漂移检测和
+原子回滚。
 
-- 在 Skill 获准部署前，客观评测它是否真正改善 Agent。
-- 学习 agent loop、工具调用、权限系统、session 和上下文处理。
-- 基于一个模块边界清晰的小型 Python 代码库继续改造。
-- 一边使用本地 coding agent，一边读懂它的内部机制。
+## 架构
 
-![Rook 规划、请求权限并完成本地任务](docs/images/rook-demo.gif)
-
-## Rook Forge
-
-Rook 将 Skill 视为必须经过考试和发布复核的版本化变更。人工 bundle 和轨迹生成结果先进入非活动隔离区，再执行 Baseline/Forced 与 Baseline/Routed 隔离配对实验；确定性 Evaluator 生成 ScoreCard，安全、回归、有效样本数和效果门槛按 Agent 目标独立决定是否具备审批资格。门禁通过后仍保持非活动，只有显式执行 `rook skill approve` 才会部署。
+数据面执行 Baseline/Forced/Routed 隔离实验与确定性 Evaluator；控制面记录
+自动门禁、人工审批、Rook/仓库级 Codex 部署和不可变发布历史。门禁通过只
+代表**具备上线资格**，绝不会自动激活。
 
 ```mermaid
 flowchart LR
@@ -51,42 +50,41 @@ flowchart LR
     J --> K["原子回滚"]
 ```
 
-版本化证据协议包含 12-case 开发/Pilot suite，以及完全不重叠、覆盖服务目录、应用、包、部署、运维和 ML 服务仓库形态的 12-case sealed Formal holdout。Formal manifest 锁定 Candidate content hash；Candidate 一旦变化，会在任何模型调用前失败。Fake Agent 控制实验只证明控制面正确。
+## 演示
 
-修复原生 Windows 沙箱后，一轮获授权的 `gpt-5.4-mini` Pilot 完成 24/24 次调用和 12 个可比配对，基础设施排除 0、轨迹完整度 100%、新增回归 0；观测到 Baseline 25%、Forced Skill 100%（+75pp），中位时延降低 22.7%，中位 Token 降低 12.9%。该不可变轮次误用了 Formal 样本门槛，因此仍被隔离；现在已用独立 Pilot policy 修复边界。这些是 Pilot 测量，不是最终 72-call Formal 简历结论。
+[![观看 2–3 分钟 Rook Forge 演示](docs/images/rook-forge-video.png)](docs/video/rook-forge-demo.mp4)
 
-第一次获授权的 Formal 在证据协议暴露 Windows 工作目录、任务输出约定和恢复型流事件分类缺陷后被主动中止；中止轮次与有界诊断共启动 18 次调用，没有生成 Formal 指标。冻结的 Candidate 没有变化。随后 2-call v4 smoke 正确隔离了两个不完整的 WebSocket turn。单独获授权的 Adapter v5 smoke 恰好完成 2/2 次 HTTP/SSE 调用：两臂各有一个终态事件，重连和传输回退均为 0，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。自动门禁仍为 quarantined 仅因为单配对 smoke 未达到策略样本门槛；它只证明就绪，不是 Formal 指标。之后获授权的 72-call Formal 在一个 Forced-Skill 实验臂达到 180 秒且没有终态轨迹后按 fail-closed 停止：共启动 32 次、形成 31 个进程制品，40 次未启动；HTTP-only 重连/回退、顶层流错误、沙箱失败和 Web Search 均为 0。该轮没有生成不可变 ScoreCard 或 Formal 简历指标。
+**[阅读技术文章：把 Skill 当成软件发布](docs/articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)**
+· **[打开 2–3 分钟演示视频](docs/video/rook-forge-demo.mp4)**
 
-随后单独获授权的 Adapter v6 2-call smoke 在两臂都产生终态 turn 和稳定的 `ROOK_SHELL_FALLBACK_EXHAUSTED`，没有复现 180 秒静默超时，证明有界停止生效；但 readiness 仍未通过。Baseline 的模型工具参数把 Windows 路径中的 `\b` 编码成退格，触发 `CreateProcessAsUserW` 错误 267；Forced Skill 从受限 PowerShell 切到 `py -c` 后，又把转义换行作为字面量传入而语法失败。两臂均被基础设施排除，因此没有 Skill 效果或 Formal 指标。
-
-Adapter v7 进一步禁止模型覆盖工具 `cwd`，要求只使用正斜杠相对路径，并把直接 `py -c` 恢复限制为单物理行；error 267 + 转义 cwd 也有了独立错误码。随后单独获授权的 v7 readiness smoke 恰好完成 2/2 次调用：两臂都有终态轨迹，轨迹完整度 100%，基础设施排除 0；Baseline 结果错误，Forced Skill 通过。之后的 Formal 在启动 30 次调用后按 fail-closed 停止（29 个进程制品、28 个 evaluated-run 记录、42 次未启动）。其中一个 180 秒子进程跨越了主机系统空闲睡眠并在恢复后才被终止，另外三次运行耗尽了有界 Shell fallback。该轮没有形成 ExperimentRecord、ScoreCard、PromotionDecision 或 Formal 简历指标，partial 结果不会复用。Adapter v8 现在会在 Windows EvalOps 子进程运行期间阻止系统空闲睡眠，并把超出截止时间的异常归类为基础设施失败。随后单独获授权的 v8 smoke 恰好完成 2/2 次调用：终态轨迹 2/2、轨迹完整度 100%，基础设施排除和超期标记均为 0；Baseline 错误，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止：12 次形成完整终态制品，1 次在途调用被停止，59 次未启动。一个 Forced arm 写入目标后因辅助验证断言失败而返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`，零排除 Formal 合同已不可满足；没有生成 ScoreCard 或 Formal 简历指标。Adapter v9 现已在离线环境中把 fallback 必需写入与辅助验证分离：真正写入失败仍 fail closed，已完成写入但后续验证不确定时交给隐藏确定性 evaluator 判定。v9 尚未运行真实调用，下一步必须单独授权恰好 2 次 readiness smoke。
-
-用一条命令运行从 Candidate 创建到双目标回滚的完整零成本生命周期：
+一条命令运行 Candidate → 考试 → 门禁 → 审批 → 双目标部署 → 漂移检测 →
+回滚的完整零成本生命周期：
 
 ```sh
 rook eval demo
 ```
 
-该命令只使用确定性 Fake Agent，并把 Registry、报告、Rook 部署和仓库级 Codex 部署全部隔离写入 `.rook/forge-demo/run-*`。它不会探测或启动 Codex，也不会产生模型或网络调用。
+命令只使用确定性 Fake Agent 和隔离的本地 Registry，不产生网络或模型调用。
+版本库中的 dogfood 记录保留了真实审批/发布 id 和制品哈希。
 
-- [EvalOps 使用说明](docs/EVALOPS.md)
-- [离线演示手册](docs/DEMO.md)
-- [简历证据与表述边界](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
-- [Dogfooding 与事故记录](docs/DOGFOODING.md)
-- [脱敏 Pilot 证据](docs/evidence/rm2-pilot-summary.json)
-- [Formal 就绪事故记录](docs/evidence/rm2-formal-readiness-2026-07-20.json)
-- [Adapter v4 smoke 失败证据](docs/evidence/rm2-v4-smoke-2026-07-21.json)
-- [Adapter v5 HTTP-only smoke 通过证据](docs/evidence/rm2-v5-smoke-2026-07-22.json)
-- [Adapter v5 Formal 中止证据](docs/evidence/rm2-formal-v5-attempt-2026-07-22.json)
-- [Adapter v6 受限 Shell 修复证据](docs/evidence/rm2-formal-v5-shell-remediation-2026-07-22.json)
-- [Adapter v6 有界恢复 smoke 证据](docs/evidence/rm2-v6-smoke-2026-07-22.json)
-- [Adapter v7 离线后续修复证据](docs/evidence/rm2-v6-smoke-remediation-2026-07-22.json)
-- [Adapter v7 readiness smoke 通过证据](docs/evidence/rm2-v7-smoke-2026-07-22.json)
-- [Adapter v7 Formal 中止证据](docs/evidence/rm2-formal-v7-attempt-2026-07-22.json)
-- [Adapter v8 主机睡眠修复证据](docs/evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)
-- [Adapter v8 readiness smoke 通过证据](docs/evidence/rm2-v8-smoke-2026-07-22.json)
-- [Adapter v8 Formal 中止证据](docs/evidence/rm2-formal-v8-attempt-2026-07-22.json)
-- [Adapter v9 写入后验证边界修复](docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)
+## 指标
+
+| 证据 | 结果 | 边界 |
+| --- | --- | --- |
+| 发布 | [v0.2.2](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.2)，wheel + sdist，5 个必需 CI job 全绿 | 已发布并做全新环境安装验证 |
+| 跨平台 CI | Ubuntu：1753 passed / 7 skipped；Windows：1754 passed / 6 skipped；Python 3.11/3.12 | 离线，无 Codex 进程和模型费用 |
+| Adapter v9 readiness | 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
+| `gpt-5.4-mini` Pilot | 24/24 次、12 个可比配对；Baseline 25% → Forced 100%（+75pp）；时延 -22.7%；Token -12.9%；新增回归 0 | 真实 Pilot，**不是** Formal |
+| 真实仓库 holdout | 2 个 Skill、2 个公开仓库、4 个 Direct/Regression/Adversarial 案例 | 已 staged/quarantined，没有 live model 结论 |
+| 治理 dogfood | 4 次审批、4 次部署、漂移发现/恢复、2 次原子回滚 | 真实本地控制面；Fake Agent 考试 |
+| 72-call Formal | **尚未测量** | 必须单独授权，当前没有最终简历效果指标 |
+
+证据入口：[简历证据合同](docs/PORTFOLIO_EVIDENCE.zh-CN.md) ·
+[真实仓库 holdout](docs/REAL_REPO_HOLDOUTS.md) ·
+[治理生命周期记录](docs/evidence/forge-lifecycle-2026-07-24.json) ·
+[v9 readiness](docs/evidence/rm2-v9-smoke-2026-07-24.json) ·
+[Formal 加固时间线](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
+[dogfooding 账本](docs/DOGFOODING.md)
 
 ## 为什么做 Rook
 
