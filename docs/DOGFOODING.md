@@ -23,11 +23,16 @@ the exam and an immutable approval/release record exists.
 | DF-006 | Adapter v8 readiness smoke | `docs/evidence/rm2-v8-smoke-2026-07-22.json` | Exactly 2 real calls reached terminal turns with 100% trace completeness, zero infrastructure exclusions, and no deadline-overrun marker; Baseline wrong, Forced Skill passed | Real readiness evidence; one pair, not deployed, not Formal |
 | INC-010 | Adapter v8 Formal fallback exhaustion | `docs/evidence/rm2-formal-v8-attempt-2026-07-22.json` | Stopped after 13 calls started; 12 terminal artifacts retained; one Forced arm wrote the target, then failed an auxiliary assertion and emitted the stable exhaustion marker; 59 calls not started | Real fail-closed Agent-recovery incident; no ScoreCard, Formal, deployment, or Skill-effect claim |
 | INC-011 | Adapter v9 post-write remediation | `docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json` | Required mutation is separated from auxiliary verification; completed writes with inconclusive checks reach the deterministic evaluator while real write failures still fail closed | Offline remediation only; new 2-call readiness authorization required |
+| DF-007 | Adapter v9 post-write readiness smoke | `docs/evidence/rm2-v9-smoke-2026-07-24.json` | Exactly 2 real calls on the previously failing application case reached terminal turns with 100% trace completeness and zero infrastructure exclusions; Baseline wrong, Forced Skill passed | Real readiness evidence; one pair, not deployed, not Formal |
+| DF-008 | Local approval, dual deployment, drift, and rollback | `docs/evidence/forge-lifecycle-2026-07-24.json` | Four immutable approvals, four deploy releases, detected and remediated Codex file drift, then two transactional rollbacks restored v1 | Real local Registry/filesystem lifecycle with deterministic Fake-Agent exam; not a model-effect claim |
+| DF-009 | Two real-repository holdouts | `docs/REAL_REPO_HOLDOUTS.md` | Two immutable Candidate hashes, two public repositories, four Direct/Regression/Adversarial cases, pinned provenance, hidden validators, and disabled network | Staged and quarantined; deterministic validator evidence only, no live exam or deployment |
 
 Current honest count: one Skill has real model measurement, while zero Skills
 have a real-model gate plus human-approved production deployment. The packaged
-demo covers approval, drift, deployment, and rollback deterministically. This
-distinction remains visible until additional real dogfooding is authorized.
+demo has also executed one real local Registry/filesystem lifecycle covering
+approval, drift, deployment, and rollback with a deterministic exam. Two more
+real-repository Skills are staged and quarantined. This distinction remains
+visible until additional real dogfooding is authorized.
 
 ## Required record for the next real Skill
 

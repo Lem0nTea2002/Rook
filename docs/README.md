@@ -31,6 +31,8 @@ Read in this order if you are new to the codebase:
    automatic gates, human approval, target deployment, and rollback.
 8. [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) — reproducible control cases,
    contribution boundary, and the claims that still require live measurements.
+9. [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md) — two pinned public
+   repositories, four hidden-validator cases, and their quarantine boundary.
 
 For a one-command, zero-cost walkthrough before reading the internals, run
 `rook eval demo` and follow [Offline Rook Forge Demo](DEMO.md).
@@ -62,6 +64,9 @@ score.
 - [SWE-bench Lite Runbook](SWE_LITE_RUNBOOK.md) / [中文](SWE_LITE_RUNBOOK.zh-CN.md)
 - [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) / [中文](PORTFOLIO_EVIDENCE.zh-CN.md)
 - [Offline Rook Forge Demo](DEMO.md)
+- [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md)
+- [Codex Formal Hardening Timeline](incidents/CODEX_FORMAL_HARDENING.md)
+- [Engineering Article: Skill to Release (中文)](articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
 
 ## Documentation Maintenance
 

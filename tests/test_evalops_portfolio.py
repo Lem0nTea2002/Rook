@@ -82,6 +82,91 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
     assert "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.2" in english_readme
 
 
+def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None:
+    english = (_ROOT / "README.md").read_text(encoding="utf-8")
+    chinese = (_ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    top = english[: english.index("## Why Rook")]
+
+    assert [top.index(heading) for heading in (
+        "## Problem",
+        "## Architecture",
+        "## Demo",
+        "## Metrics",
+    )] == sorted(
+        top.index(heading)
+        for heading in ("## Problem", "## Architecture", "## Demo", "## Metrics")
+    )
+    assert "72-call Formal | **Not measured**" in top
+    assert "Formal hardening timeline" in top
+    assert "2–3 minute video" in top
+    assert "## 问题" in chinese
+    assert "72-call Formal | **尚未测量**" in chinese
+
+    video = _ROOT / "docs" / "video" / "rook-forge-demo.mp4"
+    thumbnail = _ROOT / "docs" / "images" / "rook-forge-video.png"
+    article = (
+        _ROOT
+        / "docs"
+        / "articles"
+        / "ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md"
+    )
+    incident = _ROOT / "docs" / "incidents" / "CODEX_FORMAL_HARDENING.md"
+    assert video.stat().st_size > 100_000
+    assert b"ftyp" in video.read_bytes()[:64]
+    assert thumbnail.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert article.exists()
+    assert incident.exists()
+
+
+def test_public_v9_readiness_evidence_is_exactly_two_calls_and_not_formal() -> None:
+    evidence = json.loads(
+        (_ROOT / "docs" / "evidence" / "rm2-v9-smoke-2026-07-24.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert evidence["authorization"]["external_calls_authorized"] == 2
+    assert evidence["authorization"]["external_calls_started"] == 2
+    assert evidence["authorization"]["formal_authorized"] is False
+    assert evidence["execution"]["planned_runs"] == 2
+    assert evidence["execution"]["completed_runs"] == 2
+    assert evidence["audit"]["infrastructure_exclusions"] == 0
+    assert evidence["audit"]["trace_completeness_rate"] == 1.0
+    assert evidence["identity"]["adapter_version"] == "codex-evalops-v9"
+    assert evidence["result"]["readiness_passed"] is True
+    assert evidence["result"]["formal_metric_produced"] is False
+    assert {run["status"] for run in evidence["runs"]} == {"wrong_result", "passed"}
+    serialized = json.dumps(evidence).casefold()
+    assert "prompt_text" not in serialized
+    assert "authorization" in serialized
+
+
+def test_public_forge_lifecycle_evidence_preserves_fake_agent_boundary() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "forge-lifecycle-2026-07-24.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["evidence_kind"] == "real_local_control_plane_dogfood"
+    assert evidence["exam"]["agent"] == "fake"
+    assert evidence["exam"]["external_calls"] is False
+    assert evidence["exam"]["model_costs"] is False
+    assert {item["gate_status"] for item in evidence["evaluations"]} == {"promoted"}
+    assert len(evidence["approvals"]["v1"]) == 2
+    assert len(evidence["approvals"]["v2"]) == 2
+    assert evidence["drift"]["state_after_tamper"] == "drifted"
+    assert evidence["drift"]["state_after_exact_restore"] == "active"
+    assert evidence["rollbacks"]["rook"]["to_version"] == 1
+    assert evidence["rollbacks"]["codex"]["to_version"] == 1
+    assert evidence["final_state"]["rook_active_version"] == 1
+    assert evidence["final_state"]["codex_active_version"] == 1
+    assert "does not measure real-model" in evidence["exam"]["claim_boundary"]
+
+
 def test_portfolio_controls_promote_effective_reject_neutral_and_block_unsafe(tmp_path: Path) -> None:
     suite = load_eval_suite(_SUITE)
     store = CandidateStore(tmp_path / ".rook" / "skill-registry")

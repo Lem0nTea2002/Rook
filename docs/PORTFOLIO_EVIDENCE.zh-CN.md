@@ -33,7 +33,8 @@
 | Adapter v8 readiness smoke | 2/2 次终态 turn；轨迹完整度 100%；基础设施排除 0；readiness 通过 |
 | Adapter v8 Formal 已中止 | 启动 13 次；一个 Forced arm 在写入后验证断言失败并耗尽 fallback；59 次未启动；没有 Formal 结果 |
 | Adapter v9 写入后验证修复 | 必需写入与辅助验证分离；确定性 evaluator 保留最终判定权；105 个专项离线测试通过 |
-| 剩余真实调用计划 | 新 Adapter 身份必须单独授权 2-call readiness smoke |
+| Adapter v9 readiness smoke | 之前失败的 application case 上 2/2 次终态 turn；轨迹完整度 100%；基础设施排除 0；readiness 通过 |
+| 剩余真实调用计划 | 单独授权全新的 72-call Formal |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -128,6 +129,8 @@ Adapter v7 已禁止工具级 `cwd` 覆盖，要求使用正斜杠相对路径�
 Adapter v8 现在会为每个 Windows EvalOps 子进程持有执行状态保护；无法建立保护时在 spawn 前失败，恢复保护失败时记为清理失败，超出截止时间的 timeout 归类为 `codex_timeout_deadline_overrun`。Candidate、Normalizer 和 sealed suite 未改变。离线修复证据见 [`rm2-formal-v7-host-sleep-remediation-2026-07-22.json`](evidence/rm2-formal-v7-host-sleep-remediation-2026-07-22.json)。随后单独获授权的 v8 smoke 恰好完成 2 次调用：终态轨迹 2/2、轨迹完整度 100%、基础设施排除 0，也没有 timeout overrun；Baseline 为 `wrong_result`，Forced Skill 通过。之后获授权的全新 72-call Formal 在启动 13 次后按 fail-closed 停止。12 次形成完整终态制品，1 次在途调用在制品前停止，59 次未启动。失败的 Forced arm 已写入目标，但辅助源文件归一化断言失败并返回 `ROOK_SHELL_FALLBACK_EXHAUSTED`；Adapter v8 在确定性 evaluator 运行前将其归类为 Adapter 错误，零排除合同已不可满足。没有 Formal ScoreCard 或简历指标。脱敏记录见 [`rm2-formal-v8-attempt-2026-07-22.json`](evidence/rm2-formal-v8-attempt-2026-07-22.json)。
 
 Adapter v9 与 Normalizer v3 已在离线环境中区分两类结果：fallback 未完成必需写入时仍作为 Adapter 错误 fail closed；目标已经写入、只有辅助检查不确定时，记录 `codex_post_write_verification_inconclusive` 并交给确定性 evaluator 判定工作区结果。Prompt v15 同时禁止在同一 fallback 命令中捆绑写入与辅助断言。该修复不是 live readiness 或 Formal 证据；记录见 [`rm2-formal-v8-post-write-remediation-2026-07-22.json`](evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json)。
+
+随后单独授权的 v9 readiness smoke 在之前失败的 application case 上恰好完成 2 次调用。两臂都产生终态轨迹并执行确定性 evaluator，轨迹完整度 100%，基础设施排除 0；Baseline 错误，Forced Skill 通过。单配对自动结论 `quarantined (insufficient_valid_pairs)` 符合 readiness 设计，不能作为 Formal 效果估计。脱敏记录见 [`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json)。
 
 ## Formal 真实评测填写合同
 

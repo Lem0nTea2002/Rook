@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-22
+更新时间：2026-07-24
 
 ## 项目定位
 
@@ -14,10 +14,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 分支：`fix/formal-windows-evidence`
+- 分支：`agent/portfolio-story`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
-- Rook Forge v0.2.1 已发布，当前 `main` 基线提交为 `363e9bc`。
-- 当前改动：Adapter v8 防空闲睡眠修复的 Windows/Linux CI 5/5 job 全绿，readiness smoke 以 2/2 终态轨迹、100% 轨迹完整度和 0 基础设施排除通过。随后获授权的全新 72-call Formal 因一个 Forced arm 在写入目标后辅助验证断言失败并返回 `ROOK_SHELL_FALLBACK_EXHAUSTED` 而按 fail-closed 中止；启动 13 次，没有形成 Formal 报告。Adapter v9、Normalizer v3 与 Prompt v15 已离线修复这条写入后验证边界，Candidate 内容未改变，尚未运行 v9 live smoke。
+- Rook Forge v0.2.2 已发布，当前 `main` 基线提交为 `94e866a`。
+- 当前改动：Adapter v9 readiness 已在之前失败的 application case 上恰好完成 2/2 次真实调用，轨迹完整度 100%、基础设施排除 0，readiness 通过；单配对自动门禁按样本阈值保持 `quarantined`，没有伪装成 Formal。新增两个不同类型的真实仓库 Skill holdout，并实际执行一次本地审批、双目标部署、漂移检测、恢复和双目标回滚。
 
 ## 已完成功能
 
@@ -56,6 +56,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 33. 新增 `rook eval trends`，对不可变脱敏报告输出版本趋势、fingerprint 边界、失败类型、SLO、门禁与部署/回滚历史。
 34. CI 升级为 Windows/Ubuntu × Python 3.11/3.12 矩阵，并增加 Ruff、mypy、EvalOps 覆盖率阈值、pip-audit 和 Dependabot。
 35. 增加版本化、脱敏的 Pilot 证据摘要和 dogfooding/事故账本；明确区分真实模型测量、Fake Agent 控制实验和尚未运行的 Formal。
+36. 发布 v0.2.2，完成全新虚拟环境 wheel 安装、CLI 帮助与 `rook eval demo` 验证。
+37. Adapter v9 readiness 恰好完成 2/2 次真实调用，之前失败的写入后 application case 由隐藏确定性 evaluator 正确判定。
+38. 新增 GitHub Actions CI guard 与 RAG evidence reporter 两个不同类型 Skill，使用两个公开仓库的固定 commit/blob 构建四个 Direct/Regression/Adversarial holdout。
+39. 本地治理 dogfood 实际生成四个审批、四个部署、一次 Codex 漂移检测/恢复和两个事务回滚；README 首页压缩为问题—架构—演示—指标，并发布技术文章和 150 秒演示视频。
 
 ## 关键提交
 
@@ -81,12 +85,12 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前 EvalOps 离线覆盖率门禁：`480 passed, 7 skipped`，总覆盖率 `86.03%`。
-- 当前本地完整核心离线基线（排除可选 `evalplus` benchmark）：`1740 passed, 10 skipped`，用时 `350.45s`；默认外部评测保持关闭，不会启动真实 Codex 或产生模型费用。首次执行中一个无关 mutation-tool 临时文件写入遇到一次 Windows `Errno 13`，同用例连续 3 次与完整重跑均通过，未复现为代码回归。
+- v0.2.2 发布前质量门禁：`485 passed, 5 skipped`，覆盖率 `85.10%`。
+- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1746 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1747 passed, 6 skipped`。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
-- `rook-agent 0.2.1` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/回滚全链路通过。
-- v0.2.1 wheel SHA-256 为 `eccd8aa29c91057746d4e51397669d7f8539dd16c667a0da9df213e98367a8a0`；sdist SHA-256 为 `6b876f2a7ebb62e82a73447df2fe8dcddd0cdbdcd1c010718e12185dacf8a07b`。
-- GitHub Actions [run 29845798709](https://github.com/ZHUMUJUN/Rook/actions/runs/29845798709) 全绿：Ubuntu Python 3.11/3.12 各 `1731 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1732 passed, 6 skipped`；Quality 为 `470 passed, 5 skipped`、85.19% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
+- `rook-agent 0.2.2` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/漂移检测/回滚全链路通过。
+- v0.2.2 wheel SHA-256 为 `4aa5cf99301a5a96cd656dfd228569f0cb471d3e8457cd9fd630f46cc66fdf19`；sdist SHA-256 为 `c01a5bc176d3f876ddf2aa39265e25517b0a46b1922a22833265bebaef04c7f3`。
+- GitHub Actions PR #8 全绿：Ubuntu Python 3.11/3.12 各 `1746 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1747 passed, 6 skipped`；Quality 为 `485 passed, 5 skipped`、85.10% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -124,16 +128,20 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - `holdout-application` repetition 3 Forced arm 已通过直接 Python fallback 写入 `release.json`，但同一进程中的辅助源文件归一化断言失败，Agent 返回稳定的 `ROOK_SHELL_FALLBACK_EXHAUSTED`；Adapter v8 因此记为 `adapter_error`，确定性 evaluator 未执行。严格零排除 Formal 合同已不可满足。
 - 该轮没有 ExperimentRecord、ScoreCard、PromotionDecision 或可写简历的 Formal 成功率/时延/Token 指标；partial 数据不会复用，美元成本仍未观测。
 - Adapter v9 将 fallback 必需写入与辅助验证分离；真正写入失败仍返回 `ROOK_SHELL_FALLBACK_EXHAUSTED` 并 fail closed，已写入但辅助验证不确定时返回 `ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE`，由隐藏确定性 evaluator 决定正确性。Normalizer v3 保留审计诊断但不制造基础设施排除，Prompt v15 禁止在一个 fallback 命令中捆绑写入和断言；专项离线测试 `105 passed`。
+- 获授权的 Adapter v9 readiness `evaluation-de3f7652fa0447e193bd1ddda8b51ce9` 恰好执行 2/2 次调用：两臂 exit 0 且各有一个终态 turn，轨迹完整度 100%，基础设施排除、Web Search、重连、顶层流错误、Windows 沙箱失败、fallback 耗尽和写入后不确定标记均为 0；Baseline 为 `wrong_result`，Forced Skill 为 `passed`。
+- v9 readiness 的自动门禁为 `quarantined (insufficient_valid_pairs)`，仅因为一个配对低于效果政策样本阈值。该轮证明当前 Adapter 就绪，不产生 Formal 成功率结论。
+- 两个真实仓库 holdout 的 4 个 Candidate/suite/provenance/hidden-validator 专项测试通过；它们仍为 staged/quarantined，没有 live model gate 或部署。
+- 本地治理 dogfood 生成 4 个不可变 ApprovalRecord、6 个 ReleaseRecord（4 次部署 + 2 次回滚），在 Codex `SKILL.md` 被手工修改后报告 `drifted`，精确恢复后重新变为 `active`，最终 Rook/Codex 都回滚到 v1。考试使用 Fake Agent，因此只证明控制面和文件事务。
 
 ## 下一阶段计划
 
-1. 为 Adapter v9 单独申请恰好 2 次 readiness；只有通过后才能重新讨论全新 Formal，不能续跑或拼接 v8 partial attempt。
-2. readiness 前再次核验冻结 Candidate、suite、policy 与新 Adapter/Normalizer fingerprint。
-3. 在不伪造记录的前提下继续累积 3–5 个真实 Skill 的 gate、审批、部署、drift 和 rollback 生命周期。
+1. 单独申请全新的 72-call Formal；遇到首个基础设施排除立即停止，不能续跑或拼接历史 partial attempt。
+2. Formal 前再次核验冻结 Candidate、suite、policy、Adapter/Normalizer 与目标 fingerprint。
+3. 对两个真实仓库 holdout 分别申请 live Calibration/Pilot，再决定是否进入独立审批与部署。
 4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
 ## 当前停点
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；历史 Formal 尝试都被证据边界正确阻断。Adapter v9 已离线修复“写入成功后辅助验证失败”的恢复语义边界，但尚未获得新的 live readiness 证据；Rook 没有把 12 条 v8 partial 记录包装为效果。最终简历成功率、Token 和时延仍必须等待 v9 readiness 通过后重新授权且完整结束的 72-call Formal，Codex 不提供费用字段时成本继续写 `not observed`。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；历史 Formal 尝试都被证据边界正确阻断。Adapter v9 已获得 2/2、零基础设施排除的 live readiness 证据，但 Rook 没有把单配对 readiness 或 v8 partial 记录包装为效果。最终简历成功率、Token 和时延仍必须等待重新授权且完整结束的 72-call Formal；Codex 不提供费用字段时成本继续写 `not observed`。
