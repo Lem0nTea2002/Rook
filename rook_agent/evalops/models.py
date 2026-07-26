@@ -412,6 +412,7 @@ class ExperimentRecord:
     runs: tuple[EvaluatedRun, ...]
     cancelled: bool
     artifact_refs: tuple[str, ...] = ()
+    stop_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

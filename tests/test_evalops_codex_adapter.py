@@ -77,6 +77,7 @@ class ScriptedProcessRunner:
         exec_result: ProcessResult | None = None,
         version_result: ProcessResult | None = None,
         help_result: ProcessResult | None = None,
+        config_result: ProcessResult | None = None,
     ) -> None:
         self.exec_result = exec_result or _process_result(
             stdout=(FIXTURE_ROOT / "success.jsonl").read_text(encoding="utf-8")
@@ -85,6 +86,7 @@ class ScriptedProcessRunner:
             stdout="codex-cli 0.144.1\n"
         )
         self.help_result = help_result or _process_result(stdout=CODEX_HELP)
+        self.config_result = config_result or _process_result(stdout="features\n")
         self.requests: list[ProcessRequest] = []
         self.tokens: list[CancellationToken | None] = []
 
@@ -105,6 +107,8 @@ class ScriptedProcessRunner:
             return self.version_result
         if request.command[-2:] == ("exec", "--help"):
             return self.help_result
+        if request.command[-2:] == ("features", "list"):
+            return self.config_result
         return self.exec_result
 
 
@@ -236,10 +240,37 @@ def test_codex_probe_reports_supported_noninteractive_json_mode(tmp_path: Path) 
     assert capabilities.supports_sandbox is True
     assert capabilities.supported_treatments == tuple(Treatment)
     assert capabilities.diagnostic_code is None
-    assert [request.command for request in runner.requests] == [
-        (r"C:\Tools\codex.exe", "--version"),
-        (r"C:\Tools\codex.exe", "exec", "--help"),
-    ]
+    assert runner.requests[0].command == (r"C:\Tools\codex.exe", "--version")
+    assert runner.requests[1].command == (
+        r"C:\Tools\codex.exe",
+        "exec",
+        "--help",
+    )
+    config_command = runner.requests[2].command
+    assert config_command[-2:] == ("features", "list")
+    assert "allow_login_shell=false" in config_command
+    assert "permissions.allow_login_shell=false" not in config_command
+
+
+def test_codex_probe_fails_closed_when_eval_config_does_not_load(
+    tmp_path: Path,
+) -> None:
+    runner = ScriptedProcessRunner(
+        config_result=_process_result(
+            status=ProcessStatus.FAILED,
+            exit_code=1,
+            stderr="Error loading config.toml",
+        )
+    )
+    adapter = _adapter(tmp_path, runner)
+
+    capabilities = adapter.probe()
+
+    assert capabilities.available is True
+    assert capabilities.non_interactive is False
+    assert capabilities.structured_events is False
+    assert capabilities.supported_treatments == ()
+    assert capabilities.diagnostic_code == RunStatus.VERSION_UNSUPPORTED.value
 
 
 def test_codex_probe_fails_closed_for_missing_executable(tmp_path: Path) -> None:
@@ -308,6 +339,8 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "-c",
         "sandbox_workspace_write.network_access=false",
         "-c",
+        "allow_login_shell=false",
+        "-c",
         "sandbox_workspace_write.exclude_tmpdir_env_var=true",
         "--sandbox",
         "workspace-write",
@@ -355,6 +388,29 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
     assert "--dangerously-bypass-approvals-and-sandbox" not in prepared.command
     assert prepared.metadata["environment_keys"] == tuple(sorted(prepared.environment))
     assert "must-not-inherit" not in repr(prepared.metadata)
+
+
+def test_codex_command_disables_login_shell_profiles_for_every_platform(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace-no-login-profile"
+    workspace.mkdir()
+
+    windows = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        platform_name="win32",
+    ).prepare(_spec(tmp_path), workspace)
+    posix = _adapter(
+        tmp_path,
+        ScriptedProcessRunner(),
+        platform_name="linux",
+    ).prepare(_spec(tmp_path), workspace)
+
+    assert "allow_login_shell=false" in windows.command
+    assert "allow_login_shell=false" in posix.command
+    assert "permissions.allow_login_shell=false" not in windows.command
+    assert "permissions.allow_login_shell=false" not in posix.command
 
 
 def test_codex_command_forces_http_transport_without_changing_auth_endpoint(

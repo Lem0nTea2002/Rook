@@ -13,6 +13,7 @@ from rook_agent.evalops.models import (
     EvalSuite,
     EvaluationMode,
     ExperimentPhase,
+    ExperimentPlan,
     ExperimentRecord,
     FastGateDecision,
     FastGateStatus,
@@ -88,6 +89,7 @@ class EvalOpsService:
         mode: EvaluationMode = EvaluationMode.AUTO,
         record_decisions: bool = True,
         environment_allowlist: Mapping[str, str] | None = None,
+        stop_on_infrastructure_exclusion: bool = False,
     ) -> EvaluationSummary:
         if not targets:
             raise ValueError("at least one target is required")
@@ -120,6 +122,7 @@ class EvalOpsService:
                     fast_policy=fast_policy,
                     full_policy=full_policy,
                     environment_allowlist=dict(environment_allowlist or {}),
+                    stop_on_infrastructure_exclusion=stop_on_infrastructure_exclusion,
                 )
             )
 
@@ -185,10 +188,13 @@ class EvalOpsService:
         fast_policy: FastGatePolicy,
         full_policy: PromotionPolicy,
         environment_allowlist: Mapping[str, str],
+        stop_on_infrastructure_exclusion: bool,
     ) -> TargetEvaluationSummary:
         fast_record: ExperimentRecord | None = None
         fast_scorecard: ScoreCard | None = None
         fast_decision: FastGateDecision | None = None
+        full_record: ExperimentRecord | None = None
+        full_scorecard: ScoreCard | None = None
         try:
             if mode in {EvaluationMode.AUTO, EvaluationMode.FAST}:
                 fast_plan = build_experiment_plan(
@@ -201,7 +207,10 @@ class EvalOpsService:
                     fast_count_per_category=fast_count_per_category,
                     environment_allowlist=environment_allowlist,
                 )
-                fast_record = self._runner.run(fast_plan)
+                fast_record = self._run_plan(
+                    fast_plan,
+                    stop_on_infrastructure_exclusion=stop_on_infrastructure_exclusion,
+                )
                 fast_scorecard = self._scorecards.build(fast_record)
                 fast_decision = fast_policy.evaluate(fast_scorecard)
             if mode is EvaluationMode.FAST:
@@ -243,7 +252,10 @@ class EvalOpsService:
                 families=families,
                 environment_allowlist=environment_allowlist,
             )
-            full_record = self._runner.run(full_plan)
+            full_record = self._run_plan(
+                full_plan,
+                stop_on_infrastructure_exclusion=stop_on_infrastructure_exclusion,
+            )
             full_scorecard = self._scorecards.build(full_record)
             decision = full_policy.evaluate(full_scorecard)
             return TargetEvaluationSummary(
@@ -261,8 +273,23 @@ class EvalOpsService:
                 fast_scorecard=fast_scorecard,
                 fast_decision=fast_decision,
                 fast_record=fast_record,
+                full_record=full_record,
+                full_scorecard=full_scorecard,
                 error_code="target_evaluation_error",
             )
+
+    def _run_plan(
+        self,
+        plan: ExperimentPlan,
+        *,
+        stop_on_infrastructure_exclusion: bool,
+    ) -> ExperimentRecord:
+        if stop_on_infrastructure_exclusion:
+            return self._runner.run(
+                plan,
+                stop_on_infrastructure_exclusion=True,
+            )
+        return self._runner.run(plan)
 
 
 def _promotion_from_fast(

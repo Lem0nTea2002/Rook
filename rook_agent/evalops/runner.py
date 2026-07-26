@@ -50,6 +50,9 @@ _NO_EVALUATION_STATUSES = frozenset(
 _CONSTRAINT_STATUSES = frozenset(
     {RunStatus.TIMEOUT, RunStatus.TURN_LIMIT, RunStatus.BUDGET_EXHAUSTED}
 )
+_INFRASTRUCTURE_EXCLUSION_STATUSES = _NO_EVALUATION_STATUSES - {
+    RunStatus.USER_CANCELLED
+}
 
 
 def select_fast_cases(suite: EvalSuite, *, count_per_category: int = 1) -> tuple[EvalCase, ...]:
@@ -220,7 +223,12 @@ class ExperimentRunner:
             adapter, run_id = active
             adapter.cancel(run_id)
 
-    def run(self, plan: ExperimentPlan) -> ExperimentRecord:
+    def run(
+        self,
+        plan: ExperimentPlan,
+        *,
+        stop_on_infrastructure_exclusion: bool = False,
+    ) -> ExperimentRecord:
         with self._state_lock:
             if self._running:
                 raise RuntimeError("experiment runner is already active")
@@ -232,13 +240,34 @@ class ExperimentRunner:
             for group in _pair_groups(plan.runs):
                 if self._is_cancelled():
                     break
-                completed.extend(self._run_pair(group))
+                pair_runs = self._run_pair(
+                    group,
+                    stop_on_infrastructure_exclusion=stop_on_infrastructure_exclusion,
+                )
+                completed.extend(pair_runs)
                 if completed and completed[-1].status is RunStatus.USER_CANCELLED:
                     with self._state_lock:
                         self._cancel_requested = True
                     break
+                if stop_on_infrastructure_exclusion and any(
+                    is_infrastructure_exclusion(run) for run in pair_runs
+                ):
+                    break
             cancelled = self._is_cancelled()
-            summary = self._persist_record(plan, completed, cancelled=cancelled)
+            stop_reason = (
+                "infrastructure_exclusion"
+                if (
+                    stop_on_infrastructure_exclusion
+                    and any(is_infrastructure_exclusion(run) for run in completed)
+                )
+                else None
+            )
+            summary = self._persist_record(
+                plan,
+                completed,
+                cancelled=cancelled,
+                stop_reason=stop_reason,
+            )
             artifact_refs = tuple(
                 ref
                 for ref in (
@@ -252,13 +281,19 @@ class ExperimentRunner:
                 runs=tuple(completed),
                 cancelled=cancelled,
                 artifact_refs=artifact_refs,
+                stop_reason=stop_reason,
             )
         finally:
             with self._state_lock:
                 self._active = None
                 self._running = False
 
-    def _run_pair(self, specs: tuple[RunSpec, ...]) -> list[EvaluatedRun]:
+    def _run_pair(
+        self,
+        specs: tuple[RunSpec, ...],
+        *,
+        stop_on_infrastructure_exclusion: bool,
+    ) -> list[EvaluatedRun]:
         pair: WorkspacePair | None = None
         evaluated: list[EvaluatedRun] = []
         cleanup_status = "not_created"
@@ -274,6 +309,11 @@ class ExperimentRunner:
                     break
                 evaluated.append(self._run_one(spec, pair))
                 if evaluated[-1].status is RunStatus.USER_CANCELLED:
+                    break
+                if (
+                    stop_on_infrastructure_exclusion
+                    and is_infrastructure_exclusion(evaluated[-1])
+                ):
                     break
         except Exception as exc:
             already_run = {item.spec.treatment for item in evaluated}
@@ -295,6 +335,8 @@ class ExperimentRunner:
                         cleanup_status="pending",
                     )
                 )
+                if stop_on_infrastructure_exclusion:
+                    break
         finally:
             if pair is not None:
                 try:
@@ -441,6 +483,7 @@ class ExperimentRunner:
         runs: list[EvaluatedRun],
         *,
         cancelled: bool,
+        stop_reason: str | None,
     ) -> str | None:
         try:
             artifact = self._artifacts.write_json(
@@ -453,6 +496,7 @@ class ExperimentRunner:
                     "policy_fingerprint": plan.policy_fingerprint,
                     "candidate_fingerprint": plan.candidate_fingerprint,
                     "cancelled": cancelled,
+                    "stop_reason": stop_reason,
                     "planned_run_count": len(plan.runs),
                     "completed_run_count": len(runs),
                     "terminal_artifact_refs": tuple(
@@ -467,6 +511,12 @@ class ExperimentRunner:
     def _is_cancelled(self) -> bool:
         with self._state_lock:
             return self._cancel_requested
+
+
+def is_infrastructure_exclusion(run: EvaluatedRun) -> bool:
+    """Return whether a run is excluded from capability comparison as infrastructure."""
+
+    return run.status in _INFRASTRUCTURE_EXCLUSION_STATUSES
 
 
 def _pair_groups(runs: tuple[RunSpec, ...]) -> tuple[tuple[RunSpec, ...], ...]:

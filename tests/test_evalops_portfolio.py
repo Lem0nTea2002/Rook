@@ -57,10 +57,10 @@ def test_portfolio_docs_keep_fake_controls_separate_from_live_metrics() -> None:
 
     assert "Fake Agent promotion/rejection results" in english
     assert "Completed Calibration (not a Formal result)" in english
-    assert "Formal not measured" in english
+    assert "Completed Adapter v11 Formal" in english
     assert "不能作为真实模型效果" in chinese
     assert "已完成的 Calibration（不能作为 Formal 结论）" in chinese
-    assert "Formal 未测量" in chinese
+    assert "已完成的 Adapter v11 Formal" in chinese
 
 
 def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
@@ -96,11 +96,13 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
         top.index(heading)
         for heading in ("## Problem", "## Architecture", "## Demo", "## Metrics")
     )
-    assert "72-call Formal | **Not measured**" in top
+    assert "`gpt-5.4-mini` 72-call Formal" in top
+    assert "Baseline 25% → Forced 100% (+75pp)" in top
     assert "Formal hardening timeline" in top
     assert "2–3 minute video" in top
     assert "## 问题" in chinese
-    assert "72-call Formal | **尚未测量**" in chinese
+    assert "`gpt-5.4-mini` 72-call Formal" in chinese
+    assert "Baseline 25% → Forced 100%（+75pp）" in chinese
 
     video = _ROOT / "docs" / "video" / "rook-forge-demo.mp4"
     thumbnail = _ROOT / "docs" / "images" / "rook-forge-video.png"
@@ -139,6 +141,171 @@ def test_public_v9_readiness_evidence_is_exactly_two_calls_and_not_formal() -> N
     serialized = json.dumps(evidence).casefold()
     assert "prompt_text" not in serialized
     assert "authorization" in serialized
+
+
+def test_public_v9_formal_attempt_stopped_fail_closed_and_is_not_formal() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-formal-v9-attempt-2026-07-24.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["formal_calls_authorized"] == 72
+    assert evidence["authorization"]["formal_calls_started"] == 39
+    assert evidence["authorization"]["not_started"] == 33
+    assert evidence["execution"]["planned_runs"] == 72
+    assert evidence["execution"]["evaluated_run_records"] == 39
+    assert evidence["execution"]["stop_reason"] == "infrastructure_exclusion"
+    assert evidence["evaluated_status_counts"]["infra_error"] == 1
+    assert evidence["failure"]["classification"] == (
+        "login_profile_loaded_in_restricted_powershell"
+    )
+    assert evidence["stop_boundary"]["status"] == "aborted_fail_closed"
+    assert evidence["stop_boundary"]["partial_results_may_be_combined_with_future_runs"] is False
+    assert evidence["result"]["formal_metric_produced"] is False
+    assert evidence["result"]["resume_metric_produced"] is False
+
+
+def test_public_v10_profile_remediation_records_invalidated_validation() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-formal-v9-profile-isolation-remediation-2026-07-26.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["identity"]["adapter_version"] == "codex-evalops-v10"
+    assert evidence["contract"]["codex_config_override"] == (
+        "permissions.allow_login_shell=false"
+    )
+    assert evidence["verification"]["config_was_fully_loaded"] is False
+    assert evidence["verification"]["external_calls"] == 0
+    assert evidence["verification"]["model_costs_incurred"] is False
+    assert evidence["result"]["invalidated_by_live_config_parse"] is True
+
+
+def test_public_v10_smoke_attempt_stopped_before_model_and_second_arm() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-v10-smoke-attempt-2026-07-26.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["external_cli_processes_authorized"] == 2
+    assert evidence["authorization"]["external_cli_processes_started"] == 1
+    assert evidence["authorization"]["model_requests_started"] == 0
+    assert evidence["authorization"]["second_arm_started"] is False
+    assert evidence["execution"]["planned_run_count"] == 2
+    assert evidence["execution"]["completed_run_count"] == 1
+    assert evidence["execution"]["stop_reason"] == "infrastructure_exclusion"
+    assert evidence["failure"]["classification"] == "invalid_codex_config_path"
+    assert evidence["failure"]["jsonl_bytes"] == 0
+    assert evidence["stop_boundary"]["status"] == "aborted_fail_closed"
+    assert evidence["result"]["readiness_passed"] is False
+    assert evidence["result"]["formal_metric_produced"] is False
+
+
+def test_public_v11_profile_remediation_is_offline_and_requires_fresh_smoke() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-formal-v10-profile-isolation-remediation-2026-07-26.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["identity"]["adapter_version"] == "codex-evalops-v11"
+    assert evidence["contract"]["codex_config_override"] == "allow_login_shell=false"
+    assert evidence["contract"]["powershell_non_login_flag"] == "-NoProfile"
+    assert evidence["contract"]["user_profile_files_modified"] is False
+    assert evidence["verification"]["config_validation_exit_code"] == 0
+    assert evidence["verification"]["wrong_nested_path_exit_code"] == 1
+    assert evidence["verification"]["external_calls"] == 0
+    assert evidence["verification"]["model_costs_incurred"] is False
+    assert evidence["verification"]["rook_eval_doctor_available"] is True
+    assert evidence["verification"]["rook_eval_doctor_validates_full_eval_config"] is True
+    assert evidence["next_gate"]["calls"] == 2
+    assert evidence["next_gate"]["authorization_required"] is True
+    assert evidence["next_gate"]["must_start_from_zero"] is True
+    assert evidence["next_gate"]["formal_authorized"] is False
+
+
+def test_public_v11_readiness_is_exactly_two_calls_and_not_formal() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-v11-smoke-2026-07-26.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["external_calls_authorized"] == 2
+    assert evidence["authorization"]["external_calls_started"] == 2
+    assert evidence["authorization"]["formal_authorized"] is False
+    assert evidence["identity"]["adapter_version"] == "codex-evalops-v11"
+    assert evidence["execution"]["planned_runs"] == 2
+    assert evidence["execution"]["completed_runs"] == 2
+    assert evidence["execution"]["stop_reason"] is None
+    assert evidence["audit"]["infrastructure_exclusions"] == 0
+    assert evidence["audit"]["powershell_profile_markers"] == 0
+    assert evidence["audit"]["trace_completeness_rate"] == 1.0
+    assert evidence["audit"]["web_search_event_count"] == 0
+    assert evidence["result"]["readiness_passed"] is True
+    assert evidence["result"]["formal_metric_produced"] is False
+    assert evidence["result"]["resume_metric_produced"] is False
+    assert {run["status"] for run in evidence["runs"]} == {
+        "wrong_result",
+        "passed",
+    }
+    assert all(run["process_exit_code"] == 0 for run in evidence["runs"])
+    assert all(run["terminal_event_count"] == 1 for run in evidence["runs"])
+
+
+def test_public_v11_formal_is_complete_promoted_and_resume_eligible() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-formal-v11-summary-2026-07-26.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["formal_calls_authorized"] == 72
+    assert evidence["authorization"]["formal_calls_started"] == 72
+    assert evidence["authorization"]["formal_calls_completed"] == 72
+    assert evidence["identity"]["adapter_version"] == "codex-evalops-v11"
+    assert evidence["execution"]["planned_run_count"] == 72
+    assert evidence["execution"]["completed_run_count"] == 72
+    assert evidence["execution"]["content_pair_count"] == 36
+    assert evidence["execution"]["stop_reason"] is None
+    assert evidence["audit"]["infrastructure_exclusions"] == 0
+    assert evidence["audit"]["trace_completeness_rate"] == 1.0
+    assert evidence["audit"]["process_exit_zero"] == 72
+    assert evidence["audit"]["powershell_profile_markers"] == 0
+    assert evidence["metrics"]["overall"]["baseline_success_rate"] == 0.25
+    assert evidence["metrics"]["overall"]["candidate_success_rate"] == 1.0
+    assert evidence["metrics"]["overall"]["paired_success_uplift"] == 0.75
+    assert evidence["metrics"]["capability"]["paired_success_uplift"] == 1.0
+    assert evidence["metrics"]["preservation"]["new_regression_count"] == 0
+    assert evidence["metrics"]["cost"]["observed"] is False
+    assert evidence["metrics"]["routing"]["observed"] is False
+    assert evidence["gate"]["status"] == "promoted"
+    assert evidence["gate"]["reason_code"] == "capability_success_uplift"
+    assert evidence["result"]["formal_metric_produced"] is True
+    assert evidence["result"]["resume_metric_produced"] is True
+    assert evidence["result"]["deployment_performed"] is False
+    assert evidence["result"]["human_approval_recorded"] is False
 
 
 def test_public_forge_lifecycle_evidence_preserves_fake_agent_boundary() -> None:

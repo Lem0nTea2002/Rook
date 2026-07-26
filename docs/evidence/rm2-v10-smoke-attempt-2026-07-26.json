@@ -1,0 +1,50 @@
+{
+  "artifact_kind": "redacted_aborted_live_readiness",
+  "authorization": {
+    "external_cli_processes_authorized": 2,
+    "external_cli_processes_started": 1,
+    "formal_authorized": false,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true,
+    "model_requests_started": 0,
+    "second_arm_started": false
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v10",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-d2a0c089667341f5ae5ede17c0cba480",
+    "experiment_id": "exp-a36c4f9d767d4e3dab64d2f5a45a0adc",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "suite_fingerprint": "93db67a9c789d801f52ee3491f9a31e6",
+    "suite_id": "release-manifest-v2-profile-isolation-smoke-v1",
+    "target_fingerprint": "a4646c97156b637db636616d58dc54d2"
+  },
+  "execution": {
+    "completed_run_count": 1,
+    "planned_run_count": 2,
+    "run_id": "codex-3c885a4ed8564bcc58b50855",
+    "stop_reason": "infrastructure_exclusion",
+    "treatment_started": "baseline"
+  },
+  "failure": {
+    "classification": "invalid_codex_config_path",
+    "duration_ms": 1000,
+    "error_code": "codex_process_failed",
+    "exit_code": 1,
+    "jsonl_bytes": 0,
+    "message": "Codex 0.144.6 interpreted permissions as a named permission-profile table and rejected the nested boolean override before provider initialization.",
+    "rejected_override": "permissions.allow_login_shell=false",
+    "stderr_bytes": 114
+  },
+  "stop_boundary": {
+    "partial_results_may_be_combined_with_future_runs": false,
+    "status": "aborted_fail_closed"
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "readiness_passed": false,
+    "resume_metric_produced": false
+  }
+}

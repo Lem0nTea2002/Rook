@@ -117,6 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write evidence and reports without mutating the promotion registry.",
     )
+    eval_run_parser.add_argument(
+        "--stop-on-infrastructure-exclusion",
+        action="store_true",
+        help="Stop before the next Agent call after the first infrastructure exclusion.",
+    )
     eval_run_parser.add_argument("--allow-external", action="store_true", help="Allow external Agent/model calls.")
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
     report_parser = eval_subparsers.add_parser("report", help="Read an immutable Rook Forge report.")

@@ -471,14 +471,45 @@ sandbox-failure counts were all zero. Baseline failed the hidden evaluator with
 `quarantined (insufficient_valid_pairs)`, because readiness is not an effect
 study. The redacted record is
 [`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json).
-A new 72-call Formal still requires its own explicit external-call and
-model-cost authorization.
+The following Adapter v9 Formal stopped fail-closed after 39/72 calls when the
+real PowerShell profile loaded inside the restricted Windows sandbox. Adapter
+v10 attempted to disable login shells with an invalid nested Codex config key;
+its readiness Baseline failed config parsing before provider initialization,
+produced an empty JSONL file, and stopped before the Forced arm. Adapter v11
+uses the Codex 0.144.6 top-level field `allow_login_shell=false`. Unlike the
+invalidated `--version` probe, the offline verification fully loads
+configuration via `features list`; the valid key exits 0 and the invalid nested
+control exits 1. `rook eval doctor` now performs the same full immutable-config
+validation before reporting Codex available. Evidence is recorded in
+[`rm2-v10-smoke-attempt-2026-07-26.json`](evidence/rm2-v10-smoke-attempt-2026-07-26.json)
+and
+[`rm2-formal-v10-profile-isolation-remediation-2026-07-26.json`](evidence/rm2-formal-v10-profile-isolation-remediation-2026-07-26.json).
+
+The separately authorized Adapter v11 run then completed both arms in
+`profile-isolation-smoke.toml`. Both processes exited 0, each emitted one
+terminal turn, trace completeness was 100%, and infrastructure exclusions plus
+PowerShell profile, Web Search, reconnect, WebSocket, and Windows sandbox
+failure markers were all zero. Baseline was `wrong_result`; Forced Skill
+passed. The gate remained `quarantined (insufficient_valid_pairs)` because this
+single pair is readiness evidence, not an effect estimate. See
+[`rm2-v11-smoke-2026-07-26.json`](evidence/rm2-v11-smoke-2026-07-26.json).
+
+Passing readiness did not authorize Formal. After a new, separate authorization,
+Adapter v11 started from call 1 and completed all 72 processes and 36 pairs.
+Baseline success was 25% and Forced Skill success was 100% (+75pp); median
+latency improved 16.7%, median observed Token use improved 19.5%, and all 18
+preservation pairs passed with zero new regressions. Trace completeness was
+100%, all processes exited 0, and no infrastructure exclusion occurred. The
+automatic gate returned `promoted (capability_success_uplift)`. Because the run
+was measurement-only, it did not record human approval or deploy the Skill.
+USD cost and Codex routing remain not observed. See
+[`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json).
 
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
-72-call Formal immutable report may populate final resume success, Token, and
-latency values; USD cost remains `not observed` unless the Adapter receives a
-real cost field.
+72-call Formal immutable report now populates final resume success, Token, and
+latency values; USD cost remains `not observed` because the Adapter received no
+cost field.
 
 The repository-level Codex target and network controls follow the official
 [Codex Skill documentation](https://learn.chatgpt.com/docs/build-skills) and

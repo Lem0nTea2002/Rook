@@ -131,12 +131,25 @@ class _RecordingRunner:
     def __init__(self) -> None:
         self.calls: list[tuple[AgentType, ExperimentPhase]] = []
         self.plans = []
+        self.stop_on_infrastructure_exclusion: list[bool] = []
 
-    def run(self, plan):
+    def run(self, plan, *, stop_on_infrastructure_exclusion: bool = False):
         target = plan.runs[0].target
         self.calls.append((target.type, plan.phase))
         self.plans.append(plan)
-        return ExperimentRecord(plan=plan, runs=(), cancelled=False)
+        self.stop_on_infrastructure_exclusion.append(
+            stop_on_infrastructure_exclusion
+        )
+        return ExperimentRecord(
+            plan=plan,
+            runs=(),
+            cancelled=False,
+            stop_reason=(
+                "infrastructure_exclusion"
+                if stop_on_infrastructure_exclusion
+                else None
+            ),
+        )
 
 
 def _metrics(*, unsafe: bool = False, unavailable: bool = False) -> dict[str, object]:
@@ -318,6 +331,64 @@ def test_full_measurement_only_skips_fast_and_registry(tmp_path: Path) -> None:
     assert summary.targets[0].decision.status is PromotionStatus.PROMOTED
     assert events == ["report"]
     assert registry.decisions == []
+
+
+def test_service_forwards_infrastructure_fail_fast_to_full_runner(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    runner = _RecordingRunner()
+    service = _service(
+        tmp_path,
+        scorecards=_StubScoreCards(),
+        registry=_RecordingRegistry(events),
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+
+    service.evaluate_candidate(
+        _candidate(),
+        _suite(tmp_path),
+        (_target(),),
+        mode=EvaluationMode.FULL,
+        record_decisions=False,
+        stop_on_infrastructure_exclusion=True,
+    )
+
+    assert runner.stop_on_infrastructure_exclusion == [True]
+
+
+def test_service_retains_fail_fast_record_when_partial_scorecard_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    class _FailingScoreCards:
+        def build(self, _record):
+            raise ValueError("partial record has no Candidate arm")
+
+    events: list[str] = []
+    runner = _RecordingRunner()
+    service = _service(
+        tmp_path,
+        scorecards=_FailingScoreCards(),
+        registry=_RecordingRegistry(events),
+        report=_RecordingReport(events),
+        runner=runner,
+    )
+
+    summary = service.evaluate_candidate(
+        _candidate(),
+        _suite(tmp_path),
+        (_target(),),
+        mode=EvaluationMode.FULL,
+        record_decisions=False,
+        stop_on_infrastructure_exclusion=True,
+    )
+
+    target = summary.targets[0]
+    assert target.error_code == "target_evaluation_error"
+    assert target.full_record is not None
+    assert target.full_record.stop_reason == "infrastructure_exclusion"
+    assert target.full_scorecard is None
 
 
 def test_fast_mode_never_runs_full_when_gate_continues(tmp_path: Path) -> None:

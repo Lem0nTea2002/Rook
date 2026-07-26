@@ -325,6 +325,67 @@ def test_infrastructure_status_is_not_disguised_as_evaluation_failure(tmp_path: 
     assert record.runs[0].raw_event_refs
 
 
+def test_fail_fast_stops_before_second_arm_on_first_infrastructure_exclusion(
+    tmp_path: Path,
+) -> None:
+    suite = _suite(tmp_path, categories=(CaseCategory.DIRECT,))
+    fake = FakeAgentAdapter(
+        scripts={
+            suite.cases[0].id: FakeAgentScript(outcome=FakeAgentOutcome.INFRA_ERROR)
+        },
+        artifact_store=ArtifactStore(tmp_path / "artifacts"),
+    )
+    recording = _RecordingAdapter(fake)
+    plan = build_experiment_plan(
+        suite,
+        targets=(_target(),),
+        candidate=_candidate(),
+        repetitions=2,
+        families=(TreatmentFamily.CONTENT,),
+    )
+
+    record = _runner(tmp_path, recording).run(
+        plan,
+        stop_on_infrastructure_exclusion=True,
+    )
+
+    assert len(plan.runs) == 4
+    assert len(record.runs) == 1
+    assert record.runs[0].status is RunStatus.INFRA_ERROR
+    assert record.runs[0].cleanup_status == "cleaned"
+    assert record.runs[0].terminal_artifact_ref
+    assert record.cancelled is False
+    assert record.stop_reason == "infrastructure_exclusion"
+    assert recording.skill_presence == [(Treatment.BASELINE, False)]
+
+
+def test_fail_fast_does_not_treat_agent_timeout_as_infrastructure(
+    tmp_path: Path,
+) -> None:
+    suite = _suite(tmp_path, categories=(CaseCategory.DIRECT,))
+    fake = FakeAgentAdapter(
+        scripts={
+            suite.cases[0].id: FakeAgentScript(outcome=FakeAgentOutcome.TIMEOUT)
+        },
+        artifact_store=ArtifactStore(tmp_path / "artifacts"),
+    )
+    plan = build_experiment_plan(
+        suite,
+        targets=(_target(),),
+        candidate=_candidate(),
+        families=(TreatmentFamily.CONTENT,),
+    )
+
+    record = _runner(tmp_path, fake).run(
+        plan,
+        stop_on_infrastructure_exclusion=True,
+    )
+
+    assert len(record.runs) == 2
+    assert {run.status for run in record.runs} == {RunStatus.TIMEOUT}
+    assert record.stop_reason is None
+
+
 def test_safety_failure_precedes_agent_constraint_status(tmp_path: Path) -> None:
     suite = _suite(tmp_path, categories=(CaseCategory.ADVERSARIAL,))
     trajectory = EvaluatorSpec(

@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-24
+更新时间：2026-07-26
 
 ## 项目定位
 
@@ -17,7 +17,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 分支：`main`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
 - Rook Forge v0.2.2 已发布；Adapter v9 suite 基线为 `94e866a`，作品集与证据 PR #9 合并提交为 `8e56e14`。
-- 当前状态：Adapter v9 readiness 已在之前失败的 application case 上恰好完成 2/2 次真实调用，轨迹完整度 100%、基础设施排除 0，readiness 通过；单配对自动门禁按样本阈值保持 `quarantined`，没有伪装成 Formal。新增两个不同类型的真实仓库 Skill holdout，并实际执行一次本地审批、双目标部署、漂移检测、恢复和双目标回滚。
+- 当前状态：Adapter v11 已完成全新的 72-call Formal：72/72 次调用、36 个完整配对、轨迹完整度 100%、基础设施排除 0。Baseline 成功率 25%，Forced Skill 100%（+75pp）；中位时延降低 16.7%，中位 Token 降低 19.5%，新增回归 0。自动门禁为 `promoted (capability_success_uplift)`；measurement-only 执行未产生人工审批或部署，美元成本和 Codex 路由仍未观测。
 
 ## 已完成功能
 
@@ -130,18 +130,25 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - Adapter v9 将 fallback 必需写入与辅助验证分离；真正写入失败仍返回 `ROOK_SHELL_FALLBACK_EXHAUSTED` 并 fail closed，已写入但辅助验证不确定时返回 `ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE`，由隐藏确定性 evaluator 决定正确性。Normalizer v3 保留审计诊断但不制造基础设施排除，Prompt v15 禁止在一个 fallback 命令中捆绑写入和断言；专项离线测试 `105 passed`。
 - 获授权的 Adapter v9 readiness `evaluation-de3f7652fa0447e193bd1ddda8b51ce9` 恰好执行 2/2 次调用：两臂 exit 0 且各有一个终态 turn，轨迹完整度 100%，基础设施排除、Web Search、重连、顶层流错误、Windows 沙箱失败、fallback 耗尽和写入后不确定标记均为 0；Baseline 为 `wrong_result`，Forced Skill 为 `passed`。
 - v9 readiness 的自动门禁为 `quarantined (insufficient_valid_pairs)`，仅因为一个配对低于效果政策样本阈值。该轮证明当前 Adapter 就绪，不产生 Formal 成功率结论。
+- Adapter v9 Formal 在 39/72 次时因真实 PowerShell profile 在受限 language mode 中加载而 fail-fast；Adapter v10 的首次配置隔离使用了错误的嵌套键，readiness 在模型请求前停止。Adapter v11 改用顶层 `allow_login_shell=false`，并让 `rook eval doctor` 通过无模型的 `features list` 完整校验所有 EvalOps 配置。
+- Adapter v11 readiness 在原失败 `holdout-docs` 边界完成 2/2：两个进程 exit 0、终态 turn 2/2、轨迹完整度 100%，profile、Web Search、重连、WebSocket、沙箱失败和基础设施排除均为 0。
+- 随后单独授权的 Adapter v11 Formal `evaluation-3234f8305aaf4ec7818837ca1a016ac3` 从零完成 72/72 次调用和 36 个配对。72 个进程全部 exit 0、终态 turn 72/72、轨迹完整度 100%；基础设施排除、profile、Web Search、重连、WebSocket、Windows 沙箱失败、安全失败、秘密泄漏和隔离泄漏均为 0。
+- Formal 总体 Baseline 为 9/36（25%，Wilson 95% 区间 13.8%–41.1%），Forced Skill 为 36/36（100%，Wilson 95% 区间 90.4%–100%），配对提升 +75pp；18 个能力配对由 0/18 提升到 18/18，18 个 preservation 配对新增回归为 0。
+- Formal 中位时延由 69.773s 降至 58.141s（-16.7%），中位 Token 由 42,436 降至 34,174（-19.5%），中位工具调用由 6 降至 4（-33.3%）。美元成本和 Codex 路由 precision/recall 未观测，不做估算。
+- Formal 自动门禁为 `promoted (capability_success_uplift)`；本轮使用 measurement-only，因此没有人工审批、部署或活动版本副作用。脱敏证据为 `docs/evidence/rm2-formal-v11-summary-2026-07-26.json`。
+- Formal 证据同步后的完整 EvalOps 回归为 `503 passed, 7 skipped`，覆盖率 `86.08%`；Ruff、mypy、证据 JSON 与 `git diff --check` 全部通过。
 - 两个真实仓库 holdout 的 4 个 Candidate/suite/provenance/hidden-validator 专项测试通过；它们仍为 staged/quarantined，没有 live model gate 或部署。
 - 本地治理 dogfood 生成 4 个不可变 ApprovalRecord、6 个 ReleaseRecord（4 次部署 + 2 次回滚），在 Codex `SKILL.md` 被手工修改后报告 `drifted`，精确恢复后重新变为 `active`，最终 Rook/Codex 都回滚到 v1。考试使用 Fake Agent，因此只证明控制面和文件事务。
 
 ## 下一阶段计划
 
-1. 单独申请全新的 72-call Formal；遇到首个基础设施排除立即停止，不能续跑或拼接历史 partial attempt。
-2. Formal 前再次核验冻结 Candidate、suite、policy、Adapter/Normalizer 与目标 fingerprint。
-3. 对两个真实仓库 holdout 分别申请 live Calibration/Pilot，再决定是否进入独立审批与部署。
+1. 将 Adapter v11 Formal 证据提交、推送并由 Windows/Linux CI 验证。
+2. 如需真实上线演示，使用非 measurement-only 的治理流程重新登记门禁决定，再显式人工 approve；不得直接把本次报告当作部署授权。
+3. 对两个真实仓库 holdout 分别申请 live Calibration/Pilot，验证跨 Skill/跨仓库泛化。
 4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
 
 ## 当前停点
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。既有 24-call Pilot 仍是有效但非 Formal 的正向证据；历史 Formal 尝试都被证据边界正确阻断。Adapter v9 已获得 2/2、零基础设施排除的 live readiness 证据，但 Rook 没有把单配对 readiness 或 v8 partial 记录包装为效果。最终简历成功率、Token 和时延仍必须等待重新授权且完整结束的 72-call Formal；Codex 不提供费用字段时成本继续写 `not observed`。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。历史 partial Formal 都被证据边界正确阻断；最终 Adapter v11 Formal 从零完整结束，成功率、Token 和时延指标现在具备可复核的简历证据。美元成本和 Codex 路由仍保持 `not observed`。自动门禁通过不等于上线，本次 measurement-only 报告没有产生人工审批或部署副作用。

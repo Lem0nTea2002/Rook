@@ -73,16 +73,17 @@ rook eval demo
 | --- | --- | --- |
 | 发布 | [v0.2.2](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.2)，wheel + sdist，5 个必需 CI job 全绿 | 已发布并做全新环境安装验证 |
 | 跨平台 CI | Ubuntu：1753 passed / 7 skipped；Windows：1754 passed / 6 skipped；Python 3.11/3.12 | 离线，无 Codex 进程和模型费用 |
-| Adapter v9 readiness | 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
+| Adapter v11 readiness | 在此前 profile 失败边界上 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
 | `gpt-5.4-mini` Pilot | 24/24 次、12 个可比配对；Baseline 25% → Forced 100%（+75pp）；时延 -22.7%；Token -12.9%；新增回归 0 | 真实 Pilot，**不是** Formal |
 | 真实仓库 holdout | 2 个 Skill、2 个公开仓库、4 个 Direct/Regression/Adversarial 案例 | 已 staged/quarantined，没有 live model 结论 |
 | 治理 dogfood | 4 次审批、4 次部署、漂移发现/恢复、2 次原子回滚 | 真实本地控制面；Fake Agent 考试 |
-| 72-call Formal | **尚未测量** | 必须单独授权，当前没有最终简历效果指标 |
+| `gpt-5.4-mini` 72-call Formal | 72/72 次、36 个可比配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归 0 | sealed holdout；轨迹完整度 100%；基础设施排除 0；美元成本和路由未观测 |
 
 证据入口：[简历证据合同](docs/PORTFOLIO_EVIDENCE.zh-CN.md) ·
 [真实仓库 holdout](docs/REAL_REPO_HOLDOUTS.md) ·
 [治理生命周期记录](docs/evidence/forge-lifecycle-2026-07-24.json) ·
-[v9 readiness](docs/evidence/rm2-v9-smoke-2026-07-24.json) ·
+[v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
+[v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
 [Formal 加固时间线](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
 [dogfooding 账本](docs/DOGFOODING.md)
 

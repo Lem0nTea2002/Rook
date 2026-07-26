@@ -301,6 +301,20 @@ def test_post_write_smoke_is_candidate_locked_and_targets_failed_formal_case() -
     )
 
 
+def test_profile_isolation_smoke_is_candidate_locked_and_targets_failed_case() -> None:
+    smoke = load_eval_suite(_SUITE_ROOT / "profile-isolation-smoke.toml")
+
+    assert smoke.id == "release-manifest-v2-profile-isolation-smoke-v1"
+    assert smoke.candidate_content_hash == _CANDIDATE_CONTENT_HASH
+    assert len(smoke.cases) == 1
+    assert smoke.cases[0].id == "holdout-docs-profile-isolation-smoke"
+    assert smoke.cases[0].timeout_seconds == 180
+    assert smoke.cases[0].network_policy == NetworkPolicy.DISABLED
+    assert smoke.cases[0].evaluator.options["command"][-1] == (
+        "--case=holdout-docs"
+    )
+
+
 def test_positive_holdout_tasks_define_repository_root_output() -> None:
     suite = load_eval_suite(_SUITE_ROOT / "suite.toml")
     positive_ids = {

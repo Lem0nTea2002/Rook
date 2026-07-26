@@ -75,16 +75,17 @@ and release IDs plus artifact hashes.
 | --- | --- | --- |
 | Release | [v0.2.2](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.2), wheel + sdist, five required CI jobs green | Published and fresh-install verified |
 | Cross-platform CI | Ubuntu: 1753 passed / 7 skipped; Windows: 1754 passed / 6 skipped; Python 3.11/3.12 | Offline; no Codex process or model cost |
-| Adapter v9 readiness | 2/2 terminal calls; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
+| Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
 | Real-repository holdouts | 2 Skills, 2 public repositories, 4 Direct/Regression/Adversarial cases | Staged and quarantined; no live model claim |
 | Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
-| 72-call Formal | **Not measured** | Requires separate authorization; no final resume metric yet |
+| `gpt-5.4-mini` 72-call Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -16.7%; median Token -19.5%; 0 new regressions | Sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
 
 Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [real-repository holdouts](docs/REAL_REPO_HOLDOUTS.md) ·
 [lifecycle record](docs/evidence/forge-lifecycle-2026-07-24.json) ·
-[v9 readiness](docs/evidence/rm2-v9-smoke-2026-07-24.json) ·
+[v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
+[v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
 [Formal hardening timeline](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
 [dogfooding ledger](docs/DOGFOODING.md)
 

@@ -34,7 +34,12 @@
 | Adapter v8 Formal 已中止 | 启动 13 次；一个 Forced arm 在写入后验证断言失败并耗尽 fallback；59 次未启动；没有 Formal 结果 |
 | Adapter v9 写入后验证修复 | 必需写入与辅助验证分离；确定性 evaluator 保留最终判定权；105 个专项离线测试通过 |
 | Adapter v9 readiness smoke | 之前失败的 application case 上 2/2 次终态 turn；轨迹完整度 100%；基础设施排除 0；readiness 通过 |
-| 剩余真实调用计划 | 单独授权全新的 72-call Formal |
+| Adapter v9 Formal 已中止 | 启动 39 次；第 39 次加载真实 PowerShell profile 后在受限 language mode 失败；fail-fast 在第 40 次前停止；部分 ScoreCard 不作为 Formal |
+| Adapter v10 离线验证失效 | `codex --version` 未完整加载配置；错误的 `permissions.allow_login_shell=false` 不能作为 profile 隔离证据 |
+| Adapter v10 readiness 已中止 | 第一臂在 1 秒内因配置解析失败而 fail-fast；JSONL 为空、模型请求 0、第二臂未启动；没有 readiness 或 Formal 结果 |
+| Adapter v11 profile 隔离 | 改用顶层 `allow_login_shell=false`；无模型的完整配置加载验证成功，错误嵌套键对照失败 |
+| Adapter v11 readiness smoke | 原失败 docs case 上 2/2 进程 exit 0；轨迹完整度 100%；基础设施排除、profile、Web Search、重连和 WebSocket 标记均为 0 |
+| 已完成的 Adapter v11 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归和基础设施排除均为 0 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -132,20 +137,37 @@ Adapter v9 与 Normalizer v3 已在离线环境中区分两类结果：fallback 
 
 随后单独授权的 v9 readiness smoke 在之前失败的 application case 上恰好完成 2 次调用。两臂都产生终态轨迹并执行确定性 evaluator，轨迹完整度 100%，基础设施排除 0；Baseline 错误，Forced Skill 通过。单配对自动结论 `quarantined (insufficient_valid_pairs)` 符合 readiness 设计，不能作为 Formal 效果估计。脱敏记录见 [`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json)。
 
-## Formal 真实评测填写合同
+## 已完成的 Adapter v11 Formal
+
+单独授权的 sealed holdout 使用 `gpt-5.4-mini` 完成 72/72 次调用和全部 36 个
+Baseline/Forced 配对。Baseline 通过 9/36（25%，Wilson 95% 区间
+13.8%–41.1%），Forced Skill 通过 36/36（100%，Wilson 95% 区间
+90.4%–100%），配对提升 75 个百分点。中位时延从 69.773s 降至
+58.141s（-16.7%），完整观测的中位 Token 从 42,436 降至
+34,174（-19.5%），中位工具调用从 6 降至 4（-33.3%）。能力任务由
+0/18 提升为 18/18，18 个 preservation 配对全部通过，新增回归为 0。
+
+72 个进程全部 exit 0 且各有一个终态 turn，轨迹完整度 100%；基础设施排除、
+profile、Web Search、重连、WebSocket、Windows 沙箱、安全失败、秘密泄漏和
+隔离泄漏均为 0。自动门禁为 `promoted (capability_success_uplift)`，但
+measurement-only 执行没有产生人工审批或部署。美元成本和 Codex 路由仍未观测。
+脱敏证据见
+[`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json)。
+
+### Formal 真实评测填写合同
 
 以下字段不能用估算值替代。只有在显式授权外部调用和费用，并生成不可变报告后才能填写。
 
 | 指标 | 必需证据 | 当前值 |
 | --- | --- | --- |
-| 能力配对样本数 | 排除基础设施失败后的 Direct/Transfer 配对 | Formal 未测量 |
-| Baseline 成功率 | Baseline passed / 有效 Baseline | Formal 未测量 |
-| Forced Skill 成功率 | Forced passed / 有效 Forced | Formal 未测量 |
-| 配对成功率提升 | Forced-Baseline 的配对均值，并附任务分层 bootstrap 95% 区间 | Formal 未测量 |
-| 新增回归 | Baseline 通过但 Candidate 失败的 Regression/Adversarial 案例 | Formal 未测量 |
-| 中位时延变化 | 配对毫秒中位数 | Formal 未测量 |
-| Token 变化 | 可观测输入/输出 Token 配对值 | Formal 未测量 |
-| 成本变化 | 可观测模型费用配对值 | Formal 未测量 |
+| 能力配对样本数 | 排除基础设施失败后的 Direct/Transfer 配对 | 18 |
+| Baseline 成功率 | Baseline passed / 有效 Baseline | 总体 25%；能力任务 0% |
+| Forced Skill 成功率 | Forced passed / 有效 Forced | 总体和能力任务均为 100% |
+| 配对成功率提升 | Forced-Baseline 的配对均值，并附任务分层 bootstrap 95% 区间 | 总体 +75pp；能力任务 +100pp（95% bootstrap 区间 +100pp 到 +100pp） |
+| 新增回归 | Baseline 通过但 Candidate 失败的 Regression/Adversarial 案例 | 18 个 preservation 配对中为 0 |
+| 中位时延变化 | 配对毫秒中位数 | 69.773s → 58.141s（-16.7%） |
+| Token 变化 | 可观测输入/输出 Token 配对值 | 42,436 → 34,174（-19.5%） |
+| 成本变化 | 可观测模型费用配对值 | 未观测 |
 | 路由 precision/recall | 只能来自可靠的 `skill_loaded` 身份事件 | Codex 未观测 |
 
 真实协议分为 12 次 Calibration（`calibration.toml`）、24 次 Pilot（`pilot.toml`）和 72 次 Formal（sealed 且与 Pilot 不重叠的 `suite.toml`，12 案例 x 3 次重复 x 2 个实验臂）。Formal manifest 锁定 Candidate content hash；一旦变化，会在 Agent 调用前失败。每一阶段都需要单独显式授权，并在进入下一阶段前暂停。发布任何指标时，必须同时记录 suite fingerprint、policy fingerprint、目标模型版本、重复次数、基础设施排除项、不可变报告路径和授权状态。
@@ -158,9 +180,14 @@ Adapter v9 与 Normalizer v3 已在离线环境中区分两类结果：fallback 
 
 > 设计并实现 Rook Forge Skill 治理控制面，支持隔离配对实验、确定性评测、ScoreCard、quarantine、自动门禁、按 Agent 独立人工审批/部署、stale/drift 检测、原子回滚和跨平台离线测试门禁。
 
-Formal 报告生成前不能写：
+附带 Formal 证据后还可以写：
 
-> 真实 Agent 任务成功率提升 X%，成本下降 Y%。
+> 在 sealed 的 72-call `gpt-5.4-mini` holdout 上，将配对任务成功率从 25%
+> 提升到 100%（+75pp），中位时延降低 16.7%、完整观测 Token 降低 19.5%，
+> 新增回归和基础设施排除均为 0。
+
+仍然不能写“美元成本下降”或“Codex 路由 precision/recall 提升”，因为这些
+字段没有被观测。
 
 Fake Agent 的准入/拒绝只证明控制面正确，不能作为真实模型效果。
 

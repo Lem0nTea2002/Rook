@@ -225,10 +225,29 @@ class CodexCliAdapter:
                 timeout_seconds=10,
             )
         )
-        supported = (
+        help_supported = (
             help_result.status is ProcessStatus.SUCCEEDED
             and all(flag in help_result.stdout for flag in _REQUIRED_EXEC_FLAGS)
         )
+        config_supported = False
+        if help_supported:
+            config_result = self._runner.run(
+                ProcessRequest(
+                    command=_config_validation_command(
+                        executable_path,
+                        windows_sandbox=(
+                            "unelevated"
+                            if self._platform_name == "win32"
+                            else None
+                        ),
+                    ),
+                    cwd=Path.cwd(),
+                    env=environment,
+                    timeout_seconds=10,
+                )
+            )
+            config_supported = config_result.status is ProcessStatus.SUCCEEDED
+        supported = help_supported and config_supported
         return self._capabilities(
             available=True,
             executable_path=executable_path,
@@ -554,6 +573,34 @@ class CodexCliAdapter:
         )
 
 
+def _config_validation_command(
+    executable_path: str,
+    *,
+    windows_sandbox: str | None,
+) -> tuple[str, ...]:
+    """Load every immutable EvalOps config override without starting a model."""
+    command = [executable_path]
+    overrides = [
+        *_HTTP_ONLY_PROVIDER_OVERRIDES,
+        'web_search="disabled"',
+        "sandbox_workspace_write.network_access=false",
+        "allow_login_shell=false",
+        "skills.include_instructions=false",
+        'approval_policy="never"',
+    ]
+    if windows_sandbox is not None:
+        overrides.extend(
+            (
+                "sandbox_workspace_write.exclude_tmpdir_env_var=true",
+                f'windows.sandbox="{windows_sandbox}"',
+            )
+        )
+    for override in overrides:
+        command.extend(("-c", override))
+    command.extend(("features", "list"))
+    return tuple(command)
+
+
 def _command(
     executable_path: str,
     *,
@@ -597,6 +644,8 @@ def _command(
             'web_search="disabled"',
             "-c",
             "sandbox_workspace_write.network_access=false",
+            "-c",
+            "allow_login_shell=false",
         )
     )
     if not include_skill_instructions:

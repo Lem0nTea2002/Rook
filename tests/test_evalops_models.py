@@ -342,7 +342,13 @@ def test_evalops_protocol_field_layout_is_stable() -> None:
             "cleanup_status",
             "terminal_artifact_ref",
         ),
-        ExperimentRecord: ("plan", "runs", "cancelled", "artifact_refs"),
+        ExperimentRecord: (
+            "plan",
+            "runs",
+            "cancelled",
+            "artifact_refs",
+            "stop_reason",
+        ),
         FastGateDecision: ("status", "reason_code", "scorecard_hash"),
     }
 

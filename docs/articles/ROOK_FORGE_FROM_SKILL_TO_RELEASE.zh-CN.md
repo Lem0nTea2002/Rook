@@ -118,13 +118,13 @@ Codex 只部署到当前仓库 `.agents/skills/<name>`，并写入所有权 mani
 | --- | --- | --- |
 | 跨平台离线 CI | Linux 1753 passed / 7 skipped；Windows 1754 passed / 6 skipped | 工程基线与安全路径可重复 |
 | 24-call Pilot | 12/12 可比配对；Baseline 25%，Forced 100%；时延 -22.7%；Token -12.9% | 真实模型上观测到正向 Pilot 信号 |
-| Adapter v9 readiness | 2/2 终态；轨迹 100%；基础设施排除 0 | 当前 Adapter 执行边界就绪 |
+| Adapter v11 readiness | 此前 profile 失败边界上 2/2 终态；轨迹 100%；基础设施排除 0 | 当前 Adapter 执行边界就绪 |
 | 本地治理 dogfood | 审批、双目标部署、漂移检测、恢复、双回滚 | 控制面确实执行了真实事务 |
-| 72-call Formal | 尚未完成 | 不能填写最终简历效果指标 |
+| Adapter v11 72-call Formal | 72/72 次、36 个配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归和基础设施排除均为 0 | 最终成功率、时延和 Token 指标可用于简历；美元成本和路由仍未观测 |
 
-Pilot 数据有价值，但它不是 Formal。项目选择保留“不知道”，而不是把 partial
-run 或 Fake Agent 数据包装成更好看的结果。对 Agent EvalOps 来说，这种
-证据纪律本身就是产品能力。
+Pilot 数据有价值，但它不是 Formal。项目没有把历史 partial run 或 Fake
+Agent 数据包装成结果，而是修复证据边界后从零完成 Formal。对 Agent EvalOps
+来说，这种证据纪律本身就是产品能力。
 
 ## 8. 三分钟复现
 
