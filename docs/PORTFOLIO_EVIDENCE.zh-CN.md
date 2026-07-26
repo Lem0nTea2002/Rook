@@ -150,9 +150,16 @@ Baseline/Forced 配对。Baseline 通过 9/36（25%，Wilson 95% 区间
 72 个进程全部 exit 0 且各有一个终态 turn，轨迹完整度 100%；基础设施排除、
 profile、Web Search、重连、WebSocket、Windows 沙箱、安全失败、秘密泄漏和
 隔离泄漏均为 0。自动门禁为 `promoted (capability_success_uplift)`，但
-measurement-only 执行没有产生人工审批或部署。美元成本和 Codex 路由仍未观测。
+measurement-only 执行本身没有产生人工审批或部署。2026-07-27，
+`rook eval record-decision` 在不再次调用模型的前提下，独立校验了当前 Candidate、
+Suite、Policy、Agent/Adapter/Normalizer 指纹、72 个终态制品、重建的
+ScoreCard 指纹、operator 提供的 ScoreCard SHA-256 和当前门禁决策。随后由人工批准，并把完全一致的 Candidate hash
+部署到仓库级 Codex Skill 目录；受控漂移被正确发现并精确恢复。由于这是首个且
+唯一获批版本，不声称已经完成真实 rollback。美元成本和 Codex 路由仍未观测。
 脱敏证据见
 [`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json)。
+发布生命周期另见
+[`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json)。
 
 ### Formal 真实评测填写合同
 

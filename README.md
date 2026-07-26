@@ -77,12 +77,17 @@ and release IDs plus artifact hashes.
 | Cross-platform CI | Ubuntu: 1753 passed / 7 skipped; Windows: 1754 passed / 6 skipped; Python 3.11/3.12 | Offline; no Codex process or model cost |
 | Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
-| Real-repository holdouts | 2 Skills, 2 public repositories, 4 Direct/Regression/Adversarial cases | Staged and quarantined; no live model claim |
+| Real-repository live holdouts | 16/16 calls, 8 valid pairs, 100% trace completeness, 0 infrastructure exclusions | Both independent Candidates rejected for new regressions; no improvement claim or deployment |
+| Formal release lifecycle | Formal decision rebuilt from 72 terminal artifacts → human approval → repository-level Codex deployment → controlled drift detected/restored | Real model gate and real local deployment; rollback remains unclaimed until a second version is independently approved |
+| Rook Coding Agent dogfood | 5 isolated tasks, 3 passed / 2 failed; 66 model calls and 1,028,297 observed Tokens | Honest DeepSeek live run; exposed unrelated Skill auto-selection and context amplification |
 | Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
 | `gpt-5.4-mini` 72-call Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -16.7%; median Token -19.5%; 0 new regressions | Sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
 
 Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [real-repository holdouts](docs/REAL_REPO_HOLDOUTS.md) ·
+[live holdout results](docs/evidence/real-repo-live-holdouts-2026-07-27.json) ·
+[Formal release lifecycle](docs/evidence/rm2-formal-release-2026-07-27.json) ·
+[Rook live coding dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
 [lifecycle record](docs/evidence/forge-lifecycle-2026-07-24.json) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
 [v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·

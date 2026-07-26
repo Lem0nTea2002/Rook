@@ -6,9 +6,12 @@ two public repositories. Every source commit, selected blob, transformation,
 Candidate rendering hash, hidden validator, and disabled-network policy is
 version controlled.
 
-These suites are staged evidence, not a model-effect claim. Their Candidates
-remain `quarantined`; only their deterministic validators have been run. A live
-exam still requires explicit external-call and model-cost authorization.
+The Candidates remain `quarantined`. On 2026-07-27, both suites also completed
+an authorized live content-family exam with Codex CLI 0.144.6 and
+`gpt-5.4-mini`: 16/16 calls completed, all four pairs per Skill were comparable,
+trace completeness was 100%, and infrastructure exclusions were zero. Both
+Candidates were rejected for new regressions. This is valid negative evidence,
+not a Skill-effect improvement claim.
 
 ## 1. GitHub Actions CI guard
 
@@ -56,6 +59,19 @@ The test locks Candidate hashes, parses both suites with the strict loader,
 checks disabled network policy and pinned provenance, and executes reference
 outputs through the same hidden validators. It makes no model call.
 
+## Live result
+
+| Skill | Baseline | Forced Skill | New regressions | Gate |
+| --- | ---: | ---: | ---: | --- |
+| `github-actions-ci-guard@1` | 2/4 | 0/4 | 2 | `rejected (new_regression)` |
+| `rag-evidence-reporter@1` | 1/4 | 0/4 | 1 | `rejected (new_regression)` |
+
+The immutable redacted summary is
+[`docs/evidence/real-repo-live-holdouts-2026-07-27.json`](evidence/real-repo-live-holdouts-2026-07-27.json).
+It records Candidate, Suite, Policy, target and ScoreCard fingerprints, report
+hashes, success/latency/Token metrics, and the exact decision IDs. Dollar cost
+remains `not observed`.
+
 ## Promotion boundary
 
 The two Skills intentionally stop before approval:
@@ -64,10 +80,11 @@ The two Skills intentionally stop before approval:
 real repository snapshot
   -> immutable quarantined Candidate
   -> strict suite + hidden deterministic validator
-  -> live Baseline/Forced exam (not run)
-  -> ScoreCard / gate (not produced)
-  -> approval / deployment (not allowed)
+  -> live Baseline/Forced exam (8 calls per Skill)
+  -> ScoreCard / gate (both rejected for new regressions)
+  -> approval / deployment (correctly blocked)
 ```
 
-This prevents a passing fixture validator from being misrepresented as a real
-Agent success-rate improvement.
+This shows that a passing reference fixture does not guarantee a useful Skill:
+Rook still requires paired live evidence and blocks deployment when the
+Candidate harms preservation cases.

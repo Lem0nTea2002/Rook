@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "rook_coding_agent_live_dogfood",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "requested_task_count": 5,
+    "external_model_calls_allowed": true,
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash"
+  },
+  "isolation": {
+    "workspace_root": ".rook/dogfood/2026-07-27",
+    "network_requested_by_tasks": false,
+    "deterministic_validators": true,
+    "raw_sessions_committed": false,
+    "reason_raw_sessions_not_committed": "Local session events may contain prompts and tool output. Only hashes and aggregate telemetry are public."
+  },
+  "aggregate": {
+    "coding_tasks": 5,
+    "tasks_passed": 3,
+    "tasks_failed": 2,
+    "task_success_rate": 0.6,
+    "model_calls": 66,
+    "tool_calls": 77,
+    "input_tokens": 1011114,
+    "output_tokens": 17183,
+    "total_tokens": 1028297,
+    "usd_cost": null,
+    "usd_cost_observed": false
+  },
+  "tasks": [
+    {
+      "id": "DF-RK-001",
+      "task": "Harden the real Rook offline GitHub Actions workflow.",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "attempts": 1,
+      "validator_reason": null,
+      "elapsed_ms": 69775,
+      "model_calls": 16,
+      "tool_calls": 19,
+      "total_tokens": 281414,
+      "workspace_hash": "48b2046ba4795ccb2e0154ee9ceade3adcd67dd5aa00fb2a60d32cf382718404",
+      "session_sha256": "621041e804518891e51300ac8789c13eae16e1cbdd7f5640dc1264187f34d80e"
+    },
+    {
+      "id": "DF-RK-002",
+      "task": "Review and preserve an already-approved Dependabot configuration.",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "attempts": 1,
+      "validator_reason": null,
+      "elapsed_ms": 37877,
+      "model_calls": 6,
+      "tool_calls": 11,
+      "total_tokens": 87909,
+      "workspace_hash": "9fe4aa6336bc2af09efe8483b403e3ebb96a77083391d8136d0dcc39540d575d",
+      "session_sha256": "3f77c734ba7c1d6ed1a005e9821cb9db3d7f006238f6e2e898d5528451117742"
+    },
+    {
+      "id": "DF-RK-003",
+      "task": "Create a comparison summary from two real RAG evaluation reports.",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "failed",
+      "attempts": 2,
+      "validator_reason": "dataset_identity",
+      "elapsed_ms": 70272,
+      "model_calls": 20,
+      "tool_calls": 19,
+      "total_tokens": 300627,
+      "workspace_hash": "f31927eab9864c63f35d192c82e47a7ab89de3109d697427ab3a397fedf5a2fb",
+      "session_sha256": "76f09cb08ca4d58fe4d8c7e8f7185e55583ab20162655474a3d7fc0166f5808c"
+    },
+    {
+      "id": "DF-RK-004",
+      "task": "Report a skipped Ragas measurement without inventing scores.",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "passed_after_feedback",
+      "attempts": 2,
+      "validator_reason": null,
+      "elapsed_ms": 48856,
+      "model_calls": 12,
+      "tool_calls": 12,
+      "total_tokens": 176058,
+      "workspace_hash": "063c4cacfb2954c9ac3b91b66e310793447e214194083a9847edca706975dfa9",
+      "session_sha256": "a6eaee4188a22f410ac7959af7dc5349e34e9e7b9b0ebed8a81628cd6cf6cdf9"
+    },
+    {
+      "id": "DF-RK-005",
+      "task": "Create an RM-2 release manifest from a repository metadata file.",
+      "repository": "ZHUMUJUN/Rook holdout fixture",
+      "result": "failed",
+      "attempts": 1,
+      "validator_reason": "source_modified",
+      "elapsed_ms": 43731,
+      "model_calls": 12,
+      "tool_calls": 16,
+      "total_tokens": 182289,
+      "workspace_hash": "3946761aadb916cdb0b85e8dd69b0e4ece6e04c786a09b3d9dca52b88671c3d4",
+      "session_sha256": "6d7a9a634fdf59bce706a93989aed43a19723df0101d1594b8d6d12817ba4686"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "code": "unrelated_global_skill_auto_selection",
+      "detail": "All five sessions auto-selected unrelated global Skills such as lark-event, lark-shared, grilling, or playwright. This inflated context and weakens task isolation."
+    },
+    {
+      "severity": "high",
+      "code": "context_token_amplification",
+      "detail": "Five small coding tasks required 66 model calls and 1,028,297 total observed tokens."
+    },
+    {
+      "severity": "medium",
+      "code": "windows_terminal_encoding",
+      "detail": "Several bounded-stop final messages were mojibake in the PowerShell terminal even though file outputs remained valid."
+    },
+    {
+      "severity": "medium",
+      "code": "structured_output_contract_miss",
+      "detail": "Rook missed exact JSON field placement on one RAG summary even after one reason-code repair."
+    },
+    {
+      "severity": "expected_without_skill",
+      "code": "rm2_source_preservation_miss",
+      "detail": "Rook modified the RM-2 source in place without the promoted RM-2 Skill; the hidden validator rejected it."
+    }
+  ],
+  "claim_boundary": "This is honest live dogfood of the Rook Coding Agent, not a Skill-effect A/B result. It records both passing and failing tasks."
+}
