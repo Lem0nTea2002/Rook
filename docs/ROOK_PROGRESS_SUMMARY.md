@@ -14,9 +14,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 开发分支：`agent/real-holdouts-v1`（基于 `origin/main`）
+- 主分支：`main`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
 - Rook Forge v0.2.3 已发布：PR #11 合并 Formal 证据，PR #12 发布构建与安装修复；Release 和 Windows/Linux CI 均可公开复核。
+- PR #13 已将 Formal 证据采用、真实审批/部署、两个真实仓库 live holdout 和 Rook Coding dogfood 合并到 `main`；GitHub Actions run `30215570041` 的 5/5 job 全绿。
 - 当前状态：Adapter v11 的 72-call Formal 已由终态制品重新验证并登记，随后完成真实人工审批、仓库级 Codex 部署和受控漂移检测/恢复。v1 是首个且唯一获批版本，因此没有伪造真实 rollback；独立 Fake-Agent 生命周期仍提供双目标事务回滚证明。
 - 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。Rook Coding Agent 另完成 5 个隔离真实任务，3 成功、2 失败，并暴露无关 Skill 自动选择和上下文 Token 放大问题。
 
@@ -98,6 +99,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - `rook-agent 0.2.3` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
 - v0.2.3 wheel SHA-256 为 `5a38e7609ecc60081ba280ade98c7ee9b94f2f5067ab6509e49e4db10ed0b97c`；sdist SHA-256 为 `86de12ac8afa0953df9a6af000e8c5dcd3e46403bc92421a6c8804d4c89b03be`。
 - GitHub Actions [run 30211289165](https://github.com/ZHUMUJUN/Rook/actions/runs/30211289165) 的 Ubuntu/Windows Python 3.11/3.12 与 Quality 共 5/5 job 全绿。
+- 本轮 PR #13 的 GitHub Actions [run 30215570041](https://github.com/ZHUMUJUN/Rook/actions/runs/30215570041) 同样 5/5 job 全绿：Quality、Ubuntu Python 3.11/3.12、Windows Python 3.11/3.12 全部通过。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -151,10 +153,9 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 提交并推送本轮证据采用、真实仓库 holdout 和 Rook Coding dogfood，由 Windows/Linux CI 复核。
-2. 修复 Rook 的无关全局 Skill 自动选择与上下文 Token 放大，再使用同一 5-task 集合和独立 holdout 验证改善。
-3. 设计内容不同的 RM-2 v2 Candidate，独立完成考试和人工审批后，才能真实演示 v2 部署 → 漂移 → 回滚到 v1；不得复用或伪造 v1 的 Formal 决策。
-4. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
+1. 修复 Rook 的无关全局 Skill 自动选择与上下文 Token 放大，再使用同一 5-task 集合和独立 holdout 验证改善。
+2. 设计内容不同的 RM-2 v2 Candidate，独立完成考试和人工审批后，才能真实演示 v2 部署 → 漂移 → 回滚到 v1；不得复用或伪造 v1 的 Formal 决策。
+3. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
 
 ## 当前停点
 
