@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-07-27
+
+### Added
+
+- Published the sealed Adapter v11 Formal evidence: 72/72 live
+  `gpt-5.4-mini` calls, 36 complete Baseline/Forced pairs, 100% trace
+  completeness, and zero infrastructure exclusions.
+- Added a stable profile-isolation readiness suite and redacted evidence
+  summaries for the v11 readiness and Formal runs.
+
+### Changed
+
+- Formal evidence now reports the observed 25% to 100% paired success change
+  (+75 percentage points), 16.7% lower median latency, 19.5% lower median
+  token use, 33.3% fewer median tool calls, and zero new regressions.
+- The Codex adapter now applies a versioned no-profile PowerShell execution
+  policy and audits profile, Web Search, reconnect, sandbox, and isolation
+  markers fail-closed.
+- Portfolio and EvalOps documentation now distinguishes the promoted automatic
+  gate from the still-pending human approval and deployment steps.
+
 ## [0.2.2] - 2026-07-24
 
 ### Fixed
@@ -124,7 +145,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ZHUMUJUN/Rook/tree/v0.2.0
