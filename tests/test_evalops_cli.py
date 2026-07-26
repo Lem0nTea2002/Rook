@@ -55,6 +55,23 @@ from rook_agent.evalops.suites import load_eval_suite
             "run",
         ),
         (["eval", "report", "evaluation-1"], "eval", "report"),
+        (
+            [
+                "eval",
+                "record-decision",
+                "evaluation-0123456789abcdef0123456789abcdef",
+                "--agent",
+                "codex",
+                "--skill-path",
+                "candidate",
+                "--suite",
+                "suite.toml",
+                "--scorecard-sha256",
+                "a" * 64,
+            ],
+            "eval",
+            "record-decision",
+        ),
         (["eval", "trends", "safe-skill", "--agent", "codex"], "eval", "trends"),
         (["skill", "status", "safe-skill"], "skill", "status"),
         (

@@ -505,6 +505,33 @@ was measurement-only, it did not record human approval or deploy the Skill.
 USD cost and Codex routing remain not observed. See
 [`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json).
 
+The report was later connected to governance without rerunning the model.
+`rook eval record-decision` strictly loads the immutable report, matches the
+Candidate, Suite, Policy, Agent, Adapter, model and Normalizer fingerprints,
+finds the complete terminal experiment, rebuilds redacted per-case evidence,
+recomputes the ScoreCard fingerprint and current policy result, verifies the
+operator-supplied ScoreCard SHA-256, and only then records eligibility:
+
+```powershell
+rook eval record-decision `
+  evaluation-3234f8305aaf4ec7818837ca1a016ac3 `
+  --agent codex `
+  --skill-path .rook\skill-registry\release-manifest-v2-normalizer\candidates\1 `
+  --suite evals\suites\release-manifest-v2\suite.toml `
+  --scorecard-sha256 c4b6259b2c7dcf4be8181a910883e2d476105ca9424fc95243e9a5cd28e405b8
+```
+
+The required digest binds adoption to the exact immutable report reviewed by
+the operator. This command makes no model call and does not approve or deploy
+anything. A
+separate human `rook skill approve` created the immutable approval and deployed
+the exact Candidate hash to the repository-level Codex Skill directory. A
+controlled file mutation changed status to `drifted`; exact restoration returned
+it to `active`. A successful real-model rollback is deliberately not claimed:
+v1 is the first approved version and the infrastructure-excluded v2 attempt is
+not eligible. See the redacted
+[`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json).
+
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
 72-call Formal immutable report now populates final resume success, Token, and

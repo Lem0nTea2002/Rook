@@ -21,6 +21,7 @@ from rook_agent.evalops.adapters.rook import RookEvalAdapter
 from rook_agent.evalops.artifacts import ArtifactStore
 from rook_agent.evalops.bundles import load_skill_bundle
 from rook_agent.evalops.candidates import CandidateStore
+from rook_agent.evalops.evidence import reported_target, verify_measurement_decision
 from rook_agent.evalops.models import (
     AgentTarget,
     AgentType,
@@ -188,6 +189,8 @@ def run_eval_command(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> 
         return _run_evaluation(args, deps)
     if args.eval_command == "report":
         return _show_report(args, deps)
+    if args.eval_command == "record-decision":
+        return _record_measurement_decision(args, deps)
     if args.eval_command == "trends":
         return _show_trends(args, deps)
     raise ValueError(f"unsupported eval command: {args.eval_command!r}")
@@ -336,6 +339,47 @@ def _show_report(args: argparse.Namespace, deps: EvalOpsCliDependencies) -> int:
     if not path.is_file():
         raise ValueError(f"report does not exist: {evaluation_id}")
     print(path.read_text(encoding="utf-8"), end="")
+    return 0
+
+
+def _record_measurement_decision(
+    args: argparse.Namespace,
+    deps: EvalOpsCliDependencies,
+) -> int:
+    agent_type = AgentType(args.agent)
+    candidate = _load_candidate_path(Path(args.skill_path), deps)
+    suite = load_eval_suite(Path(args.suite))
+    report_target = reported_target(
+        deps.artifact_store,
+        args.evaluation_id,
+        agent_type,
+    )
+    current_target = _target_for(
+        agent_type,
+        deps,
+        model=report_target.model if agent_type is AgentType.CODEX else None,
+    )
+    decision = verify_measurement_decision(
+        artifact_store=deps.artifact_store,
+        evaluation_id=args.evaluation_id,
+        agent_type=agent_type,
+        candidate=candidate,
+        suite=suite,
+        current_target=current_target,
+        normalizer_fingerprint=_current_normalizer_fingerprint(agent_type, deps),
+        expected_scorecard_sha256=args.scorecard_sha256,
+    )
+    deps.registry.record(decision)
+    print(
+        f"verified and recorded: {decision.skill_name}@{decision.skill_version} "
+        f"{agent_type.value} {decision.status.value} ({decision.reason_code})"
+    )
+    if decision.status is PromotionStatus.PROMOTED:
+        print("Gate passed, awaiting approval")
+    else:
+        print("Release remains ineligible")
+    print(f"decision: {decision.decision_id}")
+    print(f"report: {decision.report_ref}")
     return 0
 
 

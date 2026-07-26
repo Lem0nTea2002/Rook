@@ -126,6 +126,19 @@ def build_parser() -> argparse.ArgumentParser:
     eval_run_parser.add_argument("--allow-costs", action="store_true", help="Acknowledge possible model costs.")
     report_parser = eval_subparsers.add_parser("report", help="Read an immutable Rook Forge report.")
     report_parser.add_argument("experiment_id")
+    record_parser = eval_subparsers.add_parser(
+        "record-decision",
+        help="Verify and record a measurement-only decision without rerunning the Agent.",
+    )
+    record_parser.add_argument("evaluation_id")
+    record_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
+    record_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
+    record_parser.add_argument("--suite", required=True, help="Current Eval suite TOML manifest.")
+    record_parser.add_argument(
+        "--scorecard-sha256",
+        required=True,
+        help="Expected SHA-256 of the immutable scorecard.json evidence.",
+    )
     trends_parser = eval_subparsers.add_parser(
         "trends", help="Compare immutable ScoreCards and summarize EvalOps SLOs."
     )
