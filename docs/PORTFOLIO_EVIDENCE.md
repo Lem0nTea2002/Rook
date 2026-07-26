@@ -289,9 +289,19 @@ All 72 processes exited 0 with one terminal turn, trace completeness was 100%,
 and infrastructure exclusions plus profile, Web Search, reconnect, WebSocket,
 sandbox-failure, safety, secret-leak, and isolation-leak counts were zero. The
 automatic gate returned `promoted (capability_success_uplift)`, but the
-measurement-only run performed no approval or deployment. USD cost and Codex
-routing remain not observed. See
+measurement-only run itself performed no approval or deployment. On 2026-07-27,
+`rook eval record-decision` independently verified the current Candidate,
+Suite, policy, Agent/Adapter/Normalizer fingerprints, all 72 terminal
+artifacts, the reconstructed ScoreCard fingerprint, and the current policy
+decision against the operator-supplied ScoreCard SHA-256 without another model
+call. The verified decision was then approved
+by a human and the exact Candidate hash was deployed to the repository-level
+Codex Skill directory. Controlled drift was detected and exactly restored.
+A real rollback is not claimed because this is the first and only approved
+version. USD cost and Codex routing remain not observed. See
 [`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json).
+The release lifecycle is recorded separately in
+[`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json).
 
 ### Formal live measurement contract
 

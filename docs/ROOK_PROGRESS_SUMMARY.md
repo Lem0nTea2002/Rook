@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-26
+更新时间：2026-07-27
 
 ## 项目定位
 
@@ -14,10 +14,11 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 分支：`main`
+- 开发分支：`agent/real-holdouts-v1`（基于 `origin/main`）
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
-- Rook Forge v0.2.2 已发布；Adapter v9 suite 基线为 `94e866a`，作品集与证据 PR #9 合并提交为 `8e56e14`。
-- 当前状态：Adapter v11 已完成全新的 72-call Formal：72/72 次调用、36 个完整配对、轨迹完整度 100%、基础设施排除 0。Baseline 成功率 25%，Forced Skill 100%（+75pp）；中位时延降低 16.7%，中位 Token 降低 19.5%，新增回归 0。自动门禁为 `promoted (capability_success_uplift)`；measurement-only 执行未产生人工审批或部署，美元成本和 Codex 路由仍未观测。
+- Rook Forge v0.2.3 已发布：PR #11 合并 Formal 证据，PR #12 发布构建与安装修复；Release 和 Windows/Linux CI 均可公开复核。
+- 当前状态：Adapter v11 的 72-call Formal 已由终态制品重新验证并登记，随后完成真实人工审批、仓库级 Codex 部署和受控漂移检测/恢复。v1 是首个且唯一获批版本，因此没有伪造真实 rollback；独立 Fake-Agent 生命周期仍提供双目标事务回滚证明。
+- 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。Rook Coding Agent 另完成 5 个隔离真实任务，3 成功、2 失败，并暴露无关 Skill 自动选择和上下文 Token 放大问题。
 
 ## 已完成功能
 
@@ -60,6 +61,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 37. Adapter v9 readiness 恰好完成 2/2 次真实调用，之前失败的写入后 application case 由隐藏确定性 evaluator 正确判定。
 38. 新增 GitHub Actions CI guard 与 RAG evidence reporter 两个不同类型 Skill，使用两个公开仓库的固定 commit/blob 构建四个 Direct/Regression/Adversarial holdout。
 39. 本地治理 dogfood 实际生成四个审批、四个部署、一次 Codex 漂移检测/恢复和两个事务回滚；README 首页压缩为问题—架构—演示—指标，并发布技术文章和 150 秒演示视频。
+40. 新增 `rook eval record-decision`，在不重新调用模型的情况下，严格校验 operator 提供的 ScoreCard SHA-256、measurement-only 报告、当前 Candidate/Suite/Policy/Target/Normalizer 指纹、完整终态制品、重建的 per-case/ScoreCard 和当前门禁结果后才登记资格。
+41. 将真实 72-call Formal 决策接入不可变人工审批与仓库级 Codex 部署；部署文件与 Candidate SHA-256 完全一致，受控篡改显示 `drifted`，精确恢复后回到 `active`。
+42. 两个真实仓库 holdout 完成 16/16 次授权调用和 8 个有效配对；两个 Candidate 均产生负向效果并因 `new_regression` 被拒绝，没有被包装为提升或部署。
+43. Rook Coding Agent 完成 5 个真实隔离任务：3/5 通过、66 次模型调用、77 次工具调用、观测到 1,028,297 Tokens；失败与系统性问题均进入公开 dogfood 证据。
 
 ## 关键提交
 
@@ -85,12 +90,14 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前质量门禁：`492 passed, 5 skipped`，覆盖率 `85.12%`。
+- 当前开发分支本地完整离线基线：`1769 passed, 10 skipped`；显式关闭真实外部评测和模型费用。
+- 当前 EvalOps 专项：`509 passed, 7 skipped`，覆盖率 `85.81%`；Ruff、mypy、pip-audit、JSON 证据解析和 `git diff --check` 均通过。
+
 - 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1753 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1754 passed, 6 skipped`。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
-- `rook-agent 0.2.2` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`，双目标部署/替换/漂移检测/回滚全链路通过。
-- v0.2.2 wheel SHA-256 为 `4aa5cf99301a5a96cd656dfd228569f0cb471d3e8457cd9fd630f46cc66fdf19`；sdist SHA-256 为 `c01a5bc176d3f876ddf2aa39265e25517b0a46b1922a22833265bebaef04c7f3`。
-- GitHub Actions [run 30081525920](https://github.com/ZHUMUJUN/Rook/actions/runs/30081525920) 全绿：Ubuntu Python 3.11/3.12 各 `1753 passed, 7 skipped`，Windows Python 3.11/3.12 各 `1754 passed, 6 skipped`；Quality 为 `492 passed, 5 skipped`、85.12% 覆盖率，Ruff、mypy 与 pip-audit 均通过。
+- `rook-agent 0.2.3` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
+- v0.2.3 wheel SHA-256 为 `5a38e7609ecc60081ba280ade98c7ee9b94f2f5067ab6509e49e4db10ed0b97c`；sdist SHA-256 为 `86de12ac8afa0953df9a6af000e8c5dcd3e46403bc92421a6c8804d4c89b03be`。
+- GitHub Actions [run 30211289165](https://github.com/ZHUMUJUN/Rook/actions/runs/30211289165) 的 Ubuntu/Windows Python 3.11/3.12 与 Quality 共 5/5 job 全绿。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。
@@ -135,20 +142,24 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 - 随后单独授权的 Adapter v11 Formal `evaluation-3234f8305aaf4ec7818837ca1a016ac3` 从零完成 72/72 次调用和 36 个配对。72 个进程全部 exit 0、终态 turn 72/72、轨迹完整度 100%；基础设施排除、profile、Web Search、重连、WebSocket、Windows 沙箱失败、安全失败、秘密泄漏和隔离泄漏均为 0。
 - Formal 总体 Baseline 为 9/36（25%，Wilson 95% 区间 13.8%–41.1%），Forced Skill 为 36/36（100%，Wilson 95% 区间 90.4%–100%），配对提升 +75pp；18 个能力配对由 0/18 提升到 18/18，18 个 preservation 配对新增回归为 0。
 - Formal 中位时延由 69.773s 降至 58.141s（-16.7%），中位 Token 由 42,436 降至 34,174（-19.5%），中位工具调用由 6 降至 4（-33.3%）。美元成本和 Codex 路由 precision/recall 未观测，不做估算。
-- Formal 自动门禁为 `promoted (capability_success_uplift)`；本轮使用 measurement-only，因此没有人工审批、部署或活动版本副作用。脱敏证据为 `docs/evidence/rm2-formal-v11-summary-2026-07-26.json`。
+- Formal 原始 measurement-only 执行没有部署副作用；随后新增的离线证据采用命令从 72 个终态制品重建并核验同一门禁决定，登记 `decision-cf4a04e93cee42cebf813999b14cccc6`，人工审批 `approval-ac9fea36328b4595ae33d77e11c20760`，部署 `release-c9f359aed1a94693b3725e202b96e4d6`。最终仓库级 `SKILL.md` SHA-256 与 Candidate 完全一致。
+- 两个真实仓库 live holdout 分别为 Baseline 2/4 → Forced 0/4、Baseline 1/4 → Forced 0/4，新增回归分别为 2 和 1；两个门禁均为 `rejected (new_regression)`，证明 Rook 能阻断有害 Candidate。
+- Rook Coding Agent 真实 dogfood 为 3/5 通过；总计 66 次模型调用、77 次工具调用、1,028,297 Tokens，美元成本未观测。失败包括结构化输出合同遗漏和无 Skill 时修改源文件；所有会话还暴露了无关全局 Skill 自动选择。
 - Formal 证据同步后的完整 EvalOps 回归为 `503 passed, 7 skipped`，覆盖率 `86.08%`；Ruff、mypy、证据 JSON 与 `git diff --check` 全部通过。
 - 两个真实仓库 holdout 的 4 个 Candidate/suite/provenance/hidden-validator 专项测试通过；它们仍为 staged/quarantined，没有 live model gate 或部署。
 - 本地治理 dogfood 生成 4 个不可变 ApprovalRecord、6 个 ReleaseRecord（4 次部署 + 2 次回滚），在 Codex `SKILL.md` 被手工修改后报告 `drifted`，精确恢复后重新变为 `active`，最终 Rook/Codex 都回滚到 v1。考试使用 Fake Agent，因此只证明控制面和文件事务。
 
 ## 下一阶段计划
 
-1. 将 Adapter v11 Formal 证据提交、推送并由 Windows/Linux CI 验证。
-2. 如需真实上线演示，使用非 measurement-only 的治理流程重新登记门禁决定，再显式人工 approve；不得直接把本次报告当作部署授权。
-3. 对两个真实仓库 holdout 分别申请 live Calibration/Pilot，验证跨 Skill/跨仓库泛化。
-4. 可选安装 `evalplus` 并运行独立 benchmark gate；它不阻塞 Codex-only MVP。
+1. 提交并推送本轮证据采用、真实仓库 holdout 和 Rook Coding dogfood，由 Windows/Linux CI 复核。
+2. 修复 Rook 的无关全局 Skill 自动选择与上下文 Token 放大，再使用同一 5-task 集合和独立 holdout 验证改善。
+3. 设计内容不同的 RM-2 v2 Candidate，独立完成考试和人工审批后，才能真实演示 v2 部署 → 漂移 → 回滚到 v1；不得复用或伪造 v1 的 Formal 决策。
+4. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
 
 ## 当前停点
 
 Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现：Candidate → 隔离考试 → ScoreCard → 自动门禁 → 人工审批 → Rook/Codex 独立部署 → stale/drift 检测 → 原子回滚。自动门禁通过后保持 inactive，只有 approve 才会进入运行时或仓库级 Codex Skill 目录。
 
-手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。历史 partial Formal 都被证据边界正确阻断；最终 Adapter v11 Formal 从零完整结束，成功率、Token 和时延指标现在具备可复核的简历证据。美元成本和 Codex 路由仍保持 `not observed`。自动门禁通过不等于上线，本次 measurement-only 报告没有产生人工审批或部署副作用。
+手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。历史 partial Formal 都被证据边界正确阻断；最终 Adapter v11 Formal 从零完整结束，成功率、Token 和时延指标具备可复核的简历证据。原始 measurement-only 执行保持无副作用，后续通过新增的严格证据采用命令重新验证后，才完成独立人工审批和仓库级 Codex 部署。美元成本和 Codex 路由仍保持 `not observed`。
+
+当前最有价值的新证据并非全部正向：两个真实仓库 Candidate 均因新增回归被拒绝，Rook 自身真实 Coding dogfood 也只有 3/5 通过。这些结果表明 Forge 的拒绝链路有效，同时给出了下一轮 Rook Agent 隔离和上下文效率改进的明确基线。真实 rollback 仍等待第二个独立获批版本；现阶段只声明真实审批、部署和 drift 恢复，以及 Fake-Agent 控制面事务 rollback。

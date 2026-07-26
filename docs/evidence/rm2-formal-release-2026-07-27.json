@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "verified_formal_decision_release_lifecycle",
+  "recorded_at": "2026-07-27",
+  "skill": {
+    "name": "release-manifest-v2-normalizer",
+    "version": 1,
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
+  },
+  "formal_evidence": {
+    "evaluation_id": "evaluation-3234f8305aaf4ec7818837ca1a016ac3",
+    "experiment_id": "exp-6261485fb5bf40f4a760ab593c5cbbe1",
+    "decision_id": "decision-cf4a04e93cee42cebf813999b14cccc6",
+    "decision_status": "promoted",
+    "reason_code": "capability_success_uplift",
+    "scorecard_fingerprint": "80ee35a3696080fd3738666b8841def9",
+    "scorecard_json_sha256": "c4b6259b2c7dcf4be8181a910883e2d476105ca9424fc95243e9a5cd28e405b8",
+    "report_markdown_sha256": "46a415d707bb0eb5e5e671910a50fe70e62beaef849207b975b268053ee2b7e4",
+    "suite_fingerprint": "8f7f181e6803a6a606e78d963c185c72",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124",
+    "normalizer_fingerprint": "b7ebbd6428a3f93c40b7b50deaaa60a0"
+  },
+  "measurement_decision_adoption": {
+    "mode": "no_model_call",
+    "verified_terminal_artifact_count": 72,
+    "redacted_case_rebuilt": "holdout-secret",
+    "checks": [
+      "operator-supplied scorecard.json SHA-256",
+      "strict report JSON schema and duplicate-key rejection",
+      "Candidate name, version, and content hash",
+      "Suite and policy fingerprints",
+      "current Agent, model, Adapter, and Normalizer fingerprints",
+      "complete terminal experiment identity",
+      "per-case reconstruction and ScoreCard fingerprint",
+      "current PromotionPolicy output"
+    ],
+    "result": "verified_and_recorded"
+  },
+  "approval": {
+    "approval_id": "approval-ac9fea36328b4595ae33d77e11c20760",
+    "approver": "ZHUMUJUN",
+    "reason": "Approved from verified 72-call Formal evidence"
+  },
+  "deployment": {
+    "release_id": "release-c9f359aed1a94693b3725e202b96e4d6",
+    "agent": "codex",
+    "destination": ".agents/skills/release-manifest-v2-normalizer",
+    "status": "deployed",
+    "deployment_hash": "0ab45dcd19e04b7913ebbcbdaec0d935043a55fad5af42716f2b0791a63064fe",
+    "deployed_skill_sha256": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "managed_manifest_sha256": "a1c2f1631d8c089c94311cce8e8fad3244ce15996423f5bf0385ac8bdaf00d58"
+  },
+  "drift_test": {
+    "mutation": "Inserted one controlled HTML comment into the repository-level managed SKILL.md.",
+    "state_after_mutation": "drifted",
+    "state_after_exact_restore": "active",
+    "final_skill_sha256_matches_candidate": true
+  },
+  "rollback": {
+    "performed": false,
+    "reason": "Version 1 is the first and only approved deployment. Version 2 had an infrastructure-excluded attempt and is not eligible; Rook correctly refuses to fabricate an approved predecessor or deploy an unapproved version.",
+    "separate_deterministic_rollback_evidence": "docs/evidence/forge-lifecycle-2026-07-24.json"
+  },
+  "final_state": {
+    "eligible_version": 1,
+    "active_version": 1,
+    "deployment_state": "active",
+    "stale": false,
+    "registry_sha256": "aab6d34b9cdbdc5448c559e1bfb4b8c63f9a74b4e9e822622b488d11b77c74a7"
+  }
+}

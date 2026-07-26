@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Added `rook eval record-decision` to fail-closed verify a measurement-only
+  report against the current Candidate, Suite, policy, Agent/Adapter/Normalizer
+  fingerprints, complete terminal artifacts, reconstructed per-case evidence,
+  operator-supplied ScoreCard SHA-256, ScoreCard fingerprint, and promotion
+  policy before recording eligibility.
+- Added redacted evidence for two live Skills on two public repositories and
+  five isolated Rook Coding Agent dogfood tasks.
+
+### Changed
+
+- The promoted 72-call Formal decision is now linked to an immutable human
+  approval and repository-level Codex deployment of the exact Candidate hash.
+  A controlled mutation was detected as drift and restored to the active state.
+- Both independent real-repository Candidates were rejected after 16/16 live
+  calls because they introduced regressions. They remain quarantined and are
+  published as negative evidence rather than an improvement claim.
+
 ## [0.2.3] - 2026-07-27
 
 ### Added

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "two_skill_two_real_repository_live_holdout",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "agent": "codex",
+    "model": "gpt-5.4-mini",
+    "external_calls_allowed": true,
+    "model_costs_allowed": true,
+    "calls_authorized": 16,
+    "calls_started": 16,
+    "calls_completed": 16,
+    "stop_on_first_infrastructure_exclusion": true
+  },
+  "target": {
+    "codex_cli_version": "codex-cli 0.144.6",
+    "adapter_version": "codex-evalops-v11",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124"
+  },
+  "evaluations": [
+    {
+      "skill": "github-actions-ci-guard@1",
+      "repository": "ZHUMUJUN/Rook",
+      "candidate_content_hash": "8ee402c62e30a4b54faca8976e8d730721ff7297b832602015dc1b32871dc8f3",
+      "evaluation_id": "evaluation-17ff2b8abbea4ff7a687470b6a6a7d79",
+      "experiment_id": "exp-9cf9587cdc4143658053bcc116d017ec",
+      "suite_fingerprint": "b4a3d66ffb3a9dc676d4dd006a39e642",
+      "policy_fingerprint": "3cb27ab212009e2c5b0c39e383d4d307",
+      "scorecard_fingerprint": "4fd6657af06d1da027e7dd55a23963c3",
+      "report_sha256": "8518fc4b19c491a6c7844ef3e453073b788270025c45872690e06a0e761e08bb",
+      "runs": {
+        "planned": 8,
+        "completed": 8,
+        "valid_pairs": 4,
+        "infrastructure_errors": 0,
+        "infrastructure_exclusions": 0,
+        "trace_completeness_rate": 1.0
+      },
+      "metrics": {
+        "baseline_success_rate": 0.5,
+        "forced_skill_success_rate": 0.0,
+        "paired_success_improvement": -0.5,
+        "new_regression_count": 2,
+        "preservation_rate": 0.0,
+        "baseline_median_latency_ms": 27952.5,
+        "forced_skill_median_latency_ms": 49703.0,
+        "latency_improvement": -0.7781236025,
+        "baseline_median_tokens": 23604.0,
+        "forced_skill_median_tokens": 40419.0,
+        "token_improvement": -0.7123792578
+      },
+      "gate": {
+        "decision_id": "decision-72ec8a7cfab54b97b2e529fa866ada4c",
+        "status": "rejected",
+        "reason_code": "new_regression"
+      }
+    },
+    {
+      "skill": "rag-evidence-reporter@1",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "candidate_content_hash": "f14946d8c195f4335ff48154b51d8f0a34a9e1e8b10eefc6518b6bc74b48feed",
+      "evaluation_id": "evaluation-3dd84715dedc495e8d2ab19bd7d1f885",
+      "experiment_id": "exp-5e39110c255547539794e040543d289e",
+      "suite_fingerprint": "723f4aa3510e545ad3a0df8094247275",
+      "policy_fingerprint": "3cb27ab212009e2c5b0c39e383d4d307",
+      "scorecard_fingerprint": "8aabe00c9b3abb5a6d014e1c4e2c0e5d",
+      "report_sha256": "fd2491e3778295f0df0ba94e34e2686257bf3a76aac95292afb7e672cb0d072b",
+      "runs": {
+        "planned": 8,
+        "completed": 8,
+        "valid_pairs": 4,
+        "infrastructure_errors": 0,
+        "infrastructure_exclusions": 0,
+        "trace_completeness_rate": 1.0
+      },
+      "metrics": {
+        "baseline_success_rate": 0.25,
+        "forced_skill_success_rate": 0.0,
+        "paired_success_improvement": -0.25,
+        "new_regression_count": 1,
+        "preservation_rate": 0.0,
+        "baseline_median_latency_ms": 60139.5,
+        "forced_skill_median_latency_ms": 79812.0,
+        "latency_improvement": -0.3271144589,
+        "baseline_median_tokens": 35484.5,
+        "forced_skill_median_tokens": 51102.0,
+        "token_improvement": -0.4401217433
+      },
+      "gate": {
+        "decision_id": "decision-6df53068bf304f7c9c6c508e93b8bffd",
+        "status": "rejected",
+        "reason_code": "new_regression"
+      }
+    }
+  ],
+  "result": {
+    "skills_promoted": 0,
+    "skills_rejected": 2,
+    "deployment_performed": false,
+    "claim": "Both independent Candidates produced valid negative evidence. Rook rejected them for new regressions instead of manufacturing an improvement claim.",
+    "usd_cost": null,
+    "usd_cost_observed": false
+  }
+}

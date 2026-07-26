@@ -25,14 +25,17 @@ the exam and an immutable approval/release record exists.
 | INC-011 | Adapter v9 post-write remediation | `docs/evidence/rm2-formal-v8-post-write-remediation-2026-07-22.json` | Required mutation is separated from auxiliary verification; completed writes with inconclusive checks reach the deterministic evaluator while real write failures still fail closed | Offline remediation only; new 2-call readiness authorization required |
 | DF-007 | Adapter v9 post-write readiness smoke | `docs/evidence/rm2-v9-smoke-2026-07-24.json` | Exactly 2 real calls on the previously failing application case reached terminal turns with 100% trace completeness and zero infrastructure exclusions; Baseline wrong, Forced Skill passed | Real readiness evidence; one pair, not deployed, not Formal |
 | DF-008 | Local approval, dual deployment, drift, and rollback | `docs/evidence/forge-lifecycle-2026-07-24.json` | Four immutable approvals, four deploy releases, detected and remediated Codex file drift, then two transactional rollbacks restored v1 | Real local Registry/filesystem lifecycle with deterministic Fake-Agent exam; not a model-effect claim |
-| DF-009 | Two real-repository holdouts | `docs/REAL_REPO_HOLDOUTS.md` | Two immutable Candidate hashes, two public repositories, four Direct/Regression/Adversarial cases, pinned provenance, hidden validators, and disabled network | Staged and quarantined; deterministic validator evidence only, no live exam or deployment |
+| DF-009 | Two real-repository holdouts | `docs/REAL_REPO_HOLDOUTS.md` | Two immutable Candidate hashes, two public repositories, four Direct/Regression/Adversarial cases, pinned provenance, hidden validators, and disabled network | Pre-live staged boundary, superseded by DF-010 |
+| DF-010 | Two real-repository live holdouts | `docs/evidence/real-repo-live-holdouts-2026-07-27.json` | 16/16 Codex calls, 8 valid pairs, 100% trace completeness, 0 infrastructure exclusions; both Candidates rejected for new regressions | Real negative model evidence; no promotion or deployment |
+| DF-011 | Formal decision approval and Codex deployment | `docs/evidence/rm2-formal-release-2026-07-27.json` | Rebuilt the redacted Formal ScoreCard from 72 terminal artifacts, recorded the decision, approved and atomically deployed v1, detected controlled drift, and restored the exact Candidate hash | Real Formal gate plus human approval and local Codex deployment; no successful rollback claim because no older approved version exists |
+| DF-012 | Rook Coding Agent live dogfood | `docs/evidence/rook-coding-dogfood-2026-07-27.json` | Five isolated real coding tasks with deterministic validators: 3 passed, 2 failed; 66 model calls and 1,028,297 observed Tokens | Real Rook/DeepSeek dogfood; not a Skill A/B result |
 
-Current honest count: one Skill has real model measurement, while zero Skills
-have a real-model gate plus human-approved production deployment. The packaged
-demo has also executed one real local Registry/filesystem lifecycle covering
-approval, drift, deployment, and rollback with a deterministic exam. Two more
-real-repository Skills are staged and quarantined. This distinction remains
-visible until additional real dogfooding is authorized.
+Current honest count: one Skill has a completed real-model Formal gate plus a
+human-approved repository-level Codex deployment and a verified drift cycle.
+Its successful rollback remains unclaimed because v1 is the first and only
+approved real-model version. Two independent real-repository Candidates were
+live-tested and correctly rejected. Rook itself completed 3/5 live coding
+tasks; the failures and excessive context/Token use remain visible.
 
 ## Required record for the next real Skill
 

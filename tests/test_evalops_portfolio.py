@@ -308,6 +308,98 @@ def test_public_v11_formal_is_complete_promoted_and_resume_eligible() -> None:
     assert evidence["result"]["human_approval_recorded"] is False
 
 
+def test_public_real_repo_live_holdouts_record_valid_negative_evidence() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "real-repo-live-holdouts-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["calls_authorized"] == 16
+    assert evidence["authorization"]["calls_completed"] == 16
+    assert evidence["result"]["skills_promoted"] == 0
+    assert evidence["result"]["skills_rejected"] == 2
+    assert evidence["result"]["deployment_performed"] is False
+    assert evidence["result"]["usd_cost_observed"] is False
+    assert len(evidence["evaluations"]) == 2
+    assert all(item["runs"]["completed"] == 8 for item in evidence["evaluations"])
+    assert all(
+        item["runs"]["infrastructure_exclusions"] == 0
+        for item in evidence["evaluations"]
+    )
+    assert all(
+        item["runs"]["trace_completeness_rate"] == 1.0
+        for item in evidence["evaluations"]
+    )
+    assert all(
+        item["gate"]["reason_code"] == "new_regression"
+        for item in evidence["evaluations"]
+    )
+    assert all(
+        item["metrics"]["forced_skill_success_rate"]
+        < item["metrics"]["baseline_success_rate"]
+        for item in evidence["evaluations"]
+    )
+
+
+def test_public_formal_release_links_real_gate_to_approval_and_drift() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-formal-release-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["formal_evidence"]["decision_status"] == "promoted"
+    assert evidence["measurement_decision_adoption"]["verified_terminal_artifact_count"] == 72
+    assert evidence["measurement_decision_adoption"]["mode"] == "no_model_call"
+    assert (
+        "operator-supplied scorecard.json SHA-256"
+        in evidence["measurement_decision_adoption"]["checks"]
+    )
+    assert evidence["approval"]["approval_id"].startswith("approval-")
+    assert evidence["deployment"]["status"] == "deployed"
+    assert evidence["deployment"]["deployed_skill_sha256"] == evidence["skill"]["content_hash"]
+    assert evidence["drift_test"]["state_after_mutation"] == "drifted"
+    assert evidence["drift_test"]["state_after_exact_restore"] == "active"
+    assert evidence["rollback"]["performed"] is False
+    assert "first and only approved" in evidence["rollback"]["reason"]
+    assert evidence["final_state"]["active_version"] == 1
+    assert evidence["final_state"]["stale"] is False
+
+
+def test_public_rook_coding_dogfood_keeps_failures_and_cost_boundary() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rook-coding-dogfood-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["aggregate"]["coding_tasks"] == 5
+    assert evidence["aggregate"]["tasks_passed"] == 3
+    assert evidence["aggregate"]["tasks_failed"] == 2
+    assert evidence["aggregate"]["model_calls"] == 66
+    assert evidence["aggregate"]["total_tokens"] == 1_028_297
+    assert evidence["aggregate"]["usd_cost_observed"] is False
+    assert {item["result"] for item in evidence["tasks"]} == {
+        "passed",
+        "passed_after_feedback",
+        "failed",
+    }
+    assert sum(item["result"] == "failed" for item in evidence["tasks"]) == 2
+    finding_codes = {item["code"] for item in evidence["findings"]}
+    assert "unrelated_global_skill_auto_selection" in finding_codes
+    assert "context_token_amplification" in finding_codes
+
+
 def test_public_forge_lifecycle_evidence_preserves_fake_agent_boundary() -> None:
     evidence = json.loads(
         (
