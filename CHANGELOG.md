@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Added redacted evidence for a 24-call Candidate v5 cross-repository holdout
+  and a bounded ten-task Rook Coding Agent live dogfood run.
+
+### Changed
+
+- The local pytest dogfood runner now enforces explicit per-task Provider,
+  tool-round, and wall-clock ceilings, supports one-based continuation, records
+  terminal reasons, and atomically persists every completed task.
+- Agent Todo self-checks now convert Provider limits and cancellation into
+  stable terminal responses instead of escaping the tool loop.
+
 ## [0.2.4] - 2026-07-27
 
 ### Added

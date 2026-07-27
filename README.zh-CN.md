@@ -76,17 +76,20 @@ rook eval demo
 | Adapter v11 readiness | 在此前 profile 失败边界上 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
 | `gpt-5.4-mini` Pilot | 24/24 次、12 个可比配对；Baseline 25% → Forced 100%（+75pp）；时延 -22.7%；Token -12.9%；新增回归 0 | 真实 Pilot，**不是** Formal |
 | 真实仓库 live holdout | 16/16 次调用、8 个有效配对、轨迹完整度 100%、基础设施排除 0 | 两个独立 Candidate 均因新增回归被拒绝；不声称效果提升，也未部署 |
+| Candidate v5 两仓库 holdout | 24/24 次、12 个有效配对；Baseline 33.3% → Forced 91.7%（+58.3pp）；能力任务提升 +87.5pp（bootstrap 95% CI：+62.5pp～+100pp）；新增回归 0 | 基于固定仓库形态案例的真实配对测量；中位时延增加 23.6%、Token 增加 10.8%；measurement-only |
 | Formal 发布生命周期 | 内容不同的 v5 独立通过 72-call Formal → 人工审批 → 仓库级 Codex v1→v5 部署；审计链修复期间真实执行 v5→v1 回滚后完成最终重部署 | 真实模型门禁、真实本地回滚和真实后继版本部署 |
-| Rook Coding Agent dogfood | 5 个隔离任务，3 成功 / 2 失败；66 次模型调用、观测到 1,028,297 Tokens | 真实 DeepSeek 运行；暴露无关 Skill 自动选择和上下文放大问题 |
+| Rook Coding Agent dogfood v2 | 10 个隔离任务，9 成功 / 1 失败；106 次 Provider 调用、观测到 738,729 Tokens、无关 Skill 误选 0 | 真实 DeepSeek 运行，单任务 20 次/总计 200 次硬上限；v1/v2 任务集不同，效率变化仅作方向性观察 |
 | 治理 dogfood | 4 次审批、4 次部署、漂移发现/恢复、2 次原子回滚 | 真实本地控制面；Fake Agent 考试 |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 次、36 个可比配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；中位工具调用 -33.3%；新增回归 0 | 内容不同的 v5 使用 sealed holdout；轨迹完整度 100%；基础设施排除 0；美元成本和路由未观测 |
 
 证据入口：[简历证据合同](docs/PORTFOLIO_EVIDENCE.zh-CN.md) ·
 [真实仓库 holdout](docs/REAL_REPO_HOLDOUTS.md) ·
 [live holdout 结果](docs/evidence/real-repo-live-holdouts-2026-07-27.json) ·
+[Candidate v5 两仓库 holdout](docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json) ·
 [Formal 发布生命周期](docs/evidence/rm2-formal-release-2026-07-27.json) ·
 [后继 v5 Formal 与发布](docs/evidence/rm2-v5-formal-release-2026-07-27.json) ·
-[Rook 真实 Coding dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
+[Rook 真实 Coding dogfood v2](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
+[原始五任务 dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
 [治理生命周期记录](docs/evidence/forge-lifecycle-2026-07-24.json) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
 [v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·

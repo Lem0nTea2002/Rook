@@ -53,6 +53,8 @@ and trace-derived quarantined candidates.
 | Adapter v11 readiness smoke | 2/2 processes exited 0 on the prior docs failure boundary; 100% trace completeness; 0 infrastructure exclusions or profile, Web Search, reconnect, and WebSocket markers |
 | Completed Adapter v11 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 100% (+75pp); median latency -16.7%; median Token -19.5%; 0 new regressions and infrastructure exclusions |
 | Candidate v5 / Adapter v12 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; 0 new regressions and infrastructure exclusions |
+| Candidate v5 two-repository holdout | 24/24 calls; 12 complete pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp with bootstrap 95% CI +62.5pp to +100pp; 0 new regressions and infrastructure exclusions; latency and Token increased |
+| Rook Coding Agent dogfood v2 | 10 isolated repository-shaped tasks; 9 passed / 1 failed; 106 Provider calls and 738,729 observed Tokens; unrelated Skill selections 0/10; bounded at 20 calls/task and 200 total |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -60,6 +62,16 @@ Reproduce the control evidence:
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_rm2.py tests/test_evalops_portfolio.py
 ```
+
+The two post-Formal records are intentionally separate claims. The Candidate
+v5 holdout is a paired Skill-effect measurement and preserves its observed
+efficiency regression. The Rook dogfood run measures the coding Agent itself,
+not Skill uplift. Its earlier five-task run used a different task set, so the
+lower average calls/Tokens and higher pass rate are directional observations,
+not a causal before/after estimate. See
+[`rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json)
+and
+[`rook-coding-dogfood-v2-2026-07-27.json`](evidence/rook-coding-dogfood-v2-2026-07-27.json).
 
 Stage the three manual versions without activating them:
 

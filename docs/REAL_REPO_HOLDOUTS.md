@@ -101,9 +101,9 @@ previously unseen six-case suite:
 | Sources | Rook + Multimodal LLM Agent for Scientific Document RAG |
 | Cases | Direct + Transfer + Regression for each repository |
 | Repetitions | 2 |
-| Planned live calls | 24 (6 cases × 2 arms × 2 repetitions) |
+| Live calls | 24/24 (6 cases × 2 arms × 2 repetitions) |
 | Network | Disabled |
-| Current status | Prepared and deterministically validated; live exam not run |
+| Current status | Completed; promoted by the automatic gate in measurement-only mode |
 
 The real repository metadata is pinned independently from the synthetic,
 unseen RM-2 input overlay. `PROVENANCE.json` makes that distinction explicit,
@@ -111,6 +111,16 @@ records both source commits, and locks every fixture by SHA-256. The hidden
 validator accepts only an exact `release.json` on capability cases, requires no
 output on preservation cases, and rejects source mutation or extra files.
 
-This suite must not be reported as live evidence until a separately authorized
-24-call exam has completed without infrastructure exclusions. Its deterministic
-boundary is covered by `tests/test_evalops_real_repo_holdouts.py`.
+The separately authorized exam completed all 24 calls, 12/12 comparable pairs,
+100% complete traces, and zero infrastructure exclusions. Baseline passed 4/12
+(33.3%) and Forced Skill passed 11/12 (91.7%), a paired +58.3 percentage-point
+uplift. On the eight Direct/Transfer pairs, success improved from 0/8 to 7/8;
+the task-stratified bootstrap 95% interval for capability uplift was +62.5pp to
++100pp. All four preservation pairs passed and introduced zero regressions.
+
+The improvement has an explicit efficiency tradeoff: overall median latency
+rose from 41.477s to 51.258s (+23.6%) and median observed Tokens rose from
+26,901.5 to 29,811 (+10.8%). The run was measurement-only, performed no
+approval or deployment, and did not observe USD cost or Codex routing.
+The immutable summary is
+[`docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json).

@@ -30,18 +30,20 @@ the exam and an immutable approval/release record exists.
 | DF-011 | Formal decision approval and Codex deployment | `docs/evidence/rm2-formal-release-2026-07-27.json` | Rebuilt the redacted Formal ScoreCard from 72 terminal artifacts, recorded the decision, approved and atomically deployed v1, detected controlled drift, and restored the exact Candidate hash | Real Formal gate plus human approval and local Codex deployment; no successful rollback claim because no older approved version exists |
 | DF-012 | Rook Coding Agent live dogfood | `docs/evidence/rook-coding-dogfood-2026-07-27.json` | Five isolated real coding tasks with deterministic validators: 3 passed, 2 failed; 66 model calls and 1,028,297 observed Tokens | Real Rook/DeepSeek dogfood; not a Skill A/B result |
 | DF-013 | Candidate v5 successor Formal and release | `docs/evidence/rm2-v5-formal-release-2026-07-27.json` | 72/72 Adapter v12 calls; Baseline 25% → Forced 94.4% (+69.4pp); v5 independently approved and deployed; audit repair exercised v5→v1→v5 | Real model gate, real successor deployment, and real transactional rollback; USD cost and Codex routing not observed |
-| DF-014 | Candidate v5 two-repository holdout boundary | `evals/suites/release-manifest-v2-real-repo-holdout` | Six Direct/Transfer/Regression cases across pinned Rook and RAG repository shapes; Candidate hash, fixture hashes, hidden validator, and disabled network pass deterministic checks | Prepared only; the planned 24-call exam has not run and produces no live effect claim |
+| DF-014 | Candidate v5 two-repository holdout | `docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json` | 24/24 Codex calls, 12 valid pairs, 100% trace completeness, 0 infrastructure exclusions; Baseline 33.3% → Forced 91.7% (+58.3pp), capability uplift +87.5pp, 0 new regressions | Real paired model evidence; measurement-only; median latency and Token increased, USD cost/routing not observed |
 | INC-012 | Rook Skill routing and context amplification | `tests/test_skill_router.py` and `tests/test_agent_skill_flow.py` | Runtime reminders no longer create user turns; global metadata requires a distinctive name/trigger signal; global catalog text is removed from the prompt; active Skills are bounded, deduplicated, and task-cleared | Offline root-cause remediation; the original 3/5 live result remains unchanged until a separately authorized rerun |
-| DF-015 | Ten-task Rook coding rerun boundary | `benchmark/rook_dogfood/tasks.v2.jsonl` | Ten pinned, two-repository, repository-shaped incident tasks with deterministic pytest validators and usage/Skill telemetry | Prepared only; not live evidence until a separately authorized provider run is recorded |
-| DF-016 | GitHub PR gate | `.github/workflows/rook-forge-pr-gate.yml` | Strict Candidate/Suite/Policy/provenance checks, Candidate hash locks, focused regressions, stable JSON fingerprint, and artifact upload with external calls/costs disabled | Local real-Git-diff command passed; remote GitHub check remains unclaimed until the workflow runs on a pushed PR |
+| DF-015 | Ten-task Rook coding rerun | `docs/evidence/rook-coding-dogfood-v2-2026-07-27.json` | 9/10 deterministic validators passed; 106 Provider calls and 738,729 observed Tokens within the authorized 200-call ceiling; unrelated Skill selections 0/10 | Real Rook/DeepSeek dogfood; not a Skill A/B; v1/v2 task sets differ, so efficiency change is directional |
+| DF-016 | GitHub PR gate | `.github/workflows/rook-forge-pr-gate.yml` | Strict Candidate/Suite/Policy/provenance checks, Candidate hash locks, focused regressions, stable JSON fingerprint, and artifact upload with external calls/costs disabled | Local command and remote PR #16 check passed with external calls/costs disabled |
+| INC-013 | Dogfood provider-limit terminal handling | `rook_agent/agent/loop.py` and `benchmark/local_pytest/runner.py` | Task 8 reached the 20-call ceiling; Todo self-check exposed an uncaught limit and the runner lost its aggregate summary. The loop now emits a stable terminal response and the runner atomically persists each completed row | The failed validator remains failed and was not retried; focused verification: 82 passed, Ruff green |
 
 Current honest count: Candidate v5 has a completed real-model Formal gate,
-human-approved successor deployment, and a verified v5→v1→v5 transaction
-chain. Two independent real-repository Candidates were live-tested and
-correctly rejected. Rook itself still has a 3/5 live coding baseline; the
-root-cause fix and ten-task rerun boundary are offline-ready, but no improved
-live number is claimed yet. The cross-repository Candidate v5 exam and remote
-GitHub PR check are also prepared but not yet reported as completed.
+human-approved successor deployment, a verified v5→v1→v5 transaction chain,
+and a separate positive two-repository holdout. Two independent Candidates
+were also live-tested and correctly rejected. Rook itself passed 9/10 live
+coding tasks with zero unrelated Skill selections; the one failure and the
+provider-limit runner incident remain in the public record. The original 3/5
+run used a different task set, so the observed success/efficiency changes are
+not reported as a causal paired improvement.
 
 ## Required record for the next real Skill
 

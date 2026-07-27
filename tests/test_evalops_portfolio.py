@@ -425,6 +425,71 @@ def test_public_rook_coding_dogfood_keeps_failures_and_cost_boundary() -> None:
     assert "context_token_amplification" in finding_codes
 
 
+def test_public_candidate_v5_two_repo_holdout_records_positive_and_efficiency_evidence() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-v5-two-repo-holdout-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["calls_authorized"] == 24
+    assert evidence["authorization"]["calls_completed"] == 24
+    assert evidence["execution"]["valid_content_pairs"] == 12
+    assert evidence["execution"]["infrastructure_exclusions"] == 0
+    assert evidence["execution"]["trace_completeness_rate"] == 1.0
+    assert len(evidence["repositories"]) == 2
+    assert evidence["metrics"]["overall"]["baseline_success_count"] == 4
+    assert evidence["metrics"]["overall"]["candidate_success_count"] == 11
+    assert evidence["metrics"]["overall"]["paired_success_uplift"] == 7 / 12
+    assert evidence["metrics"]["capability"]["paired_success_uplift"] == 7 / 8
+    assert evidence["metrics"]["capability"]["paired_uplift_ci95"] == {
+        "lower": 0.625,
+        "upper": 1.0,
+        "method": "task_stratified_bootstrap",
+        "iterations": 10000,
+    }
+    assert evidence["metrics"]["preservation"]["new_regression_count"] == 0
+    assert evidence["metrics"]["overall"]["latency_improvement"] < 0
+    assert evidence["metrics"]["overall"]["token_improvement"] < 0
+    assert evidence["metrics"]["cost"]["observed"] is False
+    assert evidence["gate"]["status"] == "promoted"
+    assert evidence["gate"]["measurement_only"] is True
+    assert evidence["gate"]["approval_or_deployment_performed"] is False
+
+
+def test_public_rook_coding_dogfood_v2_preserves_budget_failure_and_claim_boundary() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rook-coding-dogfood-v2-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["requested_task_count"] == 10
+    assert evidence["authorization"]["max_provider_calls_per_task"] == 20
+    assert evidence["authorization"]["max_provider_calls_total"] == 200
+    assert evidence["authorization"]["provider_calls_observed"] == 106
+    assert evidence["authorization"]["budget_exceeded"] is False
+    assert evidence["aggregate"]["tasks_passed"] == 9
+    assert evidence["aggregate"]["tasks_failed"] == 1
+    assert evidence["aggregate"]["total_tokens"] == 738_729
+    assert evidence["aggregate"]["tasks_with_unrelated_skill_selection"] == 0
+    assert evidence["aggregate"]["tasks_with_loaded_skills"] == 0
+    assert len(evidence["tasks"]) == 10
+    assert sum(item["result"] == "failed" for item in evidence["tasks"]) == 1
+    failed = next(item for item in evidence["tasks"] if item["result"] == "failed")
+    assert failed["id"] == "DF2-RAG-008"
+    assert failed["provider_calls"] == 20
+    assert evidence["incident_and_remediation"]["model_calls_retried"] == 0
+    assert "task sets differ" in evidence["comparison_to_prior_dogfood"]["claim_boundary"]
+    assert "not a Skill-effect A/B result" in evidence["claim_boundary"]
+
+
 def test_public_forge_lifecycle_evidence_preserves_fake_agent_boundary() -> None:
     evidence = json.loads(
         (

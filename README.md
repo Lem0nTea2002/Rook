@@ -78,17 +78,20 @@ and release IDs plus artifact hashes.
 | Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
 | Real-repository live holdouts | 16/16 calls, 8 valid pairs, 100% trace completeness, 0 infrastructure exclusions | Both independent Candidates rejected for new regressions; no improvement claim or deployment |
+| Candidate v5 two-repository holdout | 24/24 calls, 12 valid pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp (bootstrap 95% CI +62.5pp to +100pp); 0 new regressions | Real paired measurement on pinned repository-shaped cases; median latency +23.6% and Token +10.8%; measurement-only |
 | Formal release lifecycle | Content-distinct v5 passed an independent 72-call Formal → human approval → repository-level Codex v1→v5 deployment; an audit-chain repair exercised a real v5→v1 rollback before the final redeploy | Real model gate, real local rollback, and real successor deployment |
-| Rook Coding Agent dogfood | 5 isolated tasks, 3 passed / 2 failed; 66 model calls and 1,028,297 observed Tokens | Honest DeepSeek live run; exposed unrelated Skill auto-selection and context amplification |
+| Rook Coding Agent dogfood v2 | 10 isolated tasks, 9 passed / 1 failed; 106 provider calls, 738,729 observed Tokens, 0 unrelated Skill selections | Honest DeepSeek live run with a 20-call/task and 200-call total ceiling; v1/v2 task sets differ, so efficiency comparison is directional, not causal |
 | Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; median tool calls -33.3%; 0 new regressions | Content-distinct v5 on a sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
 
 Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [real-repository holdouts](docs/REAL_REPO_HOLDOUTS.md) ·
 [live holdout results](docs/evidence/real-repo-live-holdouts-2026-07-27.json) ·
+[Candidate v5 two-repository holdout](docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json) ·
 [Formal release lifecycle](docs/evidence/rm2-formal-release-2026-07-27.json) ·
 [successor v5 Formal and release](docs/evidence/rm2-v5-formal-release-2026-07-27.json) ·
-[Rook live coding dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
+[Rook live coding dogfood v2](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
+[original five-task dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
 [lifecycle record](docs/evidence/forge-lifecycle-2026-07-24.json) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
 [v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
