@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-07-27
+
 ### Added
 
 - Added `rook eval record-decision` to fail-closed verify a measurement-only
@@ -13,6 +15,14 @@ All notable changes to this project are documented here. The format follows [Kee
   policy before recording eligibility.
 - Added redacted evidence for two live Skills on two public repositories and
   five isolated Rook Coding Agent dogfood tasks.
+- Added a frozen Candidate v5 cross-repository holdout with six
+  Direct/Transfer/Regression cases, pinned provenance, hidden validators, and
+  a separately authorized 24-call live boundary.
+- Added `rook eval pr-gate` and a cost-free GitHub pull-request workflow that
+  validates strict Candidates, Suites, policies, Candidate locks, provenance,
+  and fixture hashes, then uploads a fingerprinted JSON report.
+- Added a pinned ten-task Rook Coding Agent dogfood v2 dataset and provider
+  call, Token, and Skill identity telemetry for the next authorized rerun.
 
 ### Changed
 
@@ -22,6 +32,13 @@ All notable changes to this project are documented here. The format follows [Kee
 - Both independent real-repository Candidates were rejected after 16/16 live
   calls because they introduced regressions. They remain quarantined and are
   published as negative evidence rather than an improvement claim.
+- Candidate v5 completed a separate Adapter v12 72-call Formal, was
+  independently approved and deployed as the successor to v1, and exercised a
+  real v5-to-v1-to-v5 transaction chain during audit repair.
+- Runtime control reminders no longer create logical user turns. Global Skill
+  metadata routing requires a distinctive name or trigger signal; global
+  catalog text is omitted from the provider prompt; active Skills are bounded,
+  deduplicated, and cleared at confirmed task boundaries.
 
 ## [0.2.3] - 2026-07-27
 
@@ -164,7 +181,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.0...v0.2.1

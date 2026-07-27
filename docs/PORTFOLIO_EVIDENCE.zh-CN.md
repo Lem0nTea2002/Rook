@@ -40,6 +40,7 @@
 | Adapter v11 profile 隔离 | 改用顶层 `allow_login_shell=false`；无模型的完整配置加载验证成功，错误嵌套键对照失败 |
 | Adapter v11 readiness smoke | 原失败 docs case 上 2/2 进程 exit 0；轨迹完整度 100%；基础设施排除、profile、Web Search、重连和 WebSocket 标记均为 0 |
 | 已完成的 Adapter v11 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归和基础设施排除均为 0 |
+| Candidate v5 / Adapter v12 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；新增回归和基础设施排除均为 0 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -137,29 +138,24 @@ Adapter v9 与 Normalizer v3 已在离线环境中区分两类结果：fallback 
 
 随后单独授权的 v9 readiness smoke 在之前失败的 application case 上恰好完成 2 次调用。两臂都产生终态轨迹并执行确定性 evaluator，轨迹完整度 100%，基础设施排除 0；Baseline 错误，Forced Skill 通过。单配对自动结论 `quarantined (insufficient_valid_pairs)` 符合 readiness 设计，不能作为 Formal 效果估计。脱敏记录见 [`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json)。
 
-## 已完成的 Adapter v11 Formal
+## 已完成的 Candidate v5 / Adapter v12 Formal
 
-单独授权的 sealed holdout 使用 `gpt-5.4-mini` 完成 72/72 次调用和全部 36 个
-Baseline/Forced 配对。Baseline 通过 9/36（25%，Wilson 95% 区间
-13.8%–41.1%），Forced Skill 通过 36/36（100%，Wilson 95% 区间
-90.4%–100%），配对提升 75 个百分点。中位时延从 69.773s 降至
-58.141s（-16.7%），完整观测的中位 Token 从 42,436 降至
-34,174（-19.5%），中位工具调用从 6 降至 4（-33.3%）。能力任务由
-0/18 提升为 18/18，18 个 preservation 配对全部通过，新增回归为 0。
+内容不同的 Candidate v5 使用单独授权的 sealed holdout 完成 72/72 次
+`gpt-5.4-mini` 调用和全部 36 个 Baseline/Forced 配对。Baseline 通过
+9/36（25%，Wilson 95% 区间 13.8%–41.1%），Forced Skill 通过
+34/36（94.4%，Wilson 95% 区间 81.9%–98.5%），配对提升 69.4 个百分点。
+能力任务由 0/18 提升为 17/18，任务分层 bootstrap 95% 区间为
+83.3pp–100pp。中位时延从 64.242s 降至 60.530s（-5.8%），完整观测的
+中位 Token 从 36,547 降至 30,994.5（-15.2%），中位工具调用从 6 降至
+4（-33.3%），新增回归为 0。
 
-72 个进程全部 exit 0 且各有一个终态 turn，轨迹完整度 100%；基础设施排除、
-profile、Web Search、重连、WebSocket、Windows 沙箱、安全失败、秘密泄漏和
-隔离泄漏均为 0。自动门禁为 `promoted (capability_success_uplift)`，但
-measurement-only 执行本身没有产生人工审批或部署。2026-07-27，
-`rook eval record-decision` 在不再次调用模型的前提下，独立校验了当前 Candidate、
-Suite、Policy、Agent/Adapter/Normalizer 指纹、72 个终态制品、重建的
-ScoreCard 指纹、operator 提供的 ScoreCard SHA-256 和当前门禁决策。随后由人工批准，并把完全一致的 Candidate hash
-部署到仓库级 Codex Skill 目录；受控漂移被正确发现并精确恢复。由于这是首个且
-唯一获批版本，不声称已经完成真实 rollback。美元成本和 Codex 路由仍未观测。
-脱敏证据见
-[`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json)。
-发布生命周期另见
-[`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json)。
+72 个进程全部形成终态轨迹，轨迹完整度 100%；基础设施排除、timeout、安全失败、
+秘密泄漏和隔离泄漏均为 0。自动门禁为
+`promoted (capability_success_uplift)`。Candidate v5 随后独立获批并作为 v1
+的后继版本部署；审计链修复期间使用同一事务路径真实执行 v5→v1 rollback，再完成
+v1→v5 重部署。最终部署 hash 与冻结 Candidate 完全一致且 non-stale。美元成本和
+Codex 路由仍未观测。脱敏证据见
+[`rm2-v5-formal-release-2026-07-27.json`](evidence/rm2-v5-formal-release-2026-07-27.json)。
 
 ### Formal 真实评测填写合同
 
@@ -169,11 +165,11 @@ ScoreCard 指纹、operator 提供的 ScoreCard SHA-256 和当前门禁决策。
 | --- | --- | --- |
 | 能力配对样本数 | 排除基础设施失败后的 Direct/Transfer 配对 | 18 |
 | Baseline 成功率 | Baseline passed / 有效 Baseline | 总体 25%；能力任务 0% |
-| Forced Skill 成功率 | Forced passed / 有效 Forced | 总体和能力任务均为 100% |
-| 配对成功率提升 | Forced-Baseline 的配对均值，并附任务分层 bootstrap 95% 区间 | 总体 +75pp；能力任务 +100pp（95% bootstrap 区间 +100pp 到 +100pp） |
+| Forced Skill 成功率 | Forced passed / 有效 Forced | 总体和能力任务均为 94.4% |
+| 配对成功率提升 | Forced-Baseline 的配对均值，并附任务分层 bootstrap 95% 区间 | 总体 +69.4pp；能力任务 +94.4pp（95% bootstrap 区间 +83.3pp 到 +100pp） |
 | 新增回归 | Baseline 通过但 Candidate 失败的 Regression/Adversarial 案例 | 18 个 preservation 配对中为 0 |
-| 中位时延变化 | 配对毫秒中位数 | 69.773s → 58.141s（-16.7%） |
-| Token 变化 | 可观测输入/输出 Token 配对值 | 42,436 → 34,174（-19.5%） |
+| 中位时延变化 | 配对毫秒中位数 | 64.242s → 60.530s（-5.8%） |
+| Token 变化 | 可观测输入/输出 Token 配对值 | 36,547 → 30,994.5（-15.2%） |
 | 成本变化 | 可观测模型费用配对值 | 未观测 |
 | 路由 precision/recall | 只能来自可靠的 `skill_loaded` 身份事件 | Codex 未观测 |
 
@@ -190,7 +186,7 @@ ScoreCard 指纹、operator 提供的 ScoreCard SHA-256 和当前门禁决策。
 附带 Formal 证据后还可以写：
 
 > 在 sealed 的 72-call `gpt-5.4-mini` holdout 上，将配对任务成功率从 25%
-> 提升到 100%（+75pp），中位时延降低 16.7%、完整观测 Token 降低 19.5%，
+> 提升到 94.4%（+69.4pp），中位时延降低 5.8%、完整观测 Token 降低 15.2%，
 > 新增回归和基础设施排除均为 0。
 
 仍然不能写“美元成本下降”或“Codex 路由 precision/recall 提升”，因为这些

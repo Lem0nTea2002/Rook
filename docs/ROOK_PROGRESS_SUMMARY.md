@@ -159,9 +159,11 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 修复 Rook 的无关全局 Skill 自动选择与上下文 Token 放大，再使用同一 5-task 集合和独立 holdout 验证改善。
-2. 为已部署 Candidate v5 增加新的真实仓库 holdout，验证其对当前 sealed suite 之外任务的泛化性；保持 Candidate hash 冻结，不按 holdout 结果反向调参。
-3. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
+1. 已完成无关全局 Skill 自动选择与上下文放大的离线根因修复：运行时控制消息不再创建用户轮次；全局 metadata route 必须命中名称/trigger；全局 catalog 不再复制进 system prompt；活动 Skill 去重、限界并在任务切换时清理。
+2. 已准备 Candidate v5 的双真实仓库 holdout：6 个 Direct/Transfer/Regression case、2 次重复、计划恰好 24 次 live 调用；Candidate 与 fixture hash、禁网和隐藏 validator 均已离线锁定，尚未执行 live。
+3. 已准备 10-task Rook Coding dogfood v2，新增 provider call、Token 和 Skill identity 遥测；尚未获得本轮独立 live 授权，因此旧的 3/5、1,028,297 Token 基线仍是唯一真实结果。
+4. 已实现 `rook eval pr-gate` 与 GitHub Actions 工作流，本地真实 Git diff 门禁通过；远端 PR check 需在 GitHub API/网络恢复并推送后才能形成可引用证据。
+5. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
 
 ## 当前停点
 

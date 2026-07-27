@@ -43,6 +43,20 @@ from rook_agent.evalops.suites import load_eval_suite
         (
             [
                 "eval",
+                "pr-gate",
+                "--base",
+                "base-sha",
+                "--head",
+                "head-sha",
+                "--output",
+                ".rook/pr-gate/report.json",
+            ],
+            "eval",
+            "pr-gate",
+        ),
+        (
+            [
+                "eval",
                 "run",
                 "--skill-path",
                 "candidate",

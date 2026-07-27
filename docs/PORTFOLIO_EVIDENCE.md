@@ -52,6 +52,7 @@ and trace-derived quarantined candidates.
 | Adapter v11 profile isolation | Top-level `allow_login_shell=false`; full no-model config load passes while the invalid nested-path control fails |
 | Adapter v11 readiness smoke | 2/2 processes exited 0 on the prior docs failure boundary; 100% trace completeness; 0 infrastructure exclusions or profile, Web Search, reconnect, and WebSocket markers |
 | Completed Adapter v11 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 100% (+75pp); median latency -16.7%; median Token -19.5%; 0 new regressions and infrastructure exclusions |
+| Candidate v5 / Adapter v12 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; 0 new regressions and infrastructure exclusions |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -274,34 +275,27 @@ expected for a one-pair transport/readiness gate and is not a Formal effect
 estimate. See
 [`rm2-v9-smoke-2026-07-24.json`](evidence/rm2-v9-smoke-2026-07-24.json).
 
-## Completed Adapter v11 Formal
+## Completed Candidate v5 / Adapter v12 Formal
 
-The separately authorized sealed holdout completed 72/72 calls and all 36
-Baseline/Forced pairs with `gpt-5.4-mini`. Baseline passed 9/36 runs (25%;
-Wilson 95% CI 13.8%–41.1%), while Forced Skill passed 36/36 (100%; Wilson 95%
-CI 90.4%–100%), a paired uplift of 75 percentage points. Median latency fell
-from 69.773s to 58.141s (-16.7%), median observed Token use fell from 42,436 to
-34,174 (-19.5%), and median tool calls fell from 6 to 4 (-33.3%). Capability
-cases improved from 0/18 to 18/18; all 18 preservation pairs passed and added
-zero regressions.
+The content-distinct Candidate v5 completed a separately authorized sealed
+holdout: 72/72 `gpt-5.4-mini` calls and all 36 Baseline/Forced pairs. Baseline
+passed 9/36 runs (25%; Wilson 95% CI 13.8%–41.1%), while Forced Skill passed
+34/36 (94.4%; Wilson 95% CI 81.9%–98.5%), a paired uplift of 69.4 percentage
+points. Capability cases improved from 0/18 to 17/18; the task-stratified
+bootstrap 95% interval for capability uplift was 83.3pp–100pp. Median latency
+fell from 64.242s to 60.530s (-5.8%), median observed Token use fell from
+36,547 to 30,994.5 (-15.2%), and median tool calls fell from 6 to 4 (-33.3%).
+There were zero new regressions.
 
-All 72 processes exited 0 with one terminal turn, trace completeness was 100%,
-and infrastructure exclusions plus profile, Web Search, reconnect, WebSocket,
-sandbox-failure, safety, secret-leak, and isolation-leak counts were zero. The
-automatic gate returned `promoted (capability_success_uplift)`, but the
-measurement-only run itself performed no approval or deployment. On 2026-07-27,
-`rook eval record-decision` independently verified the current Candidate,
-Suite, policy, Agent/Adapter/Normalizer fingerprints, all 72 terminal
-artifacts, the reconstructed ScoreCard fingerprint, and the current policy
-decision against the operator-supplied ScoreCard SHA-256 without another model
-call. The verified decision was then approved
-by a human and the exact Candidate hash was deployed to the repository-level
-Codex Skill directory. Controlled drift was detected and exactly restored.
-A real rollback is not claimed because this is the first and only approved
-version. USD cost and Codex routing remain not observed. See
-[`rm2-formal-v11-summary-2026-07-26.json`](evidence/rm2-formal-v11-summary-2026-07-26.json).
-The release lifecycle is recorded separately in
-[`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json).
+All 72 processes completed with terminal traces, trace completeness was 100%,
+and infrastructure exclusions, safety failures, secret leaks, isolation leaks,
+and timeouts were zero. The automatic gate returned
+`promoted (capability_success_uplift)`. Candidate v5 was independently approved
+and deployed as the successor to v1. During audit-chain repair, the same
+transaction path performed a real v5→v1 rollback and then a v1→v5 redeploy;
+the final deployed Skill hash exactly matches the frozen Candidate and is
+non-stale. USD cost and Codex routing remain not observed. See
+[`rm2-v5-formal-release-2026-07-27.json`](evidence/rm2-v5-formal-release-2026-07-27.json).
 
 ### Formal live measurement contract
 
@@ -312,11 +306,11 @@ immutable report produced with explicit external-call and cost authorization.
 | --- | --- | --- |
 | Capability paired samples | Direct and Transfer pairs after infrastructure exclusions | 18 |
 | Baseline success rate | Passed Baseline runs / valid Baseline runs | 25% overall; 0% capability |
-| Forced-Skill success rate | Passed Forced runs / valid Forced runs | 100% overall and capability |
-| Paired success uplift | Mean paired Forced-Baseline delta, plus task-stratified bootstrap 95% interval | +75pp overall; +100pp capability (95% bootstrap interval +100pp to +100pp) |
+| Forced-Skill success rate | Passed Forced runs / valid Forced runs | 94.4% overall and capability |
+| Paired success uplift | Mean paired Forced-Baseline delta, plus task-stratified bootstrap 95% interval | +69.4pp overall; +94.4pp capability (95% bootstrap interval +83.3pp to +100pp) |
 | New regressions | Regression/Adversarial cases that pass Baseline and fail Candidate | 0 across 18 preservation pairs |
-| Median latency delta | Paired median milliseconds | 69.773s → 58.141s (-16.7%) |
-| Token delta | Paired observed input/output tokens | 42,436 → 34,174 (-19.5%) |
+| Median latency delta | Paired median milliseconds | 64.242s → 60.530s (-5.8%) |
+| Token delta | Paired observed input/output tokens | 36,547 → 30,994.5 (-15.2%) |
 | Cost delta | Paired observed model cost | Not observed |
 | Routing precision/recall | Only from reliable `skill_loaded` identity events | Not observed for Codex |
 
@@ -345,8 +339,8 @@ Safe now:
 Also safe with the Formal evidence attached:
 
 > On a sealed 72-call `gpt-5.4-mini` holdout, improved paired task success from
-> 25% to 100% (+75pp), reduced median latency by 16.7% and observed Token use
-> by 19.5%, with zero new regressions and zero infrastructure exclusions.
+> 25% to 94.4% (+69.4pp), reduced median latency by 5.8% and observed Token use
+> by 15.2%, with zero new regressions and zero infrastructure exclusions.
 
 Still not safe:
 
