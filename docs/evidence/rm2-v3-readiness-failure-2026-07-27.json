@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "redacted_live_readiness_failure",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "external_calls_completed": 2,
+    "formal_calls_started": 0,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 3,
+    "candidate_content_hash": "aa1ffacd3f4db423f6ee13debef37c912079c0bb675ed734a8039d6e23970cf1",
+    "candidate_fingerprint": "57365eb253d49949b7505e1a73d73c2b",
+    "evaluation_id": "evaluation-2aac94f8383843d9aa10cc39fdae4050",
+    "experiment_id": "exp-3a4700a0e13f40978b96ad740bdb057f",
+    "suite_id": "release-manifest-v2-v3-readiness",
+    "suite_fingerprint": "730405174b35ccb8ac69ccb0aa5ddce9",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124"
+  },
+  "execution": {
+    "planned_runs": 2,
+    "completed_runs": 2,
+    "stop_reason": null,
+    "treatment_family": "content",
+    "trace_completeness_rate": 1.0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "cost_usd": null
+  },
+  "runs": [
+    {
+      "treatment": "baseline",
+      "run_id": "codex-e67315257b9ed4a207368fd5",
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "validator_reason": "source_modified",
+      "process_exit_code": 0,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 90703,
+      "input_tokens": 51132,
+      "output_tokens": 3237
+    },
+    {
+      "treatment": "forced_skill",
+      "run_id": "codex-19b451bc0ce75879e26ff344",
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "validator_reason": "field_version",
+      "process_exit_code": 0,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 74250,
+      "input_tokens": 54419,
+      "output_tokens": 2648
+    }
+  ],
+  "root_cause": {
+    "classification": "candidate_semantic_regression",
+    "summary": "Candidate 3 described version normalization as padding numeric version segments to three. The model interpreted a single-segment version as digit zero-padding rather than appending dot-separated zero segments.",
+    "expected_semantics": "Remove one leading v or V, preserve every numeric segment, and append .0 segments until exactly three dot-separated segments remain.",
+    "infrastructure_fault": false
+  },
+  "governance": {
+    "gate_status": "quarantined",
+    "gate_reason_code": "insufficient_valid_pairs",
+    "approval_created": false,
+    "deployment_changed": false,
+    "active_codex_version_after_run": 1
+  },
+  "remediation": {
+    "immutable_failed_candidate_preserved": true,
+    "successor_candidate_version": 4,
+    "successor_content_hash": "b33037a471752a92fa974a62bf7e2858e8462339ac4b3d204ff87d2b57901ef8",
+    "successor_status": "quarantined",
+    "live_calls_started_for_successor": 0
+  },
+  "result": {
+    "readiness_passed": false,
+    "formal_metric_produced": false,
+    "status": "stopped_before_formal"
+  }
+}
