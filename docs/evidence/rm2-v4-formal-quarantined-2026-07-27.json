@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "verified_formal_quarantined_decision",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "external_calls_authorized": 72,
+    "external_calls_started": 72,
+    "external_calls_completed": 72,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 4,
+    "candidate_content_hash": "b33037a471752a92fa974a62bf7e2858e8462339ac4b3d204ff87d2b57901ef8",
+    "candidate_fingerprint": "f914338931e855e5ad6ccc99b585d814",
+    "evaluation_id": "evaluation-baa9d5a06f4a4cdbaff493791ab32cc8",
+    "experiment_id": "exp-3f90860a33714910b4ae042394e1b076",
+    "decision_id": "decision-f1246326f66644aeb938ca3924cd2f27",
+    "suite_id": "release-manifest-v2-formal-holdout-v4",
+    "suite_fingerprint": "a75250023f5f42659c2fa514a94d14ca",
+    "policy_version": "rm2-formal-1",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "scorecard_fingerprint": "61b917fff33e4970d095e786b6a807a0",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124",
+    "adapter_version": "codex-evalops-v11",
+    "normalizer_fingerprint": "b7ebbd6428a3f93c40b7b50deaaa60a0",
+    "codex_cli_version": "codex-cli 0.144.6"
+  },
+  "artifacts": {
+    "report_ref": "reports/evaluation-baa9d5a06f4a4cdbaff493791ab32cc8/report.md",
+    "report_markdown_sha256": "7a734db7f45cd8bf3c1c26054cb03ba1bb921403dc854ede5a708571c83d2ab1",
+    "scorecard_json_sha256": "b4a6ca363ce76d158cb1270d31643137593ad65844ec7b8f6d45985fb71ec79f",
+    "terminal_artifact_count": 72
+  },
+  "execution": {
+    "planned_runs": 72,
+    "completed_runs": 72,
+    "successful_processes": 71,
+    "timeout_processes": 1,
+    "other_failed_processes": 0,
+    "complete_traces": 71,
+    "incomplete_traces": 1,
+    "trace_completeness_rate": 0.9861111111111112,
+    "valid_content_pairs": 36,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "cost_usd": null
+  },
+  "metrics": {
+    "baseline_success_rate": 0.25,
+    "candidate_success_rate": 0.9444444444444444,
+    "paired_success_uplift": 0.6944444444444444,
+    "candidate_success_ci95": {
+      "lower": 0.8185534279135275,
+      "upper": 0.9846300133358382
+    },
+    "capability_baseline_success_rate": 0.0,
+    "capability_candidate_success_rate": 0.8888888888888888,
+    "capability_paired_success_uplift": 0.8888888888888888,
+    "capability_paired_uplift_ci95": {
+      "lower": 0.7777777777777778,
+      "upper": 1.0
+    },
+    "baseline_median_latency_ms": 65484.0,
+    "candidate_median_latency_ms": 63280.0,
+    "latency_improvement": 0.03365707653778027,
+    "baseline_median_tokens": 42311.0,
+    "candidate_median_tokens": 44018.0,
+    "token_improvement": -0.04034411855073139,
+    "median_token_change": 0.04034411855073139,
+    "preservation_pairs": 18,
+    "preservation_rate": 1.0,
+    "new_regressions": 0
+  },
+  "candidate_failures": [
+    {
+      "case_id": "holdout-package",
+      "repetition": 1,
+      "status": "timeout",
+      "reason_code": "codex_timeout",
+      "trace_complete": false
+    },
+    {
+      "case_id": "holdout-application",
+      "repetition": 3,
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "validator_reason": "field_service",
+      "trace_complete": true
+    }
+  ],
+  "gate": {
+    "status": "quarantined",
+    "reason_code": "trace_incomplete",
+    "eligible_for_approval": false
+  },
+  "governance": {
+    "approval_created": false,
+    "deployment_changed": false,
+    "candidate_status": "quarantined",
+    "active_codex_version_after_formal": 1
+  },
+  "result": {
+    "formal_metric_produced": true,
+    "promotion_achieved": false,
+    "status": "formal_completed_but_quarantined"
+  }
+}
