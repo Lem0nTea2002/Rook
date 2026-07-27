@@ -1,0 +1,16 @@
+id = "release-manifest-v2-v3-readiness"
+version = "1"
+policy = "../../policies/rm2-calibration.toml"
+candidate_content_hash = "aa1ffacd3f4db423f6ee13debef37c912079c0bb675ed734a8039d6e23970cf1"
+
+[[cases]]
+id = "holdout-application-v3-readiness"
+category = "direct"
+task = "holdout/tasks/holdout-application.md"
+fixture = "holdout/fixtures/holdout-application"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-application"]
+timeout_seconds = 15

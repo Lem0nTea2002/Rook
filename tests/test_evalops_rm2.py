@@ -30,6 +30,9 @@ _CANDIDATE_ROOT = _ROOT / "evals" / "candidates" / "release-manifest-v2"
 _CANDIDATE_CONTENT_HASH = (
     "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
 )
+_V3_CANDIDATE_CONTENT_HASH = (
+    "aa1ffacd3f4db423f6ee13debef37c912079c0bb675ed734a8039d6e23970cf1"
+)
 
 
 def _validator_module():
@@ -124,6 +127,49 @@ def test_rm2_content_only_call_counts_are_exact() -> None:
     )
 
     assert [len(plan.runs) for plan in plans] == [12, 24, 72]
+
+
+def test_rm2_v3_is_content_distinct_candidate_locked_and_bounded() -> None:
+    original = load_skill_bundle(_CANDIDATE_ROOT / "effective.toml")
+    revised = load_skill_bundle(_CANDIDATE_ROOT / "effective-v3.toml")
+    readiness = load_eval_suite(_SUITE_ROOT / "v3-readiness.toml")
+    formal = load_eval_suite(_SUITE_ROOT / "v3-suite.toml")
+
+    original_hash = hashlib.sha256(
+        render_skill(original).encode("utf-8")
+    ).hexdigest()
+    revised_hash = hashlib.sha256(render_skill(revised).encode("utf-8")).hexdigest()
+    assert original_hash == _CANDIDATE_CONTENT_HASH
+    assert revised_hash == _V3_CANDIDATE_CONTENT_HASH
+    assert revised_hash != original_hash
+    assert readiness.candidate_content_hash == revised_hash
+    assert formal.candidate_content_hash == revised_hash
+    assert readiness.id == "release-manifest-v2-v3-readiness"
+    assert formal.id == "release-manifest-v2-formal-holdout-v3"
+    assert len(readiness.cases) == 1
+    assert len(formal.cases) == 12
+    assert {
+        category: sum(case.category is category for case in formal.cases)
+        for category in CaseCategory
+    } == {category: 3 for category in CaseCategory}
+
+    revised_candidate = replace(_candidate(), content_hash=revised_hash)
+    readiness_plan = build_experiment_plan(
+        readiness,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=1,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    formal_plan = build_experiment_plan(
+        formal,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=3,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    assert len(readiness_plan.runs) == 2
+    assert len(formal_plan.runs) == 72
 
 
 @pytest.mark.parametrize(
@@ -336,10 +382,15 @@ def test_positive_holdout_tasks_define_repository_root_output() -> None:
 
 def test_rm2_candidate_and_tasks_do_not_leak_hidden_answers() -> None:
     effective_path = _CANDIDATE_ROOT / "effective.toml"
+    revised_path = _CANDIDATE_ROOT / "effective-v3.toml"
     neutral_path = _CANDIDATE_ROOT / "neutral.toml"
     effective = load_skill_bundle(effective_path)
+    revised = load_skill_bundle(revised_path)
     load_skill_bundle(neutral_path)
-    candidate_text = effective_path.read_text(encoding="utf-8").casefold()
+    candidate_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (effective_path, revised_path)
+    ).casefold()
     task_text = "\n".join(
         path.read_text(encoding="utf-8") for path in (_SUITE_ROOT / "tasks").glob("*.md")
     ).casefold()
@@ -349,6 +400,7 @@ def test_rm2_candidate_and_tasks_do_not_leak_hidden_answers() -> None:
     ).casefold()
 
     assert effective.name == "release-manifest-v2-normalizer"
+    assert revised.name == effective.name
     assert "validators/" not in candidate_text + task_text + holdout_task_text
     assert '"schema"' not in candidate_text + task_text + holdout_task_text
     assert "payments-api" not in candidate_text
