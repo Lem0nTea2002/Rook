@@ -721,7 +721,12 @@ class AgentLoop:
             self.session.append_assistant_response(response)
             self._compact_if_needed(trigger=ContextWindowTrigger.AUTO)
             return AgentTurnResult(status=AgentTurnStatus.COMPLETED, response=response)
-        response = self._run_todo_self_check_if_needed(response, complete_once)
+        try:
+            response = self._run_todo_self_check_if_needed(response, complete_once)
+        except _AgentLoopLimitReached as exc:
+            response = self._limit_response(exc.reason)
+        except AgentCancelledError:
+            response = self._interrupted_response()
 
         # 没有工具调用时，这条 response 就是最终 assistant 回复。命中轮次上限时也会写入
         # 一条纯文本说明，避免保存未执行的 tool_call。
@@ -751,7 +756,12 @@ class AgentLoop:
             self.session.append_assistant_response(response)
             self._compact_if_needed(trigger=ContextWindowTrigger.AUTO)
             return AgentTurnResult(status=AgentTurnStatus.COMPLETED, response=response)
-        response = await self._run_todo_self_check_if_needed_async(response, complete_once)
+        try:
+            response = await self._run_todo_self_check_if_needed_async(response, complete_once)
+        except _AgentLoopLimitReached as exc:
+            response = self._limit_response(exc.reason)
+        except AgentCancelledError:
+            response = self._interrupted_response()
 
         self.session.append_assistant_response(response)
         self._compact_if_needed(trigger=ContextWindowTrigger.AUTO)
