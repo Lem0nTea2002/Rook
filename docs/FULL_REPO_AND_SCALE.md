@@ -163,3 +163,7 @@ requires a separate current-issue track:
 Until those external runs and maintainer decisions happen, the safe claim is
 “implemented and benchmarked the full-repository execution platform,” not
 “completed 24 live fixes” or “merged upstream PRs.”
+
+The current three-repository contribution batch, including rejected duplicate
+tasks, clone failures, and the mandatory human-review gate, is tracked in
+[Live upstream contribution track](UPSTREAM_CONTRIBUTIONS.md).

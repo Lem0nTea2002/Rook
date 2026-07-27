@@ -65,6 +65,7 @@ score.
 - [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) / [中文](PORTFOLIO_EVIDENCE.zh-CN.md)
 - [Offline Rook Forge Demo](DEMO.md)
 - [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md)
+- [Live upstream contribution track](UPSTREAM_CONTRIBUTIONS.md)
 - [Codex Formal Hardening Timeline](incidents/CODEX_FORMAL_HARDENING.md)
 - [Engineering Article: Skill to Release (中文)](articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
 

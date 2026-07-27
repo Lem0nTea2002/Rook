@@ -113,6 +113,40 @@ def test_main_dispatches_full_repo_catalog_verification(tmp_path: Path):
     assert seen[0].repo_command == "verify-catalog"
 
 
+def test_main_dispatches_contribution_record_without_model_calls(tmp_path: Path):
+    seen = []
+
+    def repository_runner(args):
+        seen.append(args)
+        return 0
+
+    exit_code = main(
+        [
+            "repo",
+            "contribution-record",
+            "--ledger",
+            str(tmp_path / "contributions.jsonl"),
+            "--task-id",
+            "pytest-14771",
+            "--repository",
+            "https://github.com/pytest-dev/pytest",
+            "--issue-url",
+            "https://github.com/pytest-dev/pytest/issues/14771",
+            "--status",
+            "awaiting_human_claim",
+            "--actor",
+            "rook:screening",
+            "--reason-code",
+            "repository_policy",
+        ],
+        repository_runner=repository_runner,
+    )
+
+    assert exit_code == 0
+    assert seen[0].repo_command == "contribution-record"
+    assert seen[0].status == "awaiting_human_claim"
+
+
 def test_main_runs_single_message_with_injected_runner(tmp_path: Path, capsys):
     seen: list[CliConfig] = []
 

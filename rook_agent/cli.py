@@ -299,6 +299,65 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explicitly allow a GitHub clone when no local source is supplied.",
     )
+    contribution_record = repository_subparsers.add_parser(
+        "contribution-record",
+        help="Append one hash-chained upstream contribution state event.",
+    )
+    contribution_record.add_argument("--ledger", required=True)
+    contribution_record.add_argument("--task-id", required=True)
+    contribution_record.add_argument("--repository", required=True)
+    contribution_record.add_argument("--issue-url", required=True)
+    contribution_record.add_argument(
+        "--status",
+        required=True,
+        choices=(
+            "screened",
+            "awaiting_human_claim",
+            "claimed",
+            "in_progress",
+            "ready_for_human_review",
+            "submitted",
+            "accepted",
+            "rejected",
+            "withdrawn",
+            "superseded",
+            "blocked",
+        ),
+    )
+    contribution_record.add_argument("--actor", required=True, type=_nonempty_text)
+    contribution_record.add_argument(
+        "--reason-code",
+        required=True,
+        type=_nonempty_text,
+    )
+    contribution_record.add_argument(
+        "--evidence",
+        action="append",
+        default=[],
+        help="GitHub HTTPS URL or artifact:relative/path; repeat as needed.",
+    )
+    contribution_record.add_argument(
+        "--detail",
+        action="append",
+        default=[],
+        help="Non-sensitive key=value metadata; repeat as needed.",
+    )
+    contribution_record.add_argument(
+        "--recorded-at",
+        default=None,
+        help="Optional ISO-8601 UTC timestamp for imported evidence.",
+    )
+    contribution_history = repository_subparsers.add_parser(
+        "contribution-history",
+        help="Verify and display the immutable contribution event chain.",
+    )
+    contribution_history.add_argument("--ledger", required=True)
+    contribution_history.add_argument("--task-id", default=None)
+    contribution_history.add_argument(
+        "--json",
+        action="store_true",
+        help="Print stable JSON instead of the compact event list.",
+    )
 
     parser.add_argument("--project", default=".", help="Project root for tools and AGENTS.md.")
     parser.add_argument("--data-root", default=None, help="Directory for Rook session data.")
