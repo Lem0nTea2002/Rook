@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format follows [Kee
   terminal reasons, and atomically persists every completed task.
 - Agent Todo self-checks now convert Provider limits and cancellation into
   stable terminal responses instead of escaping the tool loop.
+- Coverage enforcement now uses two-decimal precision so a rounded 84.57%
+  cannot satisfy the 85% EvalOps gate; additional PR Gate tests cover path
+  escape, unresolved Git refs, malformed governed assets, invalid provenance,
+  and unresolved Candidate locks.
 
 ## [0.2.4] - 2026-07-27
 

@@ -73,6 +73,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 47. Rook Coding Agent 在 10 个固定的仓库形态任务中完成 9/10，通过硬上限将实际调用控制在 106/200；所有会话的无关 Skill 选择和加载均为 0。
 48. 修复 Todo 完成自检在 Provider 上限处逃逸的问题；同步/异步循环现在返回稳定终态，benchmark runner 逐任务原子落盘并支持精确续跑。
 49. GitHub PR Gate 已在 PR #16 的独立 workflow 中远端通过，外部评测和费用保持关闭。
+50. 修复覆盖率门禁的整数舍入缺口：固定两位小数，新增路径逃逸、Git ref 解析失败、损坏 Candidate/Suite/Provenance 和未解析 Candidate lock 的 fail-closed 测试，不再允许实际 84.57% 被显示为 85% 后通过。
 
 ## 关键提交
 
