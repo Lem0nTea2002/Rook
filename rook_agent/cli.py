@@ -198,6 +198,108 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--agent", required=True, choices=("rook", "codex"))
     export_parser.add_argument("--output", required=True)
 
+    scale_parser = subparsers.add_parser(
+        "scale",
+        help="Run and inspect the durable Rook execution platform.",
+    )
+    scale_subparsers = scale_parser.add_subparsers(
+        dest="scale_command",
+        required=True,
+    )
+    scale_benchmark = scale_subparsers.add_parser(
+        "benchmark",
+        help="Run a deterministic, cost-free concurrency and recovery benchmark.",
+    )
+    scale_benchmark.add_argument("--jobs", type=_positive_int, default=500)
+    scale_benchmark.add_argument(
+        "--workers",
+        default="10,25,50",
+        help="Comma-separated worker counts, each in the range 1-50.",
+    )
+    scale_benchmark.add_argument(
+        "--work-milliseconds",
+        type=float,
+        default=5,
+        help="Deterministic simulated work per job.",
+    )
+    scale_benchmark.add_argument(
+        "--fault-every",
+        type=int,
+        default=17,
+        help="Inject one recoverable failure every N jobs; 0 disables faults.",
+    )
+    scale_benchmark.add_argument(
+        "--output",
+        default=".rook/scale/benchmark.json",
+    )
+    scale_benchmark.add_argument(
+        "--markdown",
+        default=None,
+        help="Optional Markdown report path.",
+    )
+    scale_enqueue = scale_subparsers.add_parser(
+        "enqueue",
+        help="Idempotently enqueue one strict Docker job JSON document.",
+    )
+    scale_enqueue.add_argument("--db", required=True)
+    scale_enqueue.add_argument("--spec", required=True)
+    scale_enqueue.add_argument("--idempotency-key", required=True)
+    scale_enqueue.add_argument("--max-attempts", type=_positive_int, default=3)
+    scale_worker = scale_subparsers.add_parser(
+        "worker",
+        help="Drain Docker jobs with bounded concurrency and expiring leases.",
+    )
+    scale_worker.add_argument("--db", required=True)
+    scale_worker.add_argument("--workspace-root", required=True)
+    scale_worker.add_argument(
+        "--allow-image",
+        action="append",
+        required=True,
+        help="Allowed image@sha256 digest; repeat for multiple images.",
+    )
+    scale_worker.add_argument("--workers", type=_positive_int, default=10)
+    scale_worker.add_argument("--lease-seconds", type=float, default=120)
+    scale_worker.add_argument("--max-timeout-seconds", type=float, default=1800)
+    scale_worker.add_argument("--prometheus-port", type=int, default=None)
+    scale_worker.add_argument("--otel-endpoint", default=None)
+
+    repository_parser = subparsers.add_parser(
+        "repo",
+        help="Inspect and materialize immutable full-repository tasks.",
+    )
+    repository_subparsers = repository_parser.add_subparsers(
+        dest="repo_command",
+        required=True,
+    )
+    verify_catalog = repository_subparsers.add_parser(
+        "verify-catalog",
+        help="Strictly validate a full-repository JSONL task catalog.",
+    )
+    verify_catalog.add_argument("--tasks", required=True)
+    export_swebench = repository_subparsers.add_parser(
+        "export-swebench",
+        help="Export agent-visible fields for the existing SWE-bench runner.",
+    )
+    export_swebench.add_argument("--tasks", required=True)
+    export_swebench.add_argument("--output", required=True)
+    materialize_repository = repository_subparsers.add_parser(
+        "materialize",
+        help="Clone and detach one catalog task at its exact base commit.",
+    )
+    materialize_repository.add_argument("--tasks", required=True)
+    materialize_repository.add_argument("--task-id", required=True)
+    materialize_repository.add_argument("--workdir", required=True)
+    materialize_repository.add_argument(
+        "--source",
+        default=None,
+        help="Optional trusted local repository or mirror.",
+    )
+    materialize_repository.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Explicitly allow a GitHub clone when no local source is supplied.",
+    )
+
     parser.add_argument("--project", default=".", help="Project root for tools and AGENTS.md.")
     parser.add_argument("--data-root", default=None, help="Directory for Rook session data.")
     parser.add_argument("--session-id", default=None, help="Session id to create or reuse.")
@@ -221,6 +323,8 @@ def main(
     runner: CliRunner | None = None,
     stdin_text: str | None = None,
     evalops_runner: Callable[[argparse.Namespace], int] | None = None,
+    scale_runner: Callable[[argparse.Namespace], int] | None = None,
+    repository_runner: Callable[[argparse.Namespace], int] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "config":
@@ -232,6 +336,32 @@ def main(
             evalops_runner = run_evalops_command
         try:
             return evalops_runner(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+    if args.command == "scale":
+        if scale_runner is None:
+            from rook_agent.execution.cli import run_scale_command
+
+            scale_runner = run_scale_command
+        try:
+            return scale_runner(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+    if args.command == "repo":
+        if repository_runner is None:
+            from rook_agent.execution.repo_cli import run_repository_command
+
+            repository_runner = run_repository_command
+        try:
+            return repository_runner(args)
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2

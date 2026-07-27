@@ -85,3 +85,40 @@ jobs:
 
       - name: Enforce EvalOps coverage
         run: python -m pytest -q tests/test_evalops*.py --cov=rook_agent.evalops --cov-report=term-missing:skip-covered
+
+  docker-execution:
+    name: Linux Docker execution boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      ROOK_RUN_EXTERNAL_EVALS: "0"
+      ROOK_ALLOW_MODEL_COSTS: "0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project and test dependencies
+        run: python -m pip install --upgrade pip "setuptools>=83.0.0" wheel ".[dev]"
+
+      - name: Pull and resolve the Linux test image digest
+        id: image
+        shell: bash
+        run: |
+          docker pull python:3.12.11-slim-bookworm
+          image="$(docker image inspect python:3.12.11-slim-bookworm --format '{{index .RepoDigests 0}}')"
+          test -n "$image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the networkless Docker executor
+        env:
+          ROOK_RUN_DOCKER_TESTS: "1"
+          ROOK_TEST_DOCKER_IMAGE: ${{ steps.image.outputs.image }}
+        run: python -m pytest -q tests/test_execution_docker_integration.py

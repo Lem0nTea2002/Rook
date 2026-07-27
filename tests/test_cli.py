@@ -65,6 +65,54 @@ def test_read_message_reads_stdin_when_message_missing():
     assert read_message(None, stdin_text="hello from stdin\n") == "hello from stdin"
 
 
+def test_main_dispatches_scale_benchmark_without_model_calls(tmp_path: Path):
+    seen = []
+
+    def scale_runner(args):
+        seen.append(args)
+        return 0
+
+    exit_code = main(
+        [
+            "scale",
+            "benchmark",
+            "--jobs",
+            "60",
+            "--workers",
+            "10,25,50",
+            "--output",
+            str(tmp_path / "report.json"),
+        ],
+        scale_runner=scale_runner,
+    )
+
+    assert exit_code == 0
+    assert seen[0].scale_command == "benchmark"
+    assert seen[0].jobs == 60
+    assert seen[0].workers == "10,25,50"
+
+
+def test_main_dispatches_full_repo_catalog_verification(tmp_path: Path):
+    seen = []
+
+    def repository_runner(args):
+        seen.append(args)
+        return 0
+
+    exit_code = main(
+        [
+            "repo",
+            "verify-catalog",
+            "--tasks",
+            str(tmp_path / "tasks.jsonl"),
+        ],
+        repository_runner=repository_runner,
+    )
+
+    assert exit_code == 0
+    assert seen[0].repo_command == "verify-catalog"
+
+
 def test_main_runs_single_message_with_injected_runner(tmp_path: Path, capsys):
     seen: list[CliConfig] = []
 
