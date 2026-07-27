@@ -1,1 +1,3 @@
 evals/** text eol=lf
+benchmark/full_repo/*.json text eol=lf
+benchmark/full_repo/*.jsonl text eol=lf

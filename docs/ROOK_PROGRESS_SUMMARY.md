@@ -99,7 +99,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 2026-07-27 新增完整仓库与执行规模阶段的本地离线基线：`1828 passed, 11 skipped`；EvalOps 覆盖率门禁为 `529 passed, 7 skipped`、总覆盖率 `85.96%`。Ruff、mypy、wheel/sdist 构建与 `git diff --check` 均通过。新增 Docker/Linux 集成测试在本机因 Docker daemon 未运行而保持 opt-in skipped，须由本分支远端 Ubuntu Docker job 最终复核。
+- 2026-07-27 新增完整仓库与执行规模阶段的本地离线基线：`1829 passed, 11 skipped`；EvalOps 覆盖率门禁为 `529 passed, 7 skipped`、总覆盖率 `85.96%`。Ruff、mypy、wheel/sdist 构建与 `git diff --check` 均通过。新增 Docker/Linux 集成测试在本机因 Docker daemon 未运行而保持 opt-in skipped，须由本分支远端 Ubuntu Docker job 最终复核。
 - 本阶段锁定 SWE-bench Lite 固定 revision 派生的 24 个完整仓库任务（pytest、scikit-learn、Sphinx 各 8 个），并对 pytest 任务完成一次真实完整 clone、精确 detached checkout 与 clean-tree 校验；尚未声称已经解决这些任务或提交新的上游 PR。
 - 单机 SQLite WAL 调度器在 10/25/50 workers、每档 300 个离线确定性任务下分别达到 38.17/80.34/106.65 jobs/s，P95 为 266/297/844ms；900/900 成功、51/51 注入故障恢复。该结果只衡量持久化队列与故障恢复控制面，不代表真实 Agent、模型或 Docker 吞吐。
 - 本轮生产代码与证据提交后的本地完整离线基线：`1796 passed, 10 skipped`；随后只新增 5 个覆盖率门禁测试，最终精确状态由下述远端矩阵复核。全部验证显式关闭真实外部评测和模型费用，并按 CI 合同忽略需要单独 EvalPlus 依赖的专项文件。

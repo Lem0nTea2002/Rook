@@ -11,6 +11,7 @@ from rook_agent.evalops.pr_gate import evaluate_pr_gate
 _ROOT = Path(__file__).parents[1]
 _CATALOG = _ROOT / "benchmark" / "full_repo" / "tasks.swebench-lite-24.jsonl"
 _PROVENANCE = _ROOT / "benchmark" / "full_repo" / "PROVENANCE.json"
+_GIT_ATTRIBUTES = _ROOT / ".gitattributes"
 
 
 def test_full_repo_catalog_locks_24_real_issues_across_three_repositories() -> None:
@@ -67,6 +68,15 @@ def test_full_repo_catalog_provenance_and_hidden_boundary_are_exact() -> None:
             "pass_to_pass_sha256",
             "test_patch_sha256",
         }
+
+
+def test_full_repo_catalog_bytes_are_lf_stable_across_platforms() -> None:
+    attributes = set(_GIT_ATTRIBUTES.read_text(encoding="utf-8").splitlines())
+
+    assert "benchmark/full_repo/*.json text eol=lf" in attributes
+    assert "benchmark/full_repo/*.jsonl text eol=lf" in attributes
+    assert b"\r\n" not in _CATALOG.read_bytes()
+    assert b"\r\n" not in _PROVENANCE.read_bytes()
 
 
 def test_forge_pr_gate_includes_full_repo_catalog() -> None:
