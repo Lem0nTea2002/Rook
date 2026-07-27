@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "redacted_invalid_formal_attempt",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "formal_external_calls_authorized": 72,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true,
+    "stop_on_first_infrastructure_exclusion": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 4,
+    "candidate_content_hash": "b33037a471752a92fa974a62bf7e2858e8462339ac4b3d204ff87d2b57901ef8",
+    "candidate_fingerprint": "f914338931e855e5ad6ccc99b585d814",
+    "suite_id": "release-manifest-v2-formal-holdout-v4",
+    "suite_fingerprint": "a75250023f5f42659c2fa514a94d14ca",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124",
+    "evaluation_id": null,
+    "experiment_id": null
+  },
+  "execution": {
+    "planned_runs": 72,
+    "external_calls_started": 30,
+    "complete_process_artifacts": 29,
+    "successful_process_artifacts": 28,
+    "timeout_process_artifacts": 1,
+    "manually_terminated_in_flight_calls": 1,
+    "raw_artifact_status": "29 complete three-file raw artifact sets",
+    "terminal_experiment_record_written": false,
+    "formal_report_written": false,
+    "cost_usd": null
+  },
+  "timeout": {
+    "run_id": "codex-c9c80a86eba0f730d7f052a6",
+    "process_status": "timeout",
+    "process_exit_code": 1,
+    "duration_ms": 180359,
+    "cleanup_error": null,
+    "rook_classification": "agent_constraint_timeout",
+    "infrastructure_exclusion": false
+  },
+  "interruption": {
+    "classification": "operator_monitoring_error",
+    "summary": "The monitoring layer incorrectly treated an Agent timeout as an infrastructure exclusion and manually terminated the evaluation tree. Rook intentionally classifies TIMEOUT as an Agent constraint and correctly continued because --stop-on-infrastructure-exclusion only applies to infrastructure and adapter statuses.",
+    "process_tree_remaining_after_termination": 0,
+    "partial_results_resume_eligible": false,
+    "partial_results_usable_as_formal_metrics": false
+  },
+  "workspace_cleanup": {
+    "completed_pairs_cleaned_by_runner": true,
+    "interrupted_pair_workspace_remaining": true,
+    "remaining_pair_count": 1,
+    "location_class": "isolated user Temp root",
+    "manual_cleanup_result": "blocked_by_local_security_policy",
+    "repository_or_skill_catalog_impact": false
+  },
+  "governance": {
+    "gate_decision_created": false,
+    "approval_created": false,
+    "deployment_changed": false,
+    "candidate_status": "quarantined",
+    "active_codex_version_after_attempt": 1
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "status": "invalid_operator_interrupted_attempt",
+    "next_live_requirement": "fresh authorization and a fresh 72-call Formal run"
+  }
+}
