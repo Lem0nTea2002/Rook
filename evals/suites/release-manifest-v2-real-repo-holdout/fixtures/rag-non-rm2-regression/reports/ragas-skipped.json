@@ -1,0 +1,14 @@
+{
+  "retrieval_mode": "baseline_hybrid",
+  "summary": {
+    "dataset_path": "project/evaluation/datasets/sample_eval.jsonl",
+    "case_count": 2,
+    "ragas": {
+      "enabled": false,
+      "available": false,
+      "evaluated_cases": 0,
+      "scores": {},
+      "skipped_reason": "No cases with non-empty ground_truth were found."
+    }
+  }
+}
