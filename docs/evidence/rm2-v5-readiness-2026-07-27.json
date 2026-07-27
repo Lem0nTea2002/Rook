@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "redacted_live_readiness_smoke",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "external_calls_completed": 2,
+    "formal_authorized": false,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 5,
+    "candidate_content_hash": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3",
+    "candidate_fingerprint": "fdbfd6dc77f3d034cbc3f8d6c7462087",
+    "evaluation_id": "evaluation-176e9896889946eb8e4d9eda02ef3331",
+    "experiment_id": "exp-defd08dc2a554e1ebb7c0cfa2d0aca04",
+    "suite_id": "release-manifest-v2-v5-readiness",
+    "suite_fingerprint": "1986a4ef9099cfcb36f677195cd05350",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "target_fingerprint": "f3716cd8963e2eb7c349bb2e5048ece9",
+    "adapter_version": "codex-evalops-v12",
+    "codex_cli_version": "codex-cli 0.144.6"
+  },
+  "execution": {
+    "planned_runs": 2,
+    "completed_runs": 2,
+    "trace_completeness_rate": 1.0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "cost_usd": null
+  },
+  "runs": [
+    {
+      "treatment": "baseline",
+      "run_id": "codex-31a979a533f0c6f1189f5824",
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "process_exit_code": 0,
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 65796,
+      "input_tokens": 38459,
+      "output_tokens": 2435
+    },
+    {
+      "treatment": "forced_skill",
+      "run_id": "codex-1070f87b4c18df76252455fe",
+      "status": "passed",
+      "reason_code": "command_passed",
+      "process_exit_code": 0,
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 57656,
+      "input_tokens": 27887,
+      "output_tokens": 2552
+    }
+  ],
+  "adapter_audit": {
+    "apps_disabled_on_both_runs": true,
+    "ps_mcp_marker_count": 0,
+    "websocket_marker_count": 0,
+    "reconnect_marker_count": 0,
+    "stream_error_marker_count": 0,
+    "web_search_event_count": 0
+  },
+  "readiness_metrics": {
+    "baseline_success_rate": 0.0,
+    "forced_skill_success_rate": 1.0,
+    "paired_success_uplift": 1.0,
+    "latency_improvement": 0.123716,
+    "token_improvement": 0.255661,
+    "tool_call_improvement": 0.5
+  },
+  "gate": {
+    "status": "quarantined",
+    "reason_code": "insufficient_valid_pairs",
+    "valid_content_pair_count": 1
+  },
+  "result": {
+    "readiness_passed": true,
+    "formal_metric_produced": false,
+    "status": "live_readiness_passed_awaiting_separate_formal_authorization"
+  }
+}
