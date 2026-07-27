@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import re
 from types import MappingProxyType
@@ -132,11 +133,14 @@ class DockerExecutor:
             f"--cpus={spec.cpus:g}",
             f"--memory={spec.memory_mb}m",
             f"--pids-limit={spec.pids_limit}",
-            f"--tmpfs=/tmp:rw,noexec,nosuid,size={spec.writable_tmp_mb}m",
+            f"--tmpfs=/tmp:rw,noexec,nosuid,mode=1777,size={spec.writable_tmp_mb}m",
             "--mount",
             mount,
             "--workdir=/workspace",
         ]
+        host_user = _host_user()
+        if host_user is not None:
+            command.append(f"--user={host_user}")
         for key, value in sorted(spec.env.items()):
             command.append(f"--env={key}={value}")
         command.extend((spec.image, *spec.command))
@@ -189,6 +193,16 @@ def _validate_spec(command: tuple[str, ...], workspace: Path, timeout_seconds: f
         raise ValueError("execution workspace must not be a symlink")
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive")
+
+
+def _host_user() -> str | None:
+    """Match POSIX bind-mount ownership without restoring root capabilities."""
+
+    getuid = getattr(os, "getuid", None)
+    getgid = getattr(os, "getgid", None)
+    if getuid is None or getgid is None:
+        return None
+    return f"{getuid()}:{getgid()}"
 
 
 __all__ = [

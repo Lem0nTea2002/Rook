@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import os
 import threading
 import time
 from pathlib import Path
@@ -66,6 +67,11 @@ def test_docker_executor_is_digest_pinned_networkless_and_bounded(
     assert "--cap-drop=ALL" in command
     assert "--security-opt=no-new-privileges" in command
     assert "--pids-limit=128" in command
+    assert "--tmpfs=/tmp:rw,noexec,nosuid,mode=1777,size=256m" in command
+    if hasattr(os, "getuid") and hasattr(os, "getgid"):
+        assert f"--user={os.getuid()}:{os.getgid()}" in command
+    else:
+        assert not any(part.startswith("--user=") for part in command)
     assert "python@sha256:" + "a" * 64 in command
     assert runner.requests[0].timeout_seconds == 90
 
