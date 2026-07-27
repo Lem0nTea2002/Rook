@@ -35,7 +35,11 @@ from rook_agent.context.models import AgentMessage, MessagePart
 from rook_agent.utils.sandbox_access import SandboxAccess, SandboxAccessMode
 from rook_agent.skills.discovery import discover_all_skills
 from rook_agent.skills.models import LoadedSkill, SkillCatalog
-from rook_agent.skills.session import replay_loaded_skills
+from rook_agent.skills.session import (
+    append_skills_cleared,
+    merge_active_skill,
+    replay_loaded_skills,
+)
 
 
 DEFAULT_BASE_RULES = "你是 Rook，一个本地 AI coding agent。请遵守项目规则并优先保持上下文可恢复。"
@@ -299,10 +303,26 @@ class AgentSession:
         if not self.skill_catalog.skills:
             return ""
         lines = []
-        for skill in self.skill_catalog.skills:
-            prefix = "project" if skill.scope == "project" else "global"
-            description = f" - {skill.description}" if skill.description else ""
-            lines.append(f"- {prefix}:{skill.path} ({skill.name}, {skill.source.value}, root={skill.root}){description}")
+        project_skills = [
+            skill
+            for skill in self.skill_catalog.skills
+            if skill.scope == "project"
+        ]
+        for skill in project_skills[:32]:
+            bounded_description = " ".join(skill.description.split())[:200]
+            description = (
+                f" - {bounded_description}"
+                if bounded_description
+                else ""
+            )
+            lines.append(
+                f"- project:{skill.path} ({skill.name}, {skill.source.value})"
+                f"{description}"
+            )
+        if len(project_skills) > 32:
+            lines.append(
+                f"- {len(project_skills) - 32} additional project skills omitted"
+            )
         return "\n".join(lines)
 
     def _loaded_skill_context(self) -> str:
@@ -337,6 +357,28 @@ class AgentSession:
         self.turn_counter = self.writer.current_turn
         self.known_message_ids.add(message_id)
         return message_id
+
+    def append_runtime_control_message(self, content: str) -> str:
+        """Append an internal reminder without changing the logical user turn."""
+
+        message_id = self.writer.append_runtime_control_message(content)
+        self.known_message_ids.add(message_id)
+        return message_id
+
+    def activate_loaded_skill(self, loaded: LoadedSkill) -> None:
+        """Keep a bounded, identity-deduplicated active Skill context."""
+
+        self.loaded_skills[:] = merge_active_skill(self.loaded_skills, loaded)
+        self.prompt_cache = PromptPrefixCache()
+
+    def clear_loaded_skills(self, *, reason: str) -> None:
+        """Clear task-scoped Skill context and persist the transition for resume."""
+
+        if not self.loaded_skills:
+            return
+        self.loaded_skills.clear()
+        append_skills_cleared(self.writer, reason=reason)
+        self.prompt_cache = PromptPrefixCache()
 
     def append_assistant_response(self, response: ChatResponse) -> str:
         """把 provider 返回的 assistant response 写入事件日志。
@@ -510,7 +552,12 @@ class AgentSession:
 def _infer_turn_counter(messages: list[AgentMessage]) -> int:
     """从已恢复的消息里推断下一轮 turn 编号。"""
 
-    return sum(1 for message in messages if message.role == "user")
+    return sum(
+        1
+        for message in messages
+        if message.role == "user"
+        and not message.metadata.get("runtime_control")
+    )
 
 
 def create_project_permission_manager(

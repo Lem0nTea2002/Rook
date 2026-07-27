@@ -146,6 +146,111 @@ def test_project_skill_wins_over_global_skill_with_same_metadata_match() -> None
     assert decision.selected is project
 
 
+def test_global_metadata_requires_name_or_trigger_signal() -> None:
+    catalog = SkillCatalog(
+        skills=[
+            _skill(
+                "lark-event",
+                "lark-event/SKILL.md",
+                (
+                    "Use for real-time event listening and bounded CLI task execution "
+                    "with timeout handling."
+                ),
+                source=SkillSource.GLOBAL_AGENT_SKILL,
+                root="/Users/x/.agents/skills",
+            )
+        ]
+    )
+
+    decision = SkillRouter().route(
+        (
+            "You are running a real offline coding task. Inspect the workflow, "
+            "make bounded changes, run tests, and respect the timeout."
+        ),
+        agents_md="",
+        catalog=catalog,
+    )
+
+    assert decision.selected is None
+    assert decision.reason == "global_below_threshold"
+
+
+def test_global_trigger_can_route_without_skill_name() -> None:
+    catalog = SkillCatalog(
+        skills=[
+            SkillDefinition(
+                name="release-auditor",
+                path="release-auditor/SKILL.md",
+                source=SkillSource.GLOBAL_AGENT_SKILL,
+                root="/Users/x/.agents/skills",
+                description="Audit release metadata.",
+                triggers=("verify release manifest",),
+            )
+        ]
+    )
+
+    decision = SkillRouter().route(
+        "Please verify this release manifest before publishing.",
+        agents_md="",
+        catalog=catalog,
+    )
+
+    assert decision.reason == "metadata_match"
+    assert decision.selected is not None
+    assert decision.selected.name == "release-auditor"
+
+
+def test_ten_coding_tasks_do_not_route_generic_global_skills() -> None:
+    catalog = SkillCatalog(
+        skills=[
+            _skill(
+                "lark-event",
+                "lark-event/SKILL.md",
+                "Use for real-time event listening, streaming, CLI tasks and timeout handling.",
+                source=SkillSource.GLOBAL_AGENT_SKILL,
+                root="/Users/x/.agents/skills",
+            ),
+            _skill(
+                "grilling",
+                "grilling/SKILL.md",
+                "Grill the user about a plan or design before implementation and tests.",
+                source=SkillSource.GLOBAL_AGENT_SKILL,
+                root="/Users/x/.agents/skills",
+            ),
+            _skill(
+                "playwright",
+                "playwright/SKILL.md",
+                "Use for automating a real browser from the terminal during a task.",
+                source=SkillSource.GLOBAL_AGENT_SKILL,
+                root="/Users/x/.agents/skills",
+            ),
+        ]
+    )
+    tasks = (
+        "Harden the offline GitHub Actions workflow and run its tests.",
+        "Preserve the approved Dependabot configuration without changing files.",
+        "Compare two RAG evaluation JSON reports.",
+        "Represent a skipped quality metric without inventing a score.",
+        "Create release.json from the repository metadata.",
+        "Fix a Python path traversal regression and add a unit test.",
+        "Refactor the CLI status renderer while preserving JSON output.",
+        "Diagnose a Windows subprocess timeout from the captured log.",
+        "Add a deterministic validator for a TOML evaluation suite.",
+        "Review the rollback transaction and report any unsafe overwrite.",
+    )
+
+    decisions = [
+        SkillRouter().route(task, agents_md="", catalog=catalog)
+        for task in tasks
+    ]
+
+    assert all(decision.selected is None for decision in decisions)
+    assert {
+        decision.reason
+        for decision in decisions
+    } <= {"none", "global_below_threshold"}
+
+
 def _skill(
     name: str,
     path: str,

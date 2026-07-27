@@ -102,6 +102,25 @@ class SessionEventWriter:
         )
         return message_id
 
+    def append_runtime_control_message(self, content: str) -> str:
+        """Append provider-visible runtime guidance without creating a user turn."""
+
+        message_id = new_message_id()
+        part = MessagePart(
+            id=new_part_id(),
+            message_id=message_id,
+            kind="text",
+            content=content,
+            metadata=self._part_metadata({"runtime_control": True}),
+        )
+        self._append_message_event(
+            "runtime_control_message",
+            message_id=message_id,
+            parts=[part],
+            metadata={"runtime_control": True},
+        )
+        return message_id
+
     def append_assistant_response(self, response: ChatResponse) -> str:
         message_id = new_message_id()
         parts: list[MessagePart] = []
@@ -126,6 +145,11 @@ class SessionEventWriter:
                 "provider": response.provider,
                 "model": response.model,
                 "finish_reason": response.finish_reason,
+                "usage": (
+                    asdict(response.usage)
+                    if response.usage is not None
+                    else None
+                ),
             },
         )
         return message_id

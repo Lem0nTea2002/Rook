@@ -25,7 +25,6 @@ from rook_agent.agent.user_input import (
 from rook_agent.agent.verification import is_successful_verification_result
 from rook_agent.context.context_builder import ContextBuilder
 from rook_agent.context.manager import ContextCompactRequest, ContextWindowTrigger
-from rook_agent.context.system_prompt import PromptPrefixCache
 from rook_agent.context.task_boundary import TaskBoundaryService, observation_from_tool_result_data
 from rook_agent.permissions.types import PermissionDecisionKind, PermissionRequest
 from rook_agent.permissions.types import PermissionMode
@@ -379,6 +378,7 @@ class AgentLoop:
         self.session.writer.append_task_boundary_observation(observation)
         self._tag_task_boundary_messages_with_active_hash(result.data)
         if result.data.get("should_trigger_compaction"):
+            self.session.clear_loaded_skills(reason="task_boundary")
             self._compact_if_needed(trigger=ContextWindowTrigger.TASK_HASH_CHANGED)
 
     def _tag_message_parts_with_task_hash(self, message_id: str, task_hash: str | None) -> None:
@@ -612,15 +612,16 @@ class AgentLoop:
                 required_files=loaded.required_files,
                 required_file_contents=required_files,
             )
-        self.session.loaded_skills.append(loaded)
+        self.session.activate_loaded_skill(loaded)
         append_skill_loaded(self.session.writer, loaded)
         for required in required_files:
             append_skill_required_file_loaded(self.session.writer, required)
-        self.session.prompt_cache = PromptPrefixCache()
 
     def _current_user_message_content(self) -> str:
         for message in reversed(self.session.rebuild_view().messages):
             if message.role != "user":
+                continue
+            if message.metadata.get("runtime_control"):
                 continue
             return "\n".join(part.content for part in message.parts if part.kind == "text")
         return ""
@@ -787,7 +788,7 @@ class AgentLoop:
             # 重新投影完整历史，让模型读取刚才的工具输出。
             reminder = self._todo_planning_reminder_prompt() or self._todo_progress_reminder_prompt()
             if reminder:
-                self.session.append_user_message(reminder)
+                self.session.append_runtime_control_message(reminder)
             self._check_cancelled()
             response = self._drop_unsupported_tool_calls(complete_once())
         return response, None
@@ -796,7 +797,7 @@ class AgentLoop:
         prompt = self._todo_self_check_prompt()
         if not prompt:
             return response
-        self.session.append_user_message(prompt)
+        self.session.append_runtime_control_message(prompt)
         response = self._drop_unsupported_tool_calls(complete_once())
         response, _ = self._continue_tool_loop_from_response(response, complete_once, 0)
         return response
@@ -805,7 +806,7 @@ class AgentLoop:
         prompt = self._todo_self_check_prompt()
         if not prompt:
             return response
-        self.session.append_user_message(prompt)
+        self.session.append_runtime_control_message(prompt)
         response = self._drop_unsupported_tool_calls(await complete_once())
         response, _ = await self._continue_tool_loop_from_response_async(response, complete_once, 0)
         return response
@@ -837,7 +838,7 @@ class AgentLoop:
                 return self._tool_round_limit_response(response), None
             reminder = self._todo_planning_reminder_prompt() or self._todo_progress_reminder_prompt()
             if reminder:
-                self.session.append_user_message(reminder)
+                self.session.append_runtime_control_message(reminder)
             self._check_cancelled()
             response = self._drop_unsupported_tool_calls(await complete_once())
         return response, None
@@ -1005,6 +1006,7 @@ class AgentLoop:
                 # task_boundary 是一种“语义触发”：即使上下文还没超 token 阈值，确认任务切换
                 # 后也应该整理旧任务上下文，降低旧任务信息污染新任务的概率。
                 self._tag_task_boundary_messages_with_active_hash(result.data)
+                self.session.clear_loaded_skills(reason="task_boundary")
                 task_hash_changed = True
             index += 1
         return _ToolExecutionState(
@@ -1075,6 +1077,7 @@ class AgentLoop:
                 )
             if tool_call.name == "task_boundary" and result.ok and result.data.get("should_trigger_compaction"):
                 self._tag_task_boundary_messages_with_active_hash(result.data)
+                self.session.clear_loaded_skills(reason="task_boundary")
                 task_hash_changed = True
             index += 1
         return _ToolExecutionState(

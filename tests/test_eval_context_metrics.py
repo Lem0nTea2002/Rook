@@ -5,7 +5,7 @@ from rook_agent.context.events import SessionEvent
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.context.writer import SessionEventWriter
 from rook_agent.eval.context_metrics import collect_context_metrics
-from rook_agent.providers.types import ChatResponse
+from rook_agent.providers.types import ChatResponse, TokenUsage
 
 
 def test_collect_context_metrics_reads_session_transcript(tmp_path: Path) -> None:
@@ -21,6 +21,55 @@ def test_collect_context_metrics_reads_session_transcript(tmp_path: Path) -> Non
     assert metrics["messages"] == 2
     assert metrics["estimated_tokens"] > 0
     assert metrics["compaction_events"] == 0
+
+
+def test_collect_context_metrics_aggregates_usage_and_skill_identity(
+    tmp_path: Path,
+) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session_id = "sess_usage"
+    writer = SessionEventWriter(store=store, session_id=session_id)
+    writer.append_user_message("hello")
+    writer.append_assistant_response(
+        ChatResponse(
+            provider="fake",
+            model="fake",
+            content="world",
+            usage=TokenUsage(
+                input_tokens=100,
+                output_tokens=20,
+                total_tokens=120,
+            ),
+        )
+    )
+    store.append_event(
+        SessionEvent(
+            id="evt_skill_selected",
+            session_id=session_id,
+            type="skill_selected",
+            payload={"skill_name": "release-auditor"},
+        )
+    )
+    store.append_event(
+        SessionEvent(
+            id="evt_skill_loaded",
+            session_id=session_id,
+            type="skill_loaded",
+            payload={"skill_name": "release-auditor"},
+        )
+    )
+
+    metrics = collect_context_metrics(
+        tmp_path / "sessions" / f"{session_id}.jsonl"
+    )
+
+    assert metrics["provider_calls"] == 1
+    assert metrics["token_observation_count"] == 1
+    assert metrics["input_tokens"] == 100
+    assert metrics["output_tokens"] == 20
+    assert metrics["total_tokens"] == 120
+    assert metrics["selected_skill_names"] == ["release-auditor"]
+    assert metrics["loaded_skill_names"] == ["release-auditor"]
 
 
 def test_collect_context_metrics_reports_missing_transcript(tmp_path: Path) -> None:

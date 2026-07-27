@@ -29,7 +29,10 @@ class SkillRouter:
                 confidence="high",
             )
 
-        metadata = _metadata_matches(user_message, catalog.skills)
+        metadata, global_below_threshold = _metadata_matches(
+            user_message,
+            catalog.skills,
+        )
         if len(metadata) == 1:
             return SkillRoutingDecision(
                 selected=metadata[0],
@@ -52,6 +55,13 @@ class SkillRouter:
                 candidates=metadata,
                 reason="ambiguous",
                 confidence="medium",
+            )
+        if global_below_threshold:
+            return SkillRoutingDecision(
+                selected=None,
+                candidates=[],
+                reason="global_below_threshold",
+                confidence="none",
             )
         return SkillRoutingDecision(selected=None, candidates=[], reason="none", confidence="none")
 
@@ -81,18 +91,62 @@ def _agents_route_matches(user_message: str, agents_md: str, skills: list[SkillD
     return [skill for _, _, skill in sorted(matches, key=lambda item: (item[0], item[1]))]
 
 
-def _metadata_matches(user_message: str, skills: list[SkillDefinition]) -> list[SkillDefinition]:
+def _metadata_matches(
+    user_message: str,
+    skills: list[SkillDefinition],
+) -> tuple[list[SkillDefinition], bool]:
     normalized_message = _normalize_text(user_message)
     scored: list[tuple[int, SkillDefinition]] = []
+    global_below_threshold = False
     for skill in skills:
         haystack = _normalize_text(" ".join([skill.name, skill.description, *skill.triggers]))
         score = _overlap_score(normalized_message, haystack)
-        if score > 0:
-            scored.append((score, skill))
+        if score <= 0:
+            continue
+        if skill.scope == "global" and not _has_global_route_signal(
+            normalized_message,
+            skill,
+        ):
+            global_below_threshold = True
+            continue
+        scored.append((score, skill))
     if not scored:
-        return []
+        return [], global_below_threshold
     max_score = max(score for score, _ in scored)
-    return _sort_by_preference([skill for score, skill in scored if score == max_score])
+    return (
+        _sort_by_preference(
+            [skill for score, skill in scored if score == max_score],
+        ),
+        global_below_threshold,
+    )
+
+
+def _has_global_route_signal(
+    normalized_message: str,
+    skill: SkillDefinition,
+) -> bool:
+    normalized_name = _normalize_text(skill.name)
+    if normalized_name in normalized_message:
+        return True
+    if _token_coverage(normalized_message, normalized_name) >= 0.75:
+        return True
+    return any(
+        _normalize_text(trigger) in normalized_message
+        or _token_coverage(
+            normalized_message,
+            _normalize_text(trigger),
+        )
+        >= 0.75
+        for trigger in skill.triggers
+    )
+
+
+def _token_coverage(message: str, route_signal: str) -> float:
+    signal_tokens = set(_tokens(_expand_aliases(route_signal)))
+    if not signal_tokens:
+        return 0.0
+    message_tokens = set(_tokens(_expand_aliases(message)))
+    return len(message_tokens & signal_tokens) / len(signal_tokens)
 
 
 def _preferred_skill(skills: list[SkillDefinition]) -> SkillDefinition:
