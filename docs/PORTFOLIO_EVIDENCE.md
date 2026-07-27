@@ -55,6 +55,8 @@ and trace-derived quarantined candidates.
 | Candidate v5 / Adapter v12 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; 0 new regressions and infrastructure exclusions |
 | Candidate v5 two-repository holdout | 24/24 calls; 12 complete pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp with bootstrap 95% CI +62.5pp to +100pp; 0 new regressions and infrastructure exclusions; latency and Token increased |
 | Rook Coding Agent dogfood v2 | 10 isolated repository-shaped tasks; 9 passed / 1 failed; 106 Provider calls and 738,729 observed Tokens; unrelated Skill selections 0/10; bounded at 20 calls/task and 200 total |
+| Full-repository task catalog | 24 pinned SWE-bench Lite tasks across pytest, scikit-learn, and Sphinx; 11 linked Issues and 13 explicit maintenance PRs; gold/test patches and test names excluded |
+| Durable execution scale | 300 jobs per 10/25/50-worker profile; 38.17/80.34/106.65 jobs/s; 51/51 injected faults recovered; P95 266/297/844ms |
 | External calls in the control | None |
 
 Reproduce the control evidence:
@@ -72,6 +74,14 @@ not a causal before/after estimate. See
 [`rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json)
 and
 [`rook-coding-dogfood-v2-2026-07-27.json`](evidence/rook-coding-dogfood-v2-2026-07-27.json).
+
+The full-repository catalog and scale benchmark are separate infrastructure
+claims. They prove pinned upstream provenance, full-clone isolation, durable
+leases/retries, and bounded 10–50-worker execution. They do not prove that Rook
+resolved 24 tasks, that the Docker backend has a production throughput score,
+or that any new upstream PR was merged. See
+[`FULL_REPO_AND_SCALE.md`](FULL_REPO_AND_SCALE.md) and
+[`rook-execution-scale-2026-07-27.json`](evidence/rook-execution-scale-2026-07-27.json).
 
 Stage the three manual versions without activating them:
 

@@ -15,6 +15,7 @@ from rook_agent.context.identity import stable_json_hash
 from rook_agent.evalops.bundles import load_skill_bundle
 from rook_agent.evalops.skills import render_skill
 from rook_agent.evalops.suites import load_eval_suite
+from rook_agent.execution.repository import FullRepoTaskCatalog
 
 
 _HEX_40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -24,7 +25,9 @@ _RELEVANT_PREFIXES = (
     "rook_agent/agent/",
     "rook_agent/context/",
     "rook_agent/evalops/",
+    "rook_agent/execution/",
     "rook_agent/skills/",
+    "benchmark/full_repo/",
 )
 
 
@@ -52,6 +55,8 @@ def evaluate_pr_gate(
         "candidates": 0,
         "provenance_files": 0,
         "suites": 0,
+        "full_repo_tasks": 0,
+        "full_repo_repositories": 0,
     }
     failures: list[dict[str, str]] = []
     checks: list[dict[str, object]] = []
@@ -71,6 +76,12 @@ def evaluate_pr_gate(
             checks=checks,
         )
         _validate_provenance_files(
+            root,
+            summary=summary,
+            failures=failures,
+            checks=checks,
+        )
+        _validate_full_repo_catalog(
             root,
             summary=summary,
             failures=failures,
@@ -434,6 +445,62 @@ def _validate_provenance_fixture(
         code="provenance_hash_missing",
         path=provenance_path,
         detail=fixture_ref,
+    )
+
+
+def _validate_full_repo_catalog(
+    root: Path,
+    *,
+    summary: dict[str, int],
+    failures: list[dict[str, str]],
+    checks: list[dict[str, object]],
+) -> None:
+    catalog_path = (
+        root
+        / "benchmark"
+        / "full_repo"
+        / "tasks.swebench-lite-24.jsonl"
+    )
+    provenance_path = root / "benchmark" / "full_repo" / "PROVENANCE.json"
+    if not catalog_path.exists() and not provenance_path.exists():
+        return
+    try:
+        catalog = FullRepoTaskCatalog.load(catalog_path)
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        if not isinstance(provenance, dict):
+            raise ValueError("full-repo provenance root must be an object")
+        catalog_hash = hashlib.sha256(catalog_path.read_bytes()).hexdigest()
+        if provenance.get("catalog_sha256") != catalog_hash:
+            raise ValueError("full-repo catalog hash does not match provenance")
+        task_ids = [task.task_id for task in catalog.tasks]
+        if provenance.get("task_ids") != task_ids:
+            raise ValueError("full-repo task ids do not match provenance")
+        selection = provenance.get("selection")
+        if (
+            not isinstance(selection, dict)
+            or selection.get("total_tasks") != len(catalog.tasks)
+        ):
+            raise ValueError("full-repo task count does not match provenance")
+        repositories = {task.repository for task in catalog.tasks}
+        summary["full_repo_tasks"] = len(catalog.tasks)
+        summary["full_repo_repositories"] = len(repositories)
+    except Exception as exc:
+        _failure(
+            failures,
+            code="full_repo_catalog_invalid",
+            path="benchmark/full_repo",
+            detail=str(exc),
+        )
+    checks.append(
+        {
+            "name": "full_repo_task_catalog",
+            "status": "failed" if any(
+                item["code"] == "full_repo_catalog_invalid"
+                for item in failures
+            ) else "passed",
+            "count": summary["full_repo_tasks"],
+            "repositories": summary["full_repo_repositories"],
+        }
     )
 
 

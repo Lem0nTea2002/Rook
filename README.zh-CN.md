@@ -81,6 +81,8 @@ rook eval demo
 | Rook Coding Agent dogfood v2 | 10 个隔离任务，9 成功 / 1 失败；106 次 Provider 调用、观测到 738,729 Tokens、无关 Skill 误选 0 | 真实 DeepSeek 运行，单任务 20 次/总计 200 次硬上限；v1/v2 任务集不同，效率变化仅作方向性观察 |
 | 治理 dogfood | 4 次审批、4 次部署、漂移发现/恢复、2 次原子回滚 | 真实本地控制面；Fake Agent 考试 |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 次、36 个可比配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；中位工具调用 -33.3%；新增回归 0 | 内容不同的 v5 使用 sealed holdout；轨迹完整度 100%；基础设施排除 0；美元成本和路由未观测 |
+| 完整仓库任务目录 | 24 个固定 SWE-bench Lite 任务，覆盖 pytest、scikit-learn、Sphinx；11 个关联 Issue + 13 个明确标记的维护 PR | 历史可复现任务；隐藏验证字段不暴露；不冒充新上游 PR |
+| 执行规模 | 每档 300 个任务；10/25/50 workers 吞吐为 38.17/80.34/106.65 jobs/s；51/51 注入故障恢复；P95 为 266/297/844ms | 离线 250ms 确定性负载；仅证明队列与恢复，不是模型或 Docker 吞吐 |
 
 证据入口：[简历证据合同](docs/PORTFOLIO_EVIDENCE.zh-CN.md) ·
 [真实仓库 holdout](docs/REAL_REPO_HOLDOUTS.md) ·
@@ -94,7 +96,9 @@ rook eval demo
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
 [v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
 [Formal 加固时间线](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
-[dogfooding 账本](docs/DOGFOODING.md)
+[dogfooding 账本](docs/DOGFOODING.md) ·
+[完整仓库与规模执行设计](docs/FULL_REPO_AND_SCALE.md) ·
+[规模报告](docs/EXECUTION_SCALE_REPORT.md)
 
 ## 为什么做 Rook
 
@@ -178,6 +182,7 @@ rook eval demo
 - 会话持久化、恢复和上下文压缩
 - 适合学习和二次开发的 skills、provider 和清晰模块结构
 - Rook Forge Skill 隔离、A/B 考试、ScoreCard、人工审批、双目标部署和回滚
+- 固定完整仓库任务、幂等租约队列、禁网 Docker 后端及 Prometheus/OTLP 接口
 
 ## 配置
 
