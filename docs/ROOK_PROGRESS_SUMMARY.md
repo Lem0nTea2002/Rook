@@ -93,15 +93,15 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前开发分支本地完整离线基线：`1774 passed, 10 skipped`；显式关闭真实外部评测和模型费用。
-- 当前 EvalOps 专项：`514 passed, 7 skipped`；Ruff、mypy、31 个 JSON 证据解析和 `git diff --check` 均通过。
+- 当前开发分支本地完整离线基线：`1791 passed, 10 skipped`；显式关闭真实外部评测和模型费用。
+- 远端 EvalOps 质量门禁：`524 passed, 5 skipped`、覆盖率 `85%`；Ruff、mypy、证据解析和 `git diff --check` 均通过。
 
-- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1753 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1754 passed, 6 skipped`。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
+- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1794 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1795 passed, 6 skipped`。PR #16 的 Rook Forge PR Gate 与 EvalOps 质量/供应链门禁也已通过。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
-- `rook-agent 0.2.3` wheel/sdist 已实际构建；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
-- v0.2.3 wheel SHA-256 为 `5a38e7609ecc60081ba280ade98c7ee9b94f2f5067ab6509e49e4db10ed0b97c`；sdist SHA-256 为 `86de12ac8afa0953df9a6af000e8c5dcd3e46403bc92421a6c8804d4c89b03be`。
-- GitHub Actions [run 30211289165](https://github.com/ZHUMUJUN/Rook/actions/runs/30211289165) 的 Ubuntu/Windows Python 3.11/3.12 与 Quality 共 5/5 job 全绿。
-- 本轮 PR #13 的 GitHub Actions [run 30215570041](https://github.com/ZHUMUJUN/Rook/actions/runs/30215570041) 同样 5/5 job 全绿：Quality、Ubuntu Python 3.11/3.12、Windows Python 3.11/3.12 全部通过。
+- [`rook-agent v0.2.4`](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4) wheel/sdist 已发布；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
+- v0.2.4 wheel SHA-256 为 `98bde2b44e9abaf06d5a7d883c703a1d3a4a83b3df8e30b10ec229ac66e7bfd0`；sdist SHA-256 为 `f35289532bfde706cb3a5918d1d63549d279e807bd6d7d6c8f335de5d7ee0bfa`。
+- PR #16 的 GitHub Actions [offline run 30253080662](https://github.com/ZHUMUJUN/Rook/actions/runs/30253080662) 5/5 job 全绿：Quality、Ubuntu Python 3.11/3.12、Windows Python 3.11/3.12 全部通过。
+- 独立的 [Rook Forge PR Gate run 30253080798](https://github.com/ZHUMUJUN/Rook/actions/runs/30253080798) 通过，外部模型调用和费用均关闭。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
 - RM-2 调用数已静态验证：Calibration `12`、Pilot `24`、Formal `72`。
 - CLI、配置、品牌和 README 直接回归：`47 passed`。

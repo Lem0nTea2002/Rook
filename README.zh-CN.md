@@ -71,8 +71,8 @@ rook eval demo
 
 | 证据 | 结果 | 边界 |
 | --- | --- | --- |
-| 发布 | v0.2.4 release candidate，wheel + sdist 已在本地构建 | 已做全新环境安装验证；必需 CI 通过后发布 |
-| 跨平台 CI | Ubuntu：1753 passed / 7 skipped；Windows：1754 passed / 6 skipped；Python 3.11/3.12 | 离线，无 Codex 进程和模型费用 |
+| 发布 | [v0.2.4](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4)，wheel + sdist，6 个必需 PR check 全绿 | 已发布并做全新环境安装验证 |
+| 跨平台 CI | Ubuntu：1794 passed / 7 skipped；Windows：1795 passed / 6 skipped；Python 3.11/3.12 | 离线，无 Codex 进程和模型费用 |
 | Adapter v11 readiness | 在此前 profile 失败边界上 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
 | `gpt-5.4-mini` Pilot | 24/24 次、12 个可比配对；Baseline 25% → Forced 100%（+75pp）；时延 -22.7%；Token -12.9%；新增回归 0 | 真实 Pilot，**不是** Formal |
 | 真实仓库 live holdout | 16/16 次调用、8 个有效配对、轨迹完整度 100%、基础设施排除 0 | 两个独立 Candidate 均因新增回归被拒绝；不声称效果提升，也未部署 |
