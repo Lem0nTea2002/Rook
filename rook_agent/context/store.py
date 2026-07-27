@@ -14,6 +14,7 @@ from rook_agent.context.models import AgentMessage, MessagePart, SessionView
 
 EVENT_ROLE_MAP = {
     "user_message": "user",
+    "runtime_control_message": "user",
     "assistant_message": "assistant",
     "tool_result": "tool",
 }

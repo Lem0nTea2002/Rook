@@ -98,6 +98,11 @@ def test_run_tasks_scores_agent_changes_and_writes_summary(tmp_path: Path):
                 model_name_or_path="fake",
                 model_patch="",
                 raw_response="done",
+                context_metrics={
+                    "provider_calls": 2,
+                    "total_tokens": 100,
+                    "selected_skill_names": [],
+                },
             )
 
     task = LocalPytestTask(
@@ -119,5 +124,6 @@ def test_run_tasks_scores_agent_changes_and_writes_summary(tmp_path: Path):
     )
 
     assert rows[0]["passed"] is True
+    assert rows[0]["context_metrics"]["provider_calls"] == 2
     assert "+VALUE = 2" in rows[0]["model_patch"]
     assert json.loads(summary.read_text(encoding="utf-8"))[0]["passed"] is True

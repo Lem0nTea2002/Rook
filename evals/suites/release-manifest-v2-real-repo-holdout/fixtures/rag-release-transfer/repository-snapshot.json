@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+  "commit": "656c23d61a3324944a89736c82d5fba4dbea59e6",
+  "source_path": "project/evaluation/reports/retrieval_benchmark_baseline_hybrid_20260318_162200.json",
+  "git_blob_sha1": "07abb8ba5bd9ec067f2d40e6ef17b76e75be44fe",
+  "selected_summary": {
+    "benchmark_type": "retrieval",
+    "retrieval_mode": "baseline_hybrid",
+    "case_count": 5,
+    "source_hit_rate": 1.0,
+    "mrr": 1.0
+  }
+}

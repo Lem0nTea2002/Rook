@@ -74,6 +74,8 @@ def run_evalops_command(
     if args.command == "eval":
         if args.eval_command == "demo":
             return _run_demo(args, project_root)
+        if args.eval_command == "pr-gate":
+            return _run_pr_gate(args, project_root)
         if args.eval_command == "run":
             requested = _parse_agents(args.agents)
             _parse_families(args.families)
@@ -110,6 +112,35 @@ def _run_demo(args: argparse.Namespace, project_root: Path) -> int:
     print(f"run root: {result.run_root}")
     print(f"summary: {result.summary_markdown}")
     return 0
+
+
+def _run_pr_gate(args: argparse.Namespace, project_root: Path) -> int:
+    from rook_agent.evalops.pr_gate import (
+        evaluate_pr_gate,
+        write_pr_gate_report,
+    )
+
+    report = evaluate_pr_gate(
+        project_root,
+        base_ref=args.base,
+        head_ref=args.head,
+    )
+    output = write_pr_gate_report(
+        report,
+        args.output,
+        allowed_root=project_root,
+    )
+    print(f"Rook Forge PR gate: {report['status']}")
+    print(f"applicable: {_bool(report['applicable'])}")
+    print("external calls: false")
+    print("model costs: false")
+    print(f"report: {output}")
+    for failure in report["failures"]:
+        print(
+            f"failure: {failure['code']} {failure['path']} "
+            f"{failure['detail']}"
+        )
+    return 0 if report["status"] == "passed" else 1
 
 
 def create_evalops_dependencies(project_root: Path) -> EvalOpsCliDependencies:

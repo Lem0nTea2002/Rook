@@ -16,9 +16,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from rook_agent.eval.adapter import RookCodingAgentAdapter
-from rook_agent.eval.patch import collect_git_diff
-from rook_agent.eval.tasks import CodingTask, CodingTaskResult
+from rook_agent.eval.adapter import RookCodingAgentAdapter  # noqa: E402
+from rook_agent.eval.patch import collect_git_diff  # noqa: E402
+from rook_agent.eval.tasks import CodingTask, CodingTaskResult  # noqa: E402
 
 DEFAULT_TASKS = "benchmark/local_pytest/tasks.sample.jsonl"
 DEFAULT_TEST_COMMAND = "python -m pytest -q"
@@ -31,6 +31,9 @@ class LocalPytestTask:
     files: dict[str, str]
     problem_statement: str
     test_command: str = DEFAULT_TEST_COMMAND
+    repository: str = ""
+    commit: str = ""
+    source_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +62,12 @@ def load_tasks_jsonl(path: str | Path) -> list[LocalPytestTask]:
                     files={str(name): str(content) for name, content in dict(data["files"]).items()},
                     problem_statement=str(data["problem_statement"]),
                     test_command=str(data.get("test_command") or DEFAULT_TEST_COMMAND),
+                    repository=str(data.get("repository") or ""),
+                    commit=str(data.get("commit") or ""),
+                    source_paths=tuple(
+                        str(value)
+                        for value in data.get("source_paths", [])
+                    ),
                 )
             )
     return tasks
@@ -134,7 +143,14 @@ def run_one_task(
         instance_id=task.id,
         repo_path=repo,
         problem_statement=_build_problem_statement(task),
-        metadata={"benchmark": "local_pytest", "title": task.title, "test_command": task.test_command},
+        metadata={
+            "benchmark": "local_pytest",
+            "title": task.title,
+            "test_command": task.test_command,
+            "repository": task.repository,
+            "commit": task.commit,
+            "source_paths": list(task.source_paths),
+        },
     )
     result = adapter.run_task(coding_task)
     pytest_result = run_pytest(repo, task.test_command)
@@ -146,8 +162,12 @@ def run_one_task(
         "returncode": pytest_result.returncode,
         "elapsed_seconds": round(time.time() - started_at, 3),
         "test_command": task.test_command,
+        "repository": task.repository,
+        "commit": task.commit,
+        "source_paths": list(task.source_paths),
         "pytest_output": pytest_result.output,
         "transcript_path": str(result.transcript_path) if result.transcript_path else None,
+        "context_metrics": result.context_metrics,
         "raw_response": result.raw_response,
         "model_patch": collect_git_diff(repo, include_untracked=True),
     }

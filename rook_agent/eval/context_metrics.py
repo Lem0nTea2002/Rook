@@ -28,6 +28,8 @@ def collect_context_metrics(transcript_path: str | Path | None) -> dict[str, Any
     l4_events = [event for event in events if event.type == "llm_compaction_completed"]
     boundary_events = [event for event in events if event.type == "task_boundary_observed"]
     tool_result_parts = list(_tool_result_parts(events))
+    usage = _provider_usage_metrics(events)
+    skill_identity = _skill_identity_metrics(events)
 
     compaction_triggers = Counter(str(event.payload.get("trigger") or "") for event in compactions)
     compaction_changed_parts = sum(
@@ -76,6 +78,67 @@ def collect_context_metrics(transcript_path: str | Path | None) -> dict[str, Any
         "source_reread_count": _source_reread_count(tool_result_parts),
         "task_boundary_events": len(boundary_events),
         "task_switch_triggers": sum(1 for event in boundary_events if event.payload.get("should_trigger_compaction")),
+        **usage,
+        **skill_identity,
+    }
+
+
+def _provider_usage_metrics(events: list[Any]) -> dict[str, int]:
+    provider_calls = 0
+    observation_count = 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
+    for event in events:
+        if event.type != "assistant_message":
+            continue
+        metadata = event.payload.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        provider_calls += 1
+        usage = metadata.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        observation_count += 1
+        input_tokens += _nonnegative_int(usage.get("input_tokens")) or 0
+        output_tokens += _nonnegative_int(usage.get("output_tokens")) or 0
+        observed_total = _nonnegative_int(usage.get("total_tokens"))
+        total_tokens += (
+            observed_total
+            if observed_total is not None
+            else (
+                (_nonnegative_int(usage.get("input_tokens")) or 0)
+                + (_nonnegative_int(usage.get("output_tokens")) or 0)
+            )
+        )
+    return {
+        "provider_calls": provider_calls,
+        "token_observation_count": observation_count,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+def _skill_identity_metrics(events: list[Any]) -> dict[str, list[str]]:
+    selected: list[str] = []
+    loaded: list[str] = []
+    for event in events:
+        target = (
+            selected
+            if event.type == "skill_selected"
+            else loaded
+            if event.type == "skill_loaded"
+            else None
+        )
+        if target is None:
+            continue
+        name = event.payload.get("skill_name")
+        if isinstance(name, str) and name and name not in target:
+            target.append(name)
+    return {
+        "selected_skill_names": selected,
+        "loaded_skill_names": loaded,
     }
 
 

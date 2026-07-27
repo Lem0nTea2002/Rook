@@ -15,6 +15,9 @@ from rook_agent.evalops.suites import load_eval_suite
 _ROOT = Path(__file__).parents[1]
 _CI_ROOT = _ROOT / "evals" / "suites" / "github-actions-ci-guard-holdout"
 _RAG_ROOT = _ROOT / "evals" / "suites" / "rag-evidence-reporter-holdout"
+_RM2_EXTERNAL_ROOT = (
+    _ROOT / "evals" / "suites" / "release-manifest-v2-real-repo-holdout"
+)
 
 
 def _module(path: Path, name: str):
@@ -181,3 +184,78 @@ def test_rag_evidence_reference_outputs_pass_hidden_validator(tmp_path: Path) ->
         encoding="utf-8",
     )
     assert validator.validate_skipped(skipped) is None
+
+
+def test_rm2_external_holdout_locks_candidate_and_two_real_repositories() -> None:
+    suite = load_eval_suite(_RM2_EXTERNAL_ROOT / "suite.toml")
+    candidate_path = (
+        _ROOT
+        / "evals"
+        / "candidates"
+        / "release-manifest-v2"
+        / "effective-v5.toml"
+    )
+
+    assert suite.id == "release-manifest-v2-two-repo-holdout-v1"
+    assert suite.candidate_content_hash == _candidate_hash(candidate_path)
+    assert len(suite.cases) == 6
+    assert {case.category for case in suite.cases} == {
+        CaseCategory.DIRECT,
+        CaseCategory.TRANSFER,
+        CaseCategory.REGRESSION,
+    }
+    assert all(case.network_policy == NetworkPolicy.DISABLED for case in suite.cases)
+
+    provenance = json.loads(
+        (_RM2_EXTERNAL_ROOT / "PROVENANCE.json").read_text(encoding="utf-8")
+    )
+    repositories = provenance["repositories"]
+    assert [item["repository"] for item in repositories] == [
+        "https://github.com/ZHUMUJUN/Rook",
+        (
+            "https://github.com/ZHUMUJUN/"
+            "Multimodal-LLM-Agent-for-Scientific-Document-RAG"
+        ),
+    ]
+    assert all(len(item["commit"]) == 40 for item in repositories)
+    assert all(item["license"] == "MIT" for item in repositories)
+    for item in provenance["fixture_files"]:
+        fixture = _RM2_EXTERNAL_ROOT / item["fixture"]
+        assert hashlib.sha256(fixture.read_bytes()).hexdigest() == item["sha256"]
+
+
+def test_rm2_external_reference_outputs_pass_hidden_validator(tmp_path: Path) -> None:
+    validator = _module(
+        _RM2_EXTERNAL_ROOT / "validators" / "validate_external_rm2.py",
+        "external_rm2_validator",
+    )
+    for case_id in validator.case_ids():
+        workspace = tmp_path / case_id
+        shutil.copytree(_RM2_EXTERNAL_ROOT / "fixtures" / case_id, workspace)
+        if validator.requires_output(case_id):
+            payload = validator.reference_payload(workspace, case_id)
+            (workspace / "release.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        assert validator.validate_workspace(workspace, case_id) is None
+
+
+def test_rm2_external_validator_rejects_source_mutation_and_extra_output(
+    tmp_path: Path,
+) -> None:
+    validator = _module(
+        _RM2_EXTERNAL_ROOT / "validators" / "validate_external_rm2.py",
+        "external_rm2_validator_failures",
+    )
+    case_id = "rook-release-direct"
+    workspace = tmp_path / case_id
+    shutil.copytree(_RM2_EXTERNAL_ROOT / "fixtures" / case_id, workspace)
+    source = workspace / validator.source_ref(case_id)
+    source.write_text(source.read_text(encoding="utf-8") + "# changed\n", encoding="utf-8")
+    assert validator.validate_workspace(workspace, case_id) == "source_modified"
+
+    shutil.rmtree(workspace)
+    shutil.copytree(_RM2_EXTERNAL_ROOT / "fixtures" / case_id, workspace)
+    (workspace / "debug.txt").write_text("unexpected\n", encoding="utf-8")
+    assert validator.validate_workspace(workspace, case_id) == "forbidden_output"

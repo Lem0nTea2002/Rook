@@ -1,0 +1,5 @@
+[project]
+name = "rook-agent"
+version = "0.2.3"
+description = "Rook is a local coding agent with Rook Forge Skill governance."
+requires-python = ">=3.11"

@@ -35,6 +35,23 @@ Probe the local adapters without making a model call:
 rook eval doctor
 ```
 
+Run the deterministic pull-request gate against two Git commits:
+
+```powershell
+rook eval pr-gate `
+  --base <base-sha> `
+  --head <head-sha> `
+  --output .rook\pr-gate\report.json
+```
+
+The gate makes no Agent or model call. It strictly loads all version-controlled
+Candidates, Suites, and policies, resolves Candidate content-hash locks, checks
+pinned real-repository provenance and fixture hashes, and writes an atomic,
+fingerprinted JSON report. `.github/workflows/rook-forge-pr-gate.yml` runs the
+same command on relevant pull requests, adds focused governance regressions,
+and uploads the report as a GitHub Actions artifact. CI fixes
+`ROOK_RUN_EXTERNAL_EVALS=0` and `ROOK_ALLOW_MODEL_COSTS=0`.
+
 Stage a manually authored, strict TOML bundle. Staging is offline: the bundle is
 stored with `imported` origin and `quarantined` status, and is not discovered,
 activated, or exported:
@@ -532,11 +549,22 @@ v1 is the first approved version and the infrastructure-excluded v2 attempt is
 not eligible. See the redacted
 [`rm2-formal-release-2026-07-27.json`](evidence/rm2-formal-release-2026-07-27.json).
 
+Candidate v5 later changed the Skill content and therefore entered a new,
+independent Adapter v12 Formal rather than inheriting v1 evidence. It completed
+72/72 calls and 36/36 pairs: Baseline passed 9/36 (25%), Forced Skill passed
+34/36 (94.4%), paired uplift was +69.4pp, median latency improved 5.8%, median
+observed Token use improved 15.2%, and median tool calls improved 33.3%. Trace
+completeness was 100%; infrastructure exclusions and new regressions were zero.
+Candidate v5 was independently approved and deployed. Audit-chain repair then
+used the production transaction path for a real v5→v1 rollback followed by the
+final v1→v5 redeploy. See
+[`rm2-v5-formal-release-2026-07-27.json`](evidence/rm2-v5-formal-release-2026-07-27.json).
+
 Calibration, Pilot, and Formal stages require separate authorizations for 12,
 24, and 72 calls. Do not infer one stage's authorization from another. Only the
-72-call Formal immutable report now populates final resume success, Token, and
-latency values; USD cost remains `not observed` because the Adapter received no
-cost field.
+current Candidate v5 72-call Formal immutable report populates final resume
+success, Token, and latency values; USD cost remains `not observed` because the
+Adapter received no cost field.
 
 The repository-level Codex target and network controls follow the official
 [Codex Skill documentation](https://learn.chatgpt.com/docs/build-skills) and

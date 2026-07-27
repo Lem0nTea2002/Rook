@@ -80,7 +80,7 @@ def test_high_confidence_global_skill_loads_before_first_provider_call(tmp_path:
     assert skill_events[1].payload["skill_path"] == "fetch-tweet/SKILL.md"
     system_prompt = provider.requests[0].messages[0].content
     assert "# Fetch Tweet" in system_prompt
-    assert f"root={home / '.agents' / 'skills'}" in system_prompt
+    assert f"root={home / '.agents' / 'skills'}" not in system_prompt
 
 
 def test_ambiguous_skill_route_does_not_auto_load(tmp_path: Path, monkeypatch) -> None:
@@ -123,6 +123,138 @@ def test_resume_reloads_previously_loaded_skill_context(tmp_path: Path, monkeypa
     system_prompt = resumed_provider.requests[1].messages[0].content
     assert "# 全球家族办公室资讯简报" in system_prompt
     assert "# Evidence Policy" in system_prompt
+
+
+def test_runtime_control_message_does_not_start_turn_or_reload_skill(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    _write_info_database_like_project(tmp_path)
+    store = JsonlSessionStore(tmp_path / ".rook")
+    session = AgentSession.from_project(
+        store=store,
+        session_id="sess_runtime_control",
+        project_root=tmp_path,
+    )
+    provider = RecordingProvider(
+        [ChatResponse(provider="fake", model="fake-model", content="ok")]
+    )
+    loop = AgentLoop(session=session, provider=provider)
+
+    session.append_user_message("按框架跑一次今天的全球家办资讯简报")
+    loop._prepare_skills_for_current_turn()
+    first_turn = session.current_turn
+    first_loaded = list(session.loaded_skills)
+
+    session.append_runtime_control_message(
+        "Todo progress reminder: update the plan before continuing."
+    )
+    loop._prepare_skills_for_current_turn()
+
+    assert session.current_turn == first_turn
+    assert session.loaded_skills == first_loaded
+    events = store.list_events("sess_runtime_control")
+    control = next(event for event in events if event.type == "runtime_control_message")
+    assert control.payload["metadata"]["runtime_control"] is True
+    assert len([event for event in events if event.type == "skill_loaded"]) == 1
+
+
+def test_global_catalog_is_not_copied_into_system_prompt(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    global_skill_dir = home / ".agents" / "skills" / "large-global"
+    global_skill_dir.mkdir(parents=True)
+    (global_skill_dir / "SKILL.md").write_text(
+        "---\n"
+        "name: large-global\n"
+        f"description: {'unrelated global instructions ' * 300}\n"
+        "---\n\n"
+        "# Large Global\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(home))
+    _write_info_database_like_project(tmp_path)
+    session = AgentSession.from_project(
+        store=JsonlSessionStore(tmp_path / ".rook"),
+        session_id="sess_catalog_budget",
+        project_root=tmp_path,
+    )
+
+    prompt = session.build_system_prefix(
+        provider_name="fake",
+        provider_model="fake-model",
+    )[0].content
+
+    assert "global-family-office-news-brief.md" in prompt
+    assert "large-global" not in prompt
+    assert "unrelated global instructions" not in prompt
+
+
+def test_repeated_route_keeps_one_active_skill_context(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    _write_info_database_like_project(tmp_path)
+    store = JsonlSessionStore(tmp_path / ".rook")
+    session = AgentSession.from_project(
+        store=store,
+        session_id="sess_skill_dedupe",
+        project_root=tmp_path,
+    )
+    loop = AgentLoop(
+        session=session,
+        provider=RecordingProvider([]),
+    )
+
+    for _ in range(2):
+        session.append_user_message("按框架跑一次今天的全球家办资讯简报")
+        loop._prepare_skills_for_current_turn()
+
+    assert len(session.loaded_skills) == 1
+    prompt = session.build_system_prefix(provider_name="fake")[0].content
+    assert prompt.count("# 全球家族办公室资讯简报") == 1
+
+
+def test_cleared_skills_stay_cleared_after_resume(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    _write_info_database_like_project(tmp_path)
+    store = JsonlSessionStore(tmp_path / ".rook")
+    session = AgentSession.from_project(
+        store=store,
+        session_id="sess_skill_clear",
+        project_root=tmp_path,
+    )
+    loop = AgentLoop(
+        session=session,
+        provider=RecordingProvider([]),
+    )
+    session.append_user_message("按框架跑一次今天的全球家办资讯简报")
+    loop._prepare_skills_for_current_turn()
+    assert session.loaded_skills
+
+    session.clear_loaded_skills(reason="task_boundary")
+    resumed = AgentSession.resume(
+        store=store,
+        session_id="sess_skill_clear",
+        agents_md=session.agents_md,
+        skill_catalog=session.skill_catalog,
+    )
+
+    assert session.loaded_skills == []
+    assert resumed.loaded_skills == []
+    cleared = [
+        event
+        for event in store.list_events("sess_skill_clear")
+        if event.type == "skills_cleared"
+    ]
+    assert cleared[-1].payload["reason"] == "task_boundary"
 
 
 def _write_info_database_like_project(root: Path) -> None:

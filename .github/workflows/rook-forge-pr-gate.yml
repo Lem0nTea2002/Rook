@@ -1,0 +1,93 @@
+name: Rook Forge PR gate
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/rook-forge-pr-gate.yml"
+      - "evals/**"
+      - "rook_agent/agent/**"
+      - "rook_agent/context/**"
+      - "rook_agent/evalops/**"
+      - "rook_agent/skills/**"
+      - "tests/test_agent_skill_flow.py"
+      - "tests/test_evalops*.py"
+      - "tests/test_skill_router.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rook-forge-pr-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  forge-gate:
+    name: Deterministic Skill governance gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      ROOK_RUN_EXTERNAL_EVALS: "0"
+      ROOK_ALLOW_MODEL_COSTS: "0"
+
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rook and test dependencies
+        run: python -m pip install --upgrade pip "setuptools>=83.0.0" wheel ".[dev]"
+
+      - name: Run deterministic Rook Forge PR gate
+        if: github.event_name == 'pull_request'
+        run: >-
+          rook eval pr-gate
+          --base "${{ github.event.pull_request.base.sha }}"
+          --head "${{ github.event.pull_request.head.sha }}"
+          --output .rook/pr-gate/report.json
+
+      - name: Run deterministic governance regressions
+        run: >-
+          python -m pytest -q
+          tests/test_evalops_pr_gate.py
+          tests/test_evalops_real_repo_holdouts.py
+          tests/test_agent_skill_flow.py
+          tests/test_skill_router.py
+
+      - name: Publish gate summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Rook Forge PR Gate"
+            echo
+            echo "- External model calls: **disabled**"
+            echo "- Model costs: **disabled**"
+            if [[ -f .rook/pr-gate/report.json ]]; then
+              echo "- Immutable JSON report: uploaded as workflow artifact"
+              echo
+              echo '```json'
+              python -c 'import json; d=json.load(open(".rook/pr-gate/report.json", encoding="utf-8")); print(json.dumps({"status":d["status"],"applicable":d["applicable"],"summary":d["summary"],"fingerprint":d["fingerprint"]}, indent=2, sort_keys=True))'
+              echo '```'
+            else
+              echo "- JSON report: not produced (workflow_dispatch or an earlier failure)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload PR gate evidence
+        if: always() && hashFiles('.rook/pr-gate/report.json') != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: rook-forge-pr-gate-${{ github.run_id }}
+          path: .rook/pr-gate/report.json
+          if-no-files-found: error
+          retention-days: 30

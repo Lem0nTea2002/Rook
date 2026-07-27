@@ -10,6 +10,9 @@ from rook_agent.skills.loader import SkillLoadError, SkillLoader
 from rook_agent.skills.models import LoadedSkill, LoadedSkillRequiredFile, SkillCatalog, SkillRoutingDecision
 
 
+_MAX_ACTIVE_SKILLS = 4
+
+
 def append_skill_selected(writer: SessionEventWriter, decision: SkillRoutingDecision) -> None:
     if decision.selected is None:
         return
@@ -77,9 +80,40 @@ def append_skill_required_file_loaded(writer: SessionEventWriter, required: Load
     )
 
 
+def append_skills_cleared(writer: SessionEventWriter, *, reason: str) -> None:
+    writer.store.append_event(
+        SessionEvent(
+            id=new_event_id(),
+            session_id=writer.session_id,
+            type="skills_cleared",
+            payload={
+                "reason": reason,
+                "turn_id": writer.current_turn,
+            },
+        )
+    )
+
+
+def merge_active_skill(
+    active: list[LoadedSkill],
+    loaded: LoadedSkill,
+) -> list[LoadedSkill]:
+    identity = (loaded.skill.root, loaded.skill.path)
+    merged = [
+        item
+        for item in active
+        if (item.skill.root, item.skill.path) != identity
+    ]
+    merged.append(loaded)
+    return merged[-_MAX_ACTIVE_SKILLS:]
+
+
 def replay_loaded_skills(store: JsonlSessionStore, session_id: str, catalog: SkillCatalog) -> list[LoadedSkill]:
     loaded: list[LoadedSkill] = []
     for event in store.list_events(session_id):
+        if event.type == "skills_cleared":
+            loaded.clear()
+            continue
         if event.type != "skill_loaded":
             continue
         skill_path = str(event.payload.get("skill_path") or "")
@@ -110,7 +144,7 @@ def replay_loaded_skills(store: JsonlSessionStore, session_id: str, catalog: Ski
                     required_files=loaded_skill.required_files,
                     required_file_contents=required_files,
                 )
-            loaded.append(loaded_skill)
+            loaded = merge_active_skill(loaded, loaded_skill)
         except SkillLoadError:
             continue
     return loaded

@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/ZHUMUJUN/Rook",
+  "commit": "5fd97b7e1cc14e0a5d2c14ee191c19712f802aff",
+  "source_path": "pyproject.toml",
+  "git_blob_sha1": "7c824c6d4f7a5665410648d456e6e60e457175ac",
+  "selected_project": {
+    "name": "rook-agent",
+    "version": "0.2.3",
+    "requires_python": ">=3.11",
+    "description": "Rook is a local coding agent with Rook Forge Skill governance."
+  }
+}

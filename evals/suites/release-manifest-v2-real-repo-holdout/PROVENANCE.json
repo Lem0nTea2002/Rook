@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "snapshot_kind": "selected_real_repository_metadata_with_synthetic_rm2_overlay",
+  "repositories": [
+    {
+      "repository": "https://github.com/ZHUMUJUN/Rook",
+      "commit": "5fd97b7e1cc14e0a5d2c14ee191c19712f802aff",
+      "license": "MIT",
+      "source_path": "pyproject.toml",
+      "git_blob_sha1": "7c824c6d4f7a5665410648d456e6e60e457175ac",
+      "transformation": "selected project identity fields only"
+    },
+    {
+      "repository": "https://github.com/ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "commit": "656c23d61a3324944a89736c82d5fba4dbea59e6",
+      "license": "MIT",
+      "source_path": "project/evaluation/reports/retrieval_benchmark_baseline_hybrid_20260318_162200.json",
+      "git_blob_sha1": "07abb8ba5bd9ec067f2d40e6ef17b76e75be44fe",
+      "transformation": "selected benchmark identity and summary fields only"
+    }
+  ],
+  "overlay": {
+    "kind": "synthetic_unseen_rm2_release_metadata",
+    "purpose": "Evaluate frozen Candidate 5 across real repository shapes without claiming the overlay existed upstream.",
+    "candidate_content_hash": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3"
+  },
+  "fixture_files": [
+    {
+      "fixture": "fixtures/rag-non-rm2-regression/reports/ragas-skipped.json",
+      "sha256": "adb408d24e15fa37ed6d65907f972ae208790ded218b6c03313afd48c26aa1e2"
+    },
+    {
+      "fixture": "fixtures/rag-non-rm2-regression/repository-snapshot.json",
+      "sha256": "fbf7c91071a6aa2c9eff80da229de45cd81c5d153c47ae87968b2b6d4fd615a1"
+    },
+    {
+      "fixture": "fixtures/rag-release-direct/deploy/release.meta",
+      "sha256": "fa7efb4cd4deda8927716c3c0ec62ec25b0d68aaf9caed118d65908c9af17221"
+    },
+    {
+      "fixture": "fixtures/rag-release-direct/repository-snapshot.json",
+      "sha256": "fbf7c91071a6aa2c9eff80da229de45cd81c5d153c47ae87968b2b6d4fd615a1"
+    },
+    {
+      "fixture": "fixtures/rag-release-transfer/benchmarks/release.env",
+      "sha256": "22eced730ffa9f2a52b0e4fbe0f93f8d0470e91a4b91d14f2783155b733a427d"
+    },
+    {
+      "fixture": "fixtures/rag-release-transfer/repository-snapshot.json",
+      "sha256": "fbf7c91071a6aa2c9eff80da229de45cd81c5d153c47ae87968b2b6d4fd615a1"
+    },
+    {
+      "fixture": "fixtures/rook-non-rm2-regression/pyproject.snapshot",
+      "sha256": "b7e8bca23e8e3d4e8279c6dd24f2502b836f666a683b3bb18f86a3c9c78924c7"
+    },
+    {
+      "fixture": "fixtures/rook-non-rm2-regression/repository-snapshot.json",
+      "sha256": "b80f3d89250a48cba0b22d316cde6dc5110670bd6cdad68e6c93a2b6080cfffb"
+    },
+    {
+      "fixture": "fixtures/rook-release-direct/ops/release/release.env",
+      "sha256": "b6aefef94190cf4c2591fb030d2a93f632479cf2a66e80db041e542125f51e03"
+    },
+    {
+      "fixture": "fixtures/rook-release-direct/repository-snapshot.json",
+      "sha256": "b80f3d89250a48cba0b22d316cde6dc5110670bd6cdad68e6c93a2b6080cfffb"
+    },
+    {
+      "fixture": "fixtures/rook-release-transfer/distribution/windows/release.properties",
+      "sha256": "5cb663abb686f50446020633defccce33bc6386054d60f58fe7ae87727138ff1"
+    },
+    {
+      "fixture": "fixtures/rook-release-transfer/repository-snapshot.json",
+      "sha256": "b80f3d89250a48cba0b22d316cde6dc5110670bd6cdad68e6c93a2b6080cfffb"
+    }
+  ]
+}

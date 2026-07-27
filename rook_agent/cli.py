@@ -80,6 +80,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=".rook/forge-demo",
         help="Parent directory for the isolated demo run (default: .rook/forge-demo).",
     )
+    pr_gate_parser = eval_subparsers.add_parser(
+        "pr-gate",
+        help="Validate changed Rook Forge assets without external or model calls.",
+    )
+    pr_gate_parser.add_argument(
+        "--base",
+        required=True,
+        help="Base Git ref or commit for the pull-request diff.",
+    )
+    pr_gate_parser.add_argument(
+        "--head",
+        required=True,
+        help="Head Git ref or commit for the pull-request diff.",
+    )
+    pr_gate_parser.add_argument(
+        "--output",
+        default=".rook/pr-gate/report.json",
+        help="Atomic JSON report path inside the project.",
+    )
     eval_run_parser = eval_subparsers.add_parser("run", help="Run a Rook Forge exam for one stored Skill Candidate.")
     eval_run_parser.add_argument("--skill-path", required=True, help="Candidate version directory.")
     eval_run_parser.add_argument("--suite", required=True, help="Eval suite TOML manifest.")

@@ -88,3 +88,29 @@ real repository snapshot
 This shows that a passing reference fixture does not guarantee a useful Skill:
 Rook still requires paired live evidence and blocks deployment when the
 Candidate harms preservation cases.
+
+## 3. Frozen Candidate v5 cross-repository holdout
+
+Candidate v5 of `release-manifest-v2` is also locked against a separate,
+previously unseen six-case suite:
+
+| Field | Value |
+| --- | --- |
+| Skill | `release-manifest-v2@5` |
+| Candidate SHA-256 | `bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3` |
+| Sources | Rook + Multimodal LLM Agent for Scientific Document RAG |
+| Cases | Direct + Transfer + Regression for each repository |
+| Repetitions | 2 |
+| Planned live calls | 24 (6 cases × 2 arms × 2 repetitions) |
+| Network | Disabled |
+| Current status | Prepared and deterministically validated; live exam not run |
+
+The real repository metadata is pinned independently from the synthetic,
+unseen RM-2 input overlay. `PROVENANCE.json` makes that distinction explicit,
+records both source commits, and locks every fixture by SHA-256. The hidden
+validator accepts only an exact `release.json` on capability cases, requires no
+output on preservation cases, and rejects source mutation or extra files.
+
+This suite must not be reported as live evidence until a separately authorized
+24-call exam has completed without infrastructure exclusions. Its deterministic
+boundary is covered by `tests/test_evalops_real_repo_holdouts.py`.
