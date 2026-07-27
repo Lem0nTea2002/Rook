@@ -30,6 +30,15 @@ _CANDIDATE_ROOT = _ROOT / "evals" / "candidates" / "release-manifest-v2"
 _CANDIDATE_CONTENT_HASH = (
     "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
 )
+_V3_CANDIDATE_CONTENT_HASH = (
+    "aa1ffacd3f4db423f6ee13debef37c912079c0bb675ed734a8039d6e23970cf1"
+)
+_V4_CANDIDATE_CONTENT_HASH = (
+    "b33037a471752a92fa974a62bf7e2858e8462339ac4b3d204ff87d2b57901ef8"
+)
+_V5_CANDIDATE_CONTENT_HASH = (
+    "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3"
+)
 
 
 def _validator_module():
@@ -124,6 +133,136 @@ def test_rm2_content_only_call_counts_are_exact() -> None:
     )
 
     assert [len(plan.runs) for plan in plans] == [12, 24, 72]
+
+
+def test_rm2_v3_is_content_distinct_candidate_locked_and_bounded() -> None:
+    original = load_skill_bundle(_CANDIDATE_ROOT / "effective.toml")
+    revised = load_skill_bundle(_CANDIDATE_ROOT / "effective-v3.toml")
+    readiness = load_eval_suite(_SUITE_ROOT / "v3-readiness.toml")
+    formal = load_eval_suite(_SUITE_ROOT / "v3-suite.toml")
+
+    original_hash = hashlib.sha256(
+        render_skill(original).encode("utf-8")
+    ).hexdigest()
+    revised_hash = hashlib.sha256(render_skill(revised).encode("utf-8")).hexdigest()
+    assert original_hash == _CANDIDATE_CONTENT_HASH
+    assert revised_hash == _V3_CANDIDATE_CONTENT_HASH
+    assert revised_hash != original_hash
+    assert readiness.candidate_content_hash == revised_hash
+    assert formal.candidate_content_hash == revised_hash
+    assert readiness.id == "release-manifest-v2-v3-readiness"
+    assert formal.id == "release-manifest-v2-formal-holdout-v3"
+    assert len(readiness.cases) == 1
+    assert len(formal.cases) == 12
+    assert {
+        category: sum(case.category is category for case in formal.cases)
+        for category in CaseCategory
+    } == {category: 3 for category in CaseCategory}
+
+    revised_candidate = replace(_candidate(), content_hash=revised_hash)
+    readiness_plan = build_experiment_plan(
+        readiness,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=1,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    formal_plan = build_experiment_plan(
+        formal,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=3,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    assert len(readiness_plan.runs) == 2
+    assert len(formal_plan.runs) == 72
+
+
+def test_rm2_v4_repairs_version_semantics_and_is_candidate_locked() -> None:
+    original = load_skill_bundle(_CANDIDATE_ROOT / "effective.toml")
+    failed_revision = load_skill_bundle(_CANDIDATE_ROOT / "effective-v3.toml")
+    repaired = load_skill_bundle(_CANDIDATE_ROOT / "effective-v4.toml")
+    readiness = load_eval_suite(_SUITE_ROOT / "v4-readiness.toml")
+    formal = load_eval_suite(_SUITE_ROOT / "v4-suite.toml")
+
+    hashes = {
+        hashlib.sha256(render_skill(bundle).encode("utf-8")).hexdigest()
+        for bundle in (original, failed_revision, repaired)
+    }
+    repaired_hash = hashlib.sha256(
+        render_skill(repaired).encode("utf-8")
+    ).hexdigest()
+    assert len(hashes) == 3
+    assert repaired_hash == _V4_CANDIDATE_CONTENT_HASH
+    assert readiness.candidate_content_hash == repaired_hash
+    assert formal.candidate_content_hash == repaired_hash
+    assert readiness.id == "release-manifest-v2-v4-readiness"
+    assert formal.id == "release-manifest-v2-formal-holdout-v4"
+    assert len(readiness.cases) == 1
+    assert len(formal.cases) == 12
+    assert {
+        category: sum(case.category is category for case in formal.cases)
+        for category in CaseCategory
+    } == {category: 3 for category in CaseCategory}
+
+    repaired_candidate = replace(_candidate(), content_hash=repaired_hash)
+    readiness_plan = build_experiment_plan(
+        readiness,
+        targets=(_target(),),
+        candidate=repaired_candidate,
+        repetitions=1,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    formal_plan = build_experiment_plan(
+        formal,
+        targets=(_target(),),
+        candidate=repaired_candidate,
+        repetitions=3,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    assert len(readiness_plan.runs) == 2
+    assert len(formal_plan.runs) == 72
+
+
+def test_rm2_v5_is_single_pass_candidate_locked_and_bounded() -> None:
+    prior = load_skill_bundle(_CANDIDATE_ROOT / "effective-v4.toml")
+    revised = load_skill_bundle(_CANDIDATE_ROOT / "effective-v5.toml")
+    readiness = load_eval_suite(_SUITE_ROOT / "v5-readiness.toml")
+    formal = load_eval_suite(_SUITE_ROOT / "v5-suite.toml")
+
+    prior_hash = hashlib.sha256(render_skill(prior).encode("utf-8")).hexdigest()
+    revised_hash = hashlib.sha256(render_skill(revised).encode("utf-8")).hexdigest()
+    assert revised_hash == _V5_CANDIDATE_CONTENT_HASH
+    assert revised_hash != prior_hash
+    assert readiness.candidate_content_hash == revised_hash
+    assert formal.candidate_content_hash == revised_hash
+    assert readiness.id == "release-manifest-v2-v5-readiness"
+    assert readiness.cases[0].id == "holdout-package-v5-readiness"
+    assert formal.id == "release-manifest-v2-formal-holdout-v5"
+    assert len(readiness.cases) == 1
+    assert len(formal.cases) == 12
+    assert {
+        category: sum(case.category is category for case in formal.cases)
+        for category in CaseCategory
+    } == {category: 3 for category in CaseCategory}
+
+    revised_candidate = replace(_candidate(), content_hash=revised_hash)
+    readiness_plan = build_experiment_plan(
+        readiness,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=1,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    formal_plan = build_experiment_plan(
+        formal,
+        targets=(_target(),),
+        candidate=revised_candidate,
+        repetitions=3,
+        families=(TreatmentFamily.CONTENT,),
+    )
+    assert len(readiness_plan.runs) == 2
+    assert len(formal_plan.runs) == 72
 
 
 @pytest.mark.parametrize(
@@ -336,10 +475,19 @@ def test_positive_holdout_tasks_define_repository_root_output() -> None:
 
 def test_rm2_candidate_and_tasks_do_not_leak_hidden_answers() -> None:
     effective_path = _CANDIDATE_ROOT / "effective.toml"
+    revised_path = _CANDIDATE_ROOT / "effective-v3.toml"
+    repaired_path = _CANDIDATE_ROOT / "effective-v4.toml"
+    single_pass_path = _CANDIDATE_ROOT / "effective-v5.toml"
     neutral_path = _CANDIDATE_ROOT / "neutral.toml"
     effective = load_skill_bundle(effective_path)
+    revised = load_skill_bundle(revised_path)
+    repaired = load_skill_bundle(repaired_path)
+    single_pass = load_skill_bundle(single_pass_path)
     load_skill_bundle(neutral_path)
-    candidate_text = effective_path.read_text(encoding="utf-8").casefold()
+    candidate_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (effective_path, revised_path, repaired_path, single_pass_path)
+    ).casefold()
     task_text = "\n".join(
         path.read_text(encoding="utf-8") for path in (_SUITE_ROOT / "tasks").glob("*.md")
     ).casefold()
@@ -349,6 +497,9 @@ def test_rm2_candidate_and_tasks_do_not_leak_hidden_answers() -> None:
     ).casefold()
 
     assert effective.name == "release-manifest-v2-normalizer"
+    assert revised.name == effective.name
+    assert repaired.name == effective.name
+    assert single_pass.name == effective.name
     assert "validators/" not in candidate_text + task_text + holdout_task_text
     assert '"schema"' not in candidate_text + task_text + holdout_task_text
     assert "payments-api" not in candidate_text

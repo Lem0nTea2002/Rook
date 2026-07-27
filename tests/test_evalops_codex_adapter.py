@@ -248,6 +248,7 @@ def test_codex_probe_reports_supported_noninteractive_json_mode(tmp_path: Path) 
     )
     config_command = runner.requests[2].command
     assert config_command[-2:] == ("features", "list")
+    assert config_command[1:3] == ("--disable", "apps")
     assert "allow_login_shell=false" in config_command
     assert "permissions.allow_login_shell=false" not in config_command
 
@@ -322,6 +323,8 @@ def test_codex_prepare_builds_safe_exact_exec_command_and_stdin(tmp_path: Path) 
         "plugins",
         "--disable",
         "memories",
+        "--disable",
+        "apps",
         "-c",
         'model_provider="rook-chatgpt-http"',
         "-c",

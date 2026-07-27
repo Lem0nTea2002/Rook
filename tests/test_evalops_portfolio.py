@@ -96,13 +96,13 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
         top.index(heading)
         for heading in ("## Problem", "## Architecture", "## Demo", "## Metrics")
     )
-    assert "`gpt-5.4-mini` 72-call Formal" in top
-    assert "Baseline 25% → Forced 100% (+75pp)" in top
+    assert "`gpt-5.4-mini` Adapter v12 Formal" in top
+    assert "Baseline 25% → Forced 94.4% (+69.4pp)" in top
     assert "Formal hardening timeline" in top
     assert "2–3 minute video" in top
     assert "## 问题" in chinese
-    assert "`gpt-5.4-mini` 72-call Formal" in chinese
-    assert "Baseline 25% → Forced 100%（+75pp）" in chinese
+    assert "`gpt-5.4-mini` Adapter v12 Formal" in chinese
+    assert "Baseline 25% → Forced 94.4%（+69.4pp）" in chinese
 
     video = _ROOT / "docs" / "video" / "rook-forge-demo.mp4"
     thumbnail = _ROOT / "docs" / "images" / "rook-forge-video.png"
@@ -118,6 +118,31 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
     assert thumbnail.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert article.exists()
     assert incident.exists()
+
+
+def test_successor_formal_release_evidence_is_complete_and_honest() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rm2-v5-formal-release-2026-07-27.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["external_calls_started"] == 72
+    assert evidence["authorization"]["external_calls_completed"] == 72
+    assert evidence["execution"]["complete_traces"] == 72
+    assert evidence["execution"]["infrastructure_exclusions"] == 0
+    assert evidence["execution"]["new_regressions"] == 0
+    assert evidence["metrics"]["baseline_success_count"] == 9
+    assert evidence["metrics"]["candidate_success_count"] == 34
+    assert evidence["execution"]["cost_usd"] is None
+    assert evidence["metrics"]["routing_precision"] is None
+    assert evidence["gate"]["status"] == "promoted"
+    assert evidence["deployment"]["from_version"] == 1
+    assert evidence["deployment"]["to_version"] == 5
+    assert evidence["final_state"]["candidate_and_deployed_hash_match"] is True
 
 
 def test_public_v9_readiness_evidence_is_exactly_two_calls_and_not_formal() -> None:

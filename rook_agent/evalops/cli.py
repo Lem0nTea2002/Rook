@@ -50,7 +50,7 @@ _PROXY_SCHEMES = frozenset({"http", "https", "socks5", "socks5h"})
 _WORKSPACE_PROCESS_NONCE = uuid.uuid4().hex[:12]
 _ADAPTER_VERSIONS = {
     AgentType.ROOK: "rook-evalops-v1",
-    AgentType.CODEX: "codex-evalops-v11",
+    AgentType.CODEX: "codex-evalops-v12",
 }
 
 

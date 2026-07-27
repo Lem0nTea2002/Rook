@@ -579,7 +579,7 @@ def _config_validation_command(
     windows_sandbox: str | None,
 ) -> tuple[str, ...]:
     """Load every immutable EvalOps config override without starting a model."""
-    command = [executable_path]
+    command = [executable_path, "--disable", "apps"]
     overrides = [
         *_HTTP_ONLY_PROVIDER_OVERRIDES,
         'web_search="disabled"',
@@ -627,6 +627,8 @@ def _command(
         "plugins",
         "--disable",
         "memories",
+        "--disable",
+        "apps",
     ]
     if network_policy is not NetworkPolicy.DISABLED:
         raise ValueError(
