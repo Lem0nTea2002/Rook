@@ -379,6 +379,48 @@ def test_codex_rollback_republishes_prior_approved_version(tmp_path: Path) -> No
     assert installed.read_text(encoding="utf-8") == render_skill(first.bundle)
 
 
+def test_codex_replacement_and_rollback_span_target_fingerprint_changes(
+    tmp_path: Path,
+) -> None:
+    store, registry, service = _service(tmp_path)
+    first_target = _target(AgentType.CODEX)
+    first = _candidate(store, procedure="Deploy version one.")
+    first_decision = _decision(first, first_target)
+    registry.record(first_decision)
+    _approve(service, first_decision, first_target)
+
+    upgraded_target = AgentTarget(
+        type=AgentType.CODEX,
+        executable="codex",
+        version="2",
+        model="model",
+        adapter_version="evalops-v2",
+    )
+    second = _candidate(store, procedure="Deploy version two.")
+    second_decision = _decision(second, upgraded_target)
+    registry.record(second_decision)
+
+    replacement = _approve(service, second_decision, upgraded_target)
+
+    assert replacement.from_version == 1
+    assert replacement.to_version == 2
+    assert registry.active_version(second.bundle.name, AgentType.CODEX) == 2
+
+    rollback = service.rollback(
+        skill_name=first.bundle.name,
+        current_target=upgraded_target,
+        to_version=1,
+        approver="reviewer",
+        reason="version two regressed",
+    )
+
+    assert rollback.from_version == 2
+    assert rollback.to_version == 1
+    assert registry.active_version(first.bundle.name, AgentType.CODEX) == 1
+    installed = tmp_path / ".agents" / "skills" / "release-skill" / "SKILL.md"
+    assert installed.read_text(encoding="utf-8") == render_skill(first.bundle)
+
+
 def test_registry_failure_restores_previous_codex_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

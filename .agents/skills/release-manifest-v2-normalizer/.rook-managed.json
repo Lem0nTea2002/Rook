@@ -1,8 +1,8 @@
 {
-  "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+  "content_hash": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3",
   "managed_by": "rook-forge",
-  "release_id": "release-c9f359aed1a94693b3725e202b96e4d6",
+  "release_id": "release-411f2320fc4847409355d153fdfc22aa",
   "schema_version": 1,
   "skill_name": "release-manifest-v2-normalizer",
-  "version": 1
+  "version": 5
 }

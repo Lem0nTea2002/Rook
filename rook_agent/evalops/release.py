@@ -363,7 +363,7 @@ class SkillReleaseService:
             self.registry.root / skill_name,
             timeout_seconds=self.lock_timeout_seconds,
         ):
-            active = self.registry.active_entry(skill_name, current_target)
+            active = self.registry.active_entry(skill_name, current_target.type)
             backend.recover(skill_name, active)
             if (
                 active is not None
@@ -453,7 +453,7 @@ class SkillReleaseService:
             self.registry.root / skill_name,
             timeout_seconds=self.lock_timeout_seconds,
         ):
-            active = self.registry.active_entry(skill_name, current_target)
+            active = self.registry.active_entry(skill_name, current_target.type)
             if active is None:
                 raise ValueError("no active version exists for rollback")
             active_version = int(active["active_version"])
@@ -462,7 +462,7 @@ class SkillReleaseService:
             eligible = [
                 item
                 for item in self.registry.releases(skill_name)
-                if item.target.fingerprint == current_target.fingerprint
+                if item.target.type is current_target.type
                 and item.status in {ReleaseStatus.DEPLOYED, ReleaseStatus.ROLLED_BACK}
                 and item.to_version == to_version
             ]
@@ -485,7 +485,7 @@ class SkillReleaseService:
                     skill_name=skill_name,
                     from_version=active_version,
                     to_version=to_version,
-                    target=current_target,
+                    target=selected.target,
                     approver=approver.strip(),
                     reason=reason.strip(),
                     created_at=_now(),
@@ -508,7 +508,7 @@ class SkillReleaseService:
                     skill_name=skill_name,
                     from_version=active_version,
                     candidate=candidate,
-                    target=current_target,
+                    target=selected.target,
                     approver=approver.strip(),
                     reason=reason.strip(),
                     approval_id=selected.approval_id,

@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "verified_successor_formal_decision_release_lifecycle",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "external_calls_authorized": 72,
+    "external_calls_started": 72,
+    "external_calls_completed": 72,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 5,
+    "candidate_content_hash": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3",
+    "candidate_fingerprint": "fdbfd6dc77f3d034cbc3f8d6c7462087",
+    "evaluation_id": "evaluation-0d5f9454ed5b4acf8146ae487f17a04b",
+    "experiment_id": "exp-600dbbf37e4f4122a7b5a109809b979f",
+    "decision_id": "decision-05c5a3539abd4c1ba92222781bbf24d4",
+    "suite_id": "release-manifest-v2-formal-holdout-v5",
+    "suite_fingerprint": "29ae761a052db5284bf2160c15c1fc5d",
+    "policy_version": "rm2-formal-1",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "scorecard_fingerprint": "368a2848b41cb517be4e031476713969",
+    "target_fingerprint": "f3716cd8963e2eb7c349bb2e5048ece9",
+    "adapter_version": "codex-evalops-v12",
+    "normalizer_fingerprint": "b7ebbd6428a3f93c40b7b50deaaa60a0",
+    "codex_cli_version": "codex-cli 0.144.6"
+  },
+  "artifacts": {
+    "report_ref": "reports/evaluation-0d5f9454ed5b4acf8146ae487f17a04b/report.md",
+    "report_markdown_sha256": "5d8b60b47ca36f4a95b6f7fb4196209be8735d3443733086a6b9d99bd81b4205",
+    "scorecard_json_sha256": "b03c4add69c51c6ab300edc8192b3000b9c97646fe7a042aeb71884fae2b4192",
+    "suite_toml_sha256": "8e685e40bef2ecfebd7aad6ca2abb4f39e374d78752036cbe0da3a6eb548e857",
+    "candidate_source_sha256": "3231f2ab028262c65d85bf2f27dbd759199d52319efff1b8e273eb4b8ccf4cd4",
+    "terminal_artifact_count": 72,
+    "unique_run_id_count": 72
+  },
+  "execution": {
+    "planned_runs": 72,
+    "completed_runs": 72,
+    "baseline_runs": 36,
+    "forced_skill_runs": 36,
+    "successful_processes": 72,
+    "timeout_processes": 0,
+    "other_failed_processes": 0,
+    "complete_traces": 72,
+    "trace_completeness_rate": 1.0,
+    "cleaned_workspaces": 72,
+    "valid_content_pairs": 36,
+    "incomplete_pairs": 0,
+    "infrastructure_errors": 0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "new_regressions": 0,
+    "cost_usd": null
+  },
+  "metrics": {
+    "baseline_success_count": 9,
+    "baseline_sample_count": 36,
+    "baseline_success_rate": 0.25,
+    "baseline_success_ci95": {
+      "lower": 0.13750477662994837,
+      "upper": 0.4107045376672835
+    },
+    "candidate_success_count": 34,
+    "candidate_sample_count": 36,
+    "candidate_success_rate": 0.9444444444444444,
+    "candidate_success_ci95": {
+      "lower": 0.8185534279135275,
+      "upper": 0.9846300133358382
+    },
+    "paired_success_uplift": 0.6944444444444444,
+    "capability_baseline_success_count": 0,
+    "capability_candidate_success_count": 17,
+    "capability_pair_count": 18,
+    "capability_paired_success_uplift": 0.9444444444444444,
+    "capability_paired_uplift_ci95": {
+      "lower": 0.8333333333333334,
+      "upper": 1.0
+    },
+    "baseline_median_latency_ms": 64242.0,
+    "candidate_median_latency_ms": 60530.0,
+    "latency_improvement": 0.0577815136515053,
+    "baseline_median_tokens": 36547.0,
+    "candidate_median_tokens": 30994.5,
+    "token_improvement": 0.1519276548006676,
+    "baseline_median_tool_calls": 6.0,
+    "candidate_median_tool_calls": 4.0,
+    "tool_call_improvement": 0.33333333333333337,
+    "preservation_pairs": 18,
+    "preservation_rate": 0.9444444444444444,
+    "new_regressions": 0,
+    "routing_precision": null,
+    "routing_recall": null
+  },
+  "candidate_failures": [
+    {
+      "case_id": "holdout-instruction",
+      "repetition": 1,
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "trace_complete": true
+    },
+    {
+      "case_id": "holdout-package",
+      "repetition": 3,
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "trace_complete": true
+    }
+  ],
+  "gate": {
+    "status": "promoted",
+    "reason_code": "capability_success_uplift",
+    "eligible_for_approval": true
+  },
+  "audit_chain_repair": {
+    "issue": "The first v5 deployment record used a null from_version after the Adapter fingerprint changed, although v1 was active.",
+    "root_cause": "Release lookup used the full target fingerprint while Registry deployment ownership is unique per Agent type.",
+    "immutable_incorrect_record": "release-9b7025cd1f0d42ef970e885d10a9aede",
+    "remediation": "Select active and rollback history by Agent type, add a cross-fingerprint replacement and rollback regression test, roll back v5 to the approved v1, then redeploy v5 without another model call.",
+    "repair_rollback_release_id": "release-a92082c9f94b43e6822faa0b682e2164",
+    "repair_rollback_from_version": 5,
+    "repair_rollback_to_version": 1,
+    "regression_test_result": "16 passed"
+  },
+  "approval": {
+    "approval_id": "approval-0ec7865d96394189a1ce71dd82eceb03",
+    "approver": "ZHUMUJUN",
+    "reason": "Approved Candidate 5 after audit-chain repair; verified Adapter v12 72-call Formal evidence"
+  },
+  "deployment": {
+    "release_id": "release-411f2320fc4847409355d153fdfc22aa",
+    "agent": "codex",
+    "destination": ".agents/skills/release-manifest-v2-normalizer",
+    "status": "deployed",
+    "from_version": 1,
+    "to_version": 5,
+    "deployment_hash": "40bdb719f0f0a384b60f92b5653b5e2d0149d2deafc963c0d3d490434131285f",
+    "deployed_skill_sha256": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3",
+    "managed_manifest_sha256": "027882d2b76198d0ea42449f4cdceb139942b45c118ab1243162247f2baa0129"
+  },
+  "final_state": {
+    "eligible_version": 5,
+    "active_version": 5,
+    "deployment_state": "active",
+    "stale": false,
+    "candidate_and_deployed_hash_match": true,
+    "registry_sha256": "7af626d9378f8149f574fbfce82088e877f9652e664a28f65782b509ae526cb4"
+  },
+  "result": {
+    "formal_metric_produced": true,
+    "promotion_achieved": true,
+    "human_approval_recorded": true,
+    "successor_deployed": true,
+    "status": "formal_promoted_approved_and_deployed"
+  }
+}
