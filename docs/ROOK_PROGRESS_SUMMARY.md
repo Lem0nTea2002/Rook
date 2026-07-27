@@ -16,10 +16,11 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 - 主分支：`main`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
-- Rook Forge v0.2.3 已发布：PR #11 合并 Formal 证据，PR #12 发布构建与安装修复；Release 和 Windows/Linux CI 均可公开复核。
-- PR #13 已将 Formal 证据采用、真实审批/部署、两个真实仓库 live holdout 和 Rook Coding dogfood 合并到 `main`；GitHub Actions run `30215570041` 的 5/5 job 全绿。
+- Rook Forge v0.2.4 已发布：PR #15–#17 合并 Candidate v5 Formal/发布、跨仓库 holdout、Coding Agent 加固、GitHub PR Gate 和统一证据；Release 和 Windows/Linux CI 均可公开复核。
 - 当前状态：内容不同的 Candidate v5 已使用 Adapter v12 从零完成 72-call Formal，自动门禁 promoted，随后完成真实人工审批和仓库级 Codex v1→v5 部署。审计中发现跨 Adapter target fingerprint 替换记录丢失 `from_version`，修复后通过真实 v5→v1 rollback 和 v1→v5 redeploy 验证，最终 v5 active、stale=false。
-- 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。Rook Coding Agent 另完成 5 个隔离真实任务，3 成功、2 失败，并暴露无关 Skill 自动选择和上下文 Token 放大问题。
+- 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。
+- Candidate v5 随后在独立的两仓库六案例 suite 完成 24/24 次、12 个有效配对：Baseline 33.3% → Forced 91.7%（+58.3pp），能力提升 +87.5pp，新增回归和基础设施排除均为 0；同时中位时延增加 23.6%、Token 增加 10.8%，已如实保留。
+- Rook Coding Agent 完成新的 10-task DeepSeek dogfood：9/10 通过、106 次 Provider 调用、738,729 个观测 Token、无关 Skill 误选 0/10；任务集与旧 5-task 运行不同，不将方向性效率变化包装成因果提升。
 
 ## 已完成功能
 
@@ -68,6 +69,11 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 43. Rook Coding Agent 完成 5 个真实隔离任务：3/5 通过、66 次模型调用、77 次工具调用、观测到 1,028,297 Tokens；失败与系统性问题均进入公开 dogfood 证据。
 44. 内容不同的 Candidate v5 使用 Adapter v12 完成 72/72 次真实 Formal：Baseline 9/36、Forced 34/36，配对提升 69.4pp；轨迹完整度 100%，基础设施排除、安全失败、秘密泄漏、隔离泄漏和新增回归均为 0。
 45. 修复跨 Adapter fingerprint 替换时发布记录 `from_version` 丢失及历史版本无法回滚的问题；真实执行 v5→v1 rollback 后重新部署 v1→v5，最终 Codex 仓库级 Skill 与 Candidate SHA-256 完全一致。
+46. Candidate v5 两仓库 holdout 从零完成 24/24 次调用和 12/12 配对；自动门禁 `promoted (capability_success_uplift)`，但以 measurement-only 保持无审批/部署副作用。
+47. Rook Coding Agent 在 10 个固定的仓库形态任务中完成 9/10，通过硬上限将实际调用控制在 106/200；所有会话的无关 Skill 选择和加载均为 0。
+48. 修复 Todo 完成自检在 Provider 上限处逃逸的问题；同步/异步循环现在返回稳定终态，benchmark runner 逐任务原子落盘并支持精确续跑。
+49. GitHub PR Gate 已在 PR #16 的独立 workflow 中远端通过，外部评测和费用保持关闭。
+50. 修复覆盖率门禁的整数舍入缺口：固定两位小数，新增路径逃逸、Git ref 解析失败、损坏 Candidate/Suite/Provenance 和未解析 Candidate lock 的 fail-closed 测试，不再允许实际 84.57% 被显示为 85% 后通过。
 
 ## 关键提交
 
@@ -93,10 +99,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前开发分支本地完整离线基线：`1791 passed, 10 skipped`；显式关闭真实外部评测和模型费用。
-- 远端 EvalOps 质量门禁：`524 passed, 5 skipped`、覆盖率 `85%`；Ruff、mypy、证据解析和 `git diff --check` 均通过。
+- 本轮生产代码与证据提交后的本地完整离线基线：`1796 passed, 10 skipped`；随后只新增 5 个覆盖率门禁测试，最终精确状态由下述远端矩阵复核。全部验证显式关闭真实外部评测和模型费用，并按 CI 合同忽略需要单独 EvalPlus 依赖的专项文件。
+- 远端 EvalOps 质量门禁：`531 passed, 5 skipped`、覆盖率 `85.11%`；两位小数严格达标，Ruff、mypy、证据解析和 `git diff --check` 均通过。
 
-- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1794 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1795 passed, 6 skipped`。PR #16 的 Rook Forge PR Gate 与 EvalOps 质量/供应链门禁也已通过。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
+- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1804 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1805 passed, 6 skipped`。PR #18 的 [offline run 30259202971](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202971) 和 [Rook Forge PR Gate run 30259202974](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202974) 共 6/6 checks 全绿；默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - [`rook-agent v0.2.4`](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4) wheel/sdist 已发布；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
 - v0.2.4 wheel SHA-256 为 `98bde2b44e9abaf06d5a7d883c703a1d3a4a83b3df8e30b10ec229ac66e7bfd0`；sdist SHA-256 为 `f35289532bfde706cb3a5918d1d63549d279e807bd6d7d6c8f335de5d7ee0bfa`。

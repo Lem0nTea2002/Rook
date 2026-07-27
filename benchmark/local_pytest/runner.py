@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from rook_agent.agent.loop_limits import AgentLoopLimits  # noqa: E402
 from rook_agent.eval.adapter import RookCodingAgentAdapter  # noqa: E402
 from rook_agent.eval.patch import collect_git_diff  # noqa: E402
 from rook_agent.eval.tasks import CodingTask, CodingTaskResult  # noqa: E402
@@ -107,26 +109,38 @@ def run_tasks(
     tasks: list[LocalPytestTask],
     workdir: str | Path,
     summary_out: str | Path,
+    start_at: int = 1,
     max_tasks: int | None = None,
     provider_name: str | None = None,
     model_name: str = "rook-local-pytest",
     session_root: str | Path = ".rook-local-pytest",
+    max_provider_calls_per_task: int = 20,
+    max_tool_rounds_per_task: int = 20,
+    max_turn_seconds_per_task: float = 300,
     force: bool = False,
     adapter: LocalAgentAdapter | None = None,
 ) -> list[dict[str, Any]]:
-    selected = tasks[:max_tasks] if max_tasks is not None else tasks
+    selected = tasks[start_at - 1 :]
+    if max_tasks is not None:
+        selected = selected[:max_tasks]
     workdir_path = Path(workdir)
     workdir_path.mkdir(parents=True, exist_ok=True)
     agent = adapter or RookCodingAgentAdapter(
         model_name_or_path=model_name,
         provider_name=provider_name,
         session_root=session_root,
+        limits=AgentLoopLimits(
+            max_tool_rounds=max_tool_rounds_per_task,
+            max_provider_calls=max_provider_calls_per_task,
+            max_turn_seconds=max_turn_seconds_per_task,
+            successful_verification_stop=True,
+        ),
     )
-    rows = [
-        run_one_task(task=task, workdir=workdir_path, adapter=agent, force=force)
-        for task in selected
-    ]
+    rows: list[dict[str, Any]] = []
     write_summary_json(summary_out, rows)
+    for task in selected:
+        rows.append(run_one_task(task=task, workdir=workdir_path, adapter=agent, force=force))
+        write_summary_json(summary_out, rows)
     return rows
 
 
@@ -167,6 +181,7 @@ def run_one_task(
         "source_paths": list(task.source_paths),
         "pytest_output": pytest_result.output,
         "transcript_path": str(result.transcript_path) if result.transcript_path else None,
+        "finish_reason": result.finish_reason,
         "context_metrics": result.context_metrics,
         "raw_response": result.raw_response,
         "model_patch": collect_git_diff(repo, include_untracked=True),
@@ -176,7 +191,24 @@ def run_one_task(
 def write_summary_json(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(list(rows), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    payload = json.dumps(list(rows), ensure_ascii=False, indent=2) + "\n"
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=out.parent,
+            prefix=f".{out.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp:
+            temp.write(payload)
+            temp.flush()
+            temp_path = Path(temp.name)
+        temp_path.replace(out)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -184,10 +216,34 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tasks", default=DEFAULT_TASKS, help="JSONL file containing local pytest tasks.")
     parser.add_argument("--workdir", required=True, help="Directory where task repositories are created.")
     parser.add_argument("--summary-out", default="runs/local-pytest-summary.json", help="JSON summary output path.")
+    parser.add_argument(
+        "--start-at",
+        type=_positive_int,
+        default=1,
+        help="One-based task position to start from (default: 1).",
+    )
     parser.add_argument("--max-tasks", type=_positive_int, default=None, help="Limit number of tasks.")
     parser.add_argument("--provider", default=None, help="Rook provider name. Defaults to app config.")
     parser.add_argument("--model-name", default="rook-local-pytest", help="Model name recorded in sessions.")
     parser.add_argument("--session-root", default=".rook-local-pytest", help="Directory for benchmark sessions.")
+    parser.add_argument(
+        "--max-provider-calls-per-task",
+        type=_positive_int,
+        default=20,
+        help="Hard provider-call limit for each task (default: 20).",
+    )
+    parser.add_argument(
+        "--max-tool-rounds-per-task",
+        type=_positive_int,
+        default=20,
+        help="Hard tool-round limit for each task (default: 20).",
+    )
+    parser.add_argument(
+        "--max-turn-seconds-per-task",
+        type=_positive_float,
+        default=300,
+        help="Hard wall-clock limit for each task in seconds (default: 300).",
+    )
     parser.add_argument("--force", action="store_true", help="Recreate existing task repositories.")
     return parser
 
@@ -199,10 +255,14 @@ def main(argv: list[str] | None = None) -> int:
             tasks=load_tasks_jsonl(args.tasks),
             workdir=args.workdir,
             summary_out=args.summary_out,
+            start_at=args.start_at,
             max_tasks=args.max_tasks,
             provider_name=args.provider,
             model_name=args.model_name,
             session_root=args.session_root,
+            max_provider_calls_per_task=args.max_provider_calls_per_task,
+            max_tool_rounds_per_task=args.max_tool_rounds_per_task,
+            max_turn_seconds_per_task=args.max_turn_seconds_per_task,
             force=args.force,
         )
     except RuntimeError as exc:
@@ -247,6 +307,13 @@ def _positive_int(value: str) -> int:
     parsed = int(value)
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _positive_float(value: str) -> float:
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive number")
     return parsed
 
 

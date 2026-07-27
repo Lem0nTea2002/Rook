@@ -1550,6 +1550,50 @@ def test_agent_loop_runs_todo_self_check_before_final_answer(tmp_path) -> None:
     assert "跑测试" in provider.requests[2].messages[-1].content
 
 
+def test_agent_loop_turns_todo_self_check_provider_limit_into_terminal_response(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(
+        store=store,
+        session_id="sess_todo_self_check_limit",
+        agents_md="",
+        tools=[create_todo_tool()],
+    )
+    provider = FakeProvider(
+        [
+            ChatResponse(
+                provider="fake",
+                model="fake-model",
+                content="",
+                tool_calls=[
+                    ToolCall(
+                        id="call_todo_set",
+                        name="todo",
+                        arguments={
+                            "action": "set",
+                            "todos": [{"content": "跑测试", "status": "pending"}],
+                        },
+                    )
+                ],
+                finish_reason="tool_calls",
+            ),
+            ChatResponse(provider="fake", model="fake-model", content="我完成了"),
+        ]
+    )
+
+    response = AgentLoop(
+        session=session,
+        provider=provider,
+        limits=AgentLoopLimits(max_tool_rounds=5, max_provider_calls=2, max_turn_seconds=None),
+    ).run_user_turn("做一个多步骤任务")
+
+    assert response.finish_reason == "provider_call_limit"
+    assert "provider 调用次数达到上限" in response.content
+    assert len(provider.requests) == 2
+    assistant = store.rebuild_session_view("sess_todo_self_check_limit").messages[-1]
+    assert assistant.role == "assistant"
+    assert assistant.metadata["finish_reason"] == "provider_call_limit"
+
+
 def test_agent_loop_skips_todo_self_check_when_all_todos_done(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path)
     session = AgentSession.create(

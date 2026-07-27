@@ -41,6 +41,8 @@
 | Adapter v11 readiness smoke | 原失败 docs case 上 2/2 进程 exit 0；轨迹完整度 100%；基础设施排除、profile、Web Search、重连和 WebSocket 标记均为 0 |
 | 已完成的 Adapter v11 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归和基础设施排除均为 0 |
 | Candidate v5 / Adapter v12 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；新增回归和基础设施排除均为 0 |
+| Candidate v5 两仓库 holdout | 24/24 次；12 个完整配对；Baseline 33.3% → Forced 91.7%（+58.3pp）；能力提升 +87.5pp，bootstrap 95% CI 为 +62.5pp～+100pp；新增回归和基础设施排除均为 0；时延和 Token 增加 |
+| Rook Coding Agent dogfood v2 | 10 个隔离的仓库形态任务；9 成功 / 1 失败；106 次 Provider 调用、738,729 个观测 Token；无关 Skill 误选 0/10；单任务 20 次/总计 200 次硬上限 |
 | 控制实验外部调用 | 0 |
 
 复现控制实验：
@@ -48,6 +50,14 @@
 ```powershell
 & '.\.venv\Scripts\python.exe' -m pytest -q tests/test_evalops_rm2.py tests/test_evalops_portfolio.py
 ```
+
+这两条后续证据不能混为同一种结论：Candidate v5 holdout 是配对的 Skill
+效果测量，并如实保留时延和 Token 退化；Rook dogfood 衡量的是 Coding Agent
+自身，不是 Skill 提升。早期五任务运行使用了不同任务集，所以新的通过率、
+平均调用和 Token 只作方向性观察，不能写成因果前后对照。详见
+[`rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json)
+和
+[`rook-coding-dogfood-v2-2026-07-27.json`](evidence/rook-coding-dogfood-v2-2026-07-27.json)。
 
 将三个手工版本放入隔离区，但不激活：
 

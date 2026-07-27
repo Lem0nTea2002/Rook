@@ -86,7 +86,35 @@ def test_parser_defaults_to_sample_tasks():
     args = parser.parse_args(["--workdir", "runs/local-pytest"])
 
     assert args.tasks == "benchmark/local_pytest/tasks.sample.jsonl"
+    assert args.start_at == 1
     assert args.max_tasks is None
+    assert args.max_provider_calls_per_task == 20
+    assert args.max_tool_rounds_per_task == 20
+    assert args.max_turn_seconds_per_task == 300
+
+
+def test_parser_accepts_explicit_per_task_budgets():
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "--workdir",
+            "runs/local-pytest",
+            "--start-at",
+            "3",
+            "--max-provider-calls-per-task",
+            "12",
+            "--max-tool-rounds-per-task",
+            "10",
+            "--max-turn-seconds-per-task",
+            "90.5",
+        ]
+    )
+
+    assert args.start_at == 3
+    assert args.max_provider_calls_per_task == 12
+    assert args.max_tool_rounds_per_task == 10
+    assert args.max_turn_seconds_per_task == 90.5
 
 
 def test_run_tasks_scores_agent_changes_and_writes_summary(tmp_path: Path):
@@ -98,6 +126,7 @@ def test_run_tasks_scores_agent_changes_and_writes_summary(tmp_path: Path):
                 model_name_or_path="fake",
                 model_patch="",
                 raw_response="done",
+                finish_reason="stop",
                 context_metrics={
                     "provider_calls": 2,
                     "total_tokens": 100,
@@ -124,6 +153,46 @@ def test_run_tasks_scores_agent_changes_and_writes_summary(tmp_path: Path):
     )
 
     assert rows[0]["passed"] is True
+    assert rows[0]["finish_reason"] == "stop"
     assert rows[0]["context_metrics"]["provider_calls"] == 2
     assert "+VALUE = 2" in rows[0]["model_patch"]
     assert json.loads(summary.read_text(encoding="utf-8"))[0]["passed"] is True
+
+
+def test_run_tasks_persists_completed_rows_before_later_adapter_failure(tmp_path: Path):
+    class FailingSecondAdapter:
+        def run_task(self, task: CodingTask) -> CodingTaskResult:
+            if task.instance_id == "second":
+                raise RuntimeError("provider unavailable")
+            return CodingTaskResult(
+                instance_id=task.instance_id,
+                model_name_or_path="fake",
+                model_patch="",
+                raw_response="done",
+            )
+
+    tasks = [
+        LocalPytestTask(
+            id=task_id,
+            title=task_id,
+            files={"tests/test_demo.py": "def test_demo(): pass\n"},
+            problem_statement="Keep tests passing.",
+        )
+        for task_id in ("first", "second")
+    ]
+    summary = tmp_path / "summary.json"
+
+    try:
+        run_tasks(
+            tasks=tasks,
+            workdir=tmp_path / "work",
+            summary_out=summary,
+            adapter=FailingSecondAdapter(),
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "provider unavailable"
+    else:
+        raise AssertionError("expected the second task to fail")
+
+    rows = json.loads(summary.read_text(encoding="utf-8"))
+    assert [row["id"] for row in rows] == ["first"]
