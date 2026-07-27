@@ -99,10 +99,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 当前开发分支本地完整离线基线：`1796 passed, 10 skipped`；显式关闭真实外部评测和模型费用，并按 CI 合同忽略需要单独 EvalPlus 依赖的专项文件。
-- 远端 EvalOps 质量门禁：`524 passed, 5 skipped`、覆盖率 `85%`；Ruff、mypy、证据解析和 `git diff --check` 均通过。
+- 本轮生产代码与证据提交后的本地完整离线基线：`1796 passed, 10 skipped`；随后只新增 5 个覆盖率门禁测试，最终精确状态由下述远端矩阵复核。全部验证显式关闭真实外部评测和模型费用，并按 CI 合同忽略需要单独 EvalPlus 依赖的专项文件。
+- 远端 EvalOps 质量门禁：`531 passed, 5 skipped`、覆盖率 `85.11%`；两位小数严格达标，Ruff、mypy、证据解析和 `git diff --check` 均通过。
 
-- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1794 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1795 passed, 6 skipped`。PR #16 的 Rook Forge PR Gate 与 EvalOps 质量/供应链门禁也已通过。默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
+- 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1804 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1805 passed, 6 skipped`。PR #18 的 [offline run 30259202971](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202971) 和 [Rook Forge PR Gate run 30259202974](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202974) 共 6/6 checks 全绿；默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
 - [`rook-agent v0.2.4`](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4) wheel/sdist 已发布；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
 - v0.2.4 wheel SHA-256 为 `98bde2b44e9abaf06d5a7d883c703a1d3a4a83b3df8e30b10ec229ac66e7bfd0`；sdist SHA-256 为 `f35289532bfde706cb3a5918d1d63549d279e807bd6d7d6c8f335de5d7ee0bfa`。
