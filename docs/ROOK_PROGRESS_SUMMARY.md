@@ -62,7 +62,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 36. 发布 v0.2.2，完成全新虚拟环境 wheel 安装、CLI 帮助与 `rook eval demo` 验证。
 37. Adapter v9 readiness 恰好完成 2/2 次真实调用，之前失败的写入后 application case 由隐藏确定性 evaluator 正确判定。
 38. 新增 GitHub Actions CI guard 与 RAG evidence reporter 两个不同类型 Skill，使用两个公开仓库的固定 commit/blob 构建四个 Direct/Regression/Adversarial holdout。
-39. 本地治理 dogfood 实际生成四个审批、四个部署、一次 Codex 漂移检测/恢复和两个事务回滚；README 首页压缩为问题—架构—演示—指标，并发布技术文章和 150 秒演示视频。
+39. 本地治理 dogfood 实际生成四个审批、四个部署、一次 Codex 漂移检测/恢复和两个事务回滚；README 首页压缩为问题—架构—演示—指标，并发布技术文章和轻量 GIF 演示。
 40. 新增 `rook eval record-decision`，在不重新调用模型的情况下，严格校验 operator 提供的 ScoreCard SHA-256、measurement-only 报告、当前 Candidate/Suite/Policy/Target/Normalizer 指纹、完整终态制品、重建的 per-case/ScoreCard 和当前门禁结果后才登记资格。
 41. 将真实 72-call Formal 决策接入不可变人工审批与仓库级 Codex 部署；部署文件与 Candidate SHA-256 完全一致，受控篡改显示 `drifted`，精确恢复后回到 `active`。
 42. 两个真实仓库 holdout 完成 16/16 次授权调用和 8 个有效配对；两个 Candidate 均产生负向效果并因 `new_regression` 被拒绝，没有被包装为提升或部署。

@@ -8,13 +8,25 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 
-from rook_agent.app.tui import RookApp, RookTuiConfig
-from rook_agent.app.tui_state import TuiEntryKind
+_DOC_COLOR_ENV_NAMES = ("NO_COLOR", "COLORTERM", "TERM", "TEXTUAL_COLOR_SYSTEM")
+_ORIGINAL_DOC_COLOR_ENV = {name: os.environ.get(name) for name in _DOC_COLOR_ENV_NAMES}
+os.environ.pop("NO_COLOR", None)
+os.environ["COLORTERM"] = "truecolor"
+os.environ["TERM"] = "xterm-256color"
+os.environ["TEXTUAL_COLOR_SYSTEM"] = "truecolor"
+
+# Textual snapshots read their color policy while importing. Keep these imports
+# below the deterministic documentation environment setup.
+from rich.console import ColorSystem  # noqa: E402
+
+from rook_agent.app.tui import RookApp, RookTuiConfig  # noqa: E402
+from rook_agent.app.tui_state import TuiEntryKind  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +117,31 @@ SCENES = (
 )
 
 
+def _normalize_svg(svg: str) -> str:
+    svg = re.sub(r"\s*@font-face\s*\{.*?\}", "", svg, flags=re.DOTALL)
+    svg = svg.replace(
+        "font-family: Fira Code, monospace;",
+        'font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;',
+    )
+    return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
+
+
+async def _render_welcome() -> str:
+    app = RookApp(
+        config=RookTuiConfig(
+            title="Rook",
+            provider_name="OpenAI-compatible",
+            provider_model="gpt-5.4-mini",
+            project_name="Rook",
+        )
+    )
+    async with app.run_test(size=(120, 38)) as pilot:
+        app.console._color_system = ColorSystem.TRUECOLOR
+        app.refresh(layout=True)
+        await pilot.pause()
+        return _normalize_svg(app.export_screenshot(title="Rook TUI · welcome"))
+
+
 async def _render_scene(scene: Scene) -> str:
     app = RookApp(
         config=RookTuiConfig(
@@ -115,6 +152,8 @@ async def _render_scene(scene: Scene) -> str:
         )
     )
     async with app.run_test(size=(120, 38)) as pilot:
+        app.console._color_system = ColorSystem.TRUECOLOR
+        app.refresh(layout=True)
         await pilot.pause()
         app._remove_output_children()
         output = app.query_one("#output")
@@ -123,13 +162,7 @@ async def _render_scene(scene: Scene) -> str:
             app._write_line(entry.body, kind=entry.kind)
         app._set_activity(scene.activity)
         await pilot.pause()
-        svg = app.export_screenshot(title=f"Rook TUI · {scene.name}")
-        svg = re.sub(r"\s*@font-face\s*\{.*?\}", "", svg, flags=re.DOTALL)
-        svg = svg.replace(
-            "font-family: Fira Code, monospace;",
-            'font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;',
-        )
-        return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
+        return _normalize_svg(app.export_screenshot(title=f"Rook TUI · {scene.name}"))
 
 
 def _render_png(svg_path: Path) -> Path:
@@ -147,10 +180,17 @@ def _render_png(svg_path: Path) -> Path:
 async def _render_all() -> None:
     DOC_IMAGES.mkdir(parents=True, exist_ok=True)
     WEBSITE_IMAGES.mkdir(parents=True, exist_ok=True)
+    welcome_path = DOC_IMAGES / "rook-tui-welcome.svg"
+    welcome_path.write_text(await _render_welcome(), encoding="utf-8", newline="\r\n")
+    welcome_png = _render_png(welcome_path)
+    shutil.copyfile(welcome_path, WEBSITE_IMAGES / welcome_path.name)
+    shutil.copyfile(welcome_png, WEBSITE_IMAGES / welcome_png.name)
+    print(welcome_png.relative_to(ROOT))
+
     for scene in SCENES:
         filename = f"rook-tui-{scene.name}.svg"
         docs_path = DOC_IMAGES / filename
-        docs_path.write_text(await _render_scene(scene), encoding="utf-8")
+        docs_path.write_text(await _render_scene(scene), encoding="utf-8", newline="\r\n")
         png_path = _render_png(docs_path)
         shutil.copyfile(docs_path, WEBSITE_IMAGES / filename)
         shutil.copyfile(png_path, WEBSITE_IMAGES / png_path.name)
@@ -158,7 +198,14 @@ async def _render_all() -> None:
 
 
 def main() -> None:
-    asyncio.run(_render_all())
+    try:
+        asyncio.run(_render_all())
+    finally:
+        for name, value in _ORIGINAL_DOC_COLOR_ENV.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 if __name__ == "__main__":

@@ -452,6 +452,8 @@ def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
     assert any(span.style == "#81e8bb" for span in text.spans)
     assert any(span.style == "#18cfcb" for span in text.spans)
     assert any(span.style == "#f5fcfa" for span in text.spans)
+    assert any(span.style == "#f6c453" for span in text.spans)
+    assert any(span.style == "#f09130" for span in text.spans)
     assert any(span.style == "#b8ffdf" for span in text.spans)
     assert text.plain != next_text.plain
 
@@ -459,7 +461,8 @@ def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
 def test_compact_welcome_identifies_the_rookie_mascot() -> None:
     text = welcome_renderable(compact=True).renderable
 
-    assert text.plain == "Rook\nRookie coding agent"
+    assert "██" in text.plain
+    assert "Rook\nRookie coding agent" in text.plain
     assert any("bold" in str(span.style) for span in text.spans)
 
 
@@ -511,7 +514,7 @@ async def test_rook_app_uses_compact_welcome_in_an_80_by_24_terminal() -> None:
         plain = getattr(getattr(welcome.content, "renderable", welcome.content), "plain", str(welcome.content))
 
         assert "Rook" in plain
-        assert "██" not in plain
+        assert "██" in plain
         assert app._welcome_particle_timer is None
         assert app.query_one("#input").display is True
 

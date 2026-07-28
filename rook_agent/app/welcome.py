@@ -8,11 +8,13 @@ from rich.text import Text
 
 WELCOME_LOGO_PALETTE = {
     "B": "#273444",
+    "D": "#43556a",
     "N": "#142431",
     "M": "#81e8bb",
     "C": "#18cfcb",
     "T": "#1ba59e",
     "Y": "#f6c453",
+    "A": "#f09130",
     "W": "#f5fcfa",
     "O": "#07131b",
     "P": "#b8ffdf",
@@ -20,30 +22,43 @@ WELCOME_LOGO_PALETTE = {
 }
 
 WELCOME_LOGO_PIXELS = (
-    "..............B..............",
-    "............BBBB.............",
-    ".........BBBBBBBBBB..........",
-    ".......BBBBBBBBBBBBBB........",
-    "......BBBWWBBBBBBWWBBB.......",
-    ".....BBBWWOOBBBBOOWWBBB.......",
-    ".....BBBWWOOBBBBOOWWBBB......",
-    ".....BBBBBBBBBBBBBBBBBB......",
-    "......BBBBBBYYYYBBBBBB.......",
-    ".......BBBBYYYYBBBBBB........",
-    "........BBBBBBBBBBBB.........",
-    ".......BBBMMMMMMMMBBB........",
-    "......BBMMMMMMMMMMMMBB.......",
-    ".....BBMMMMMMMMMMMMMMBB......",
-    ".....BBMMMNMMMMMMNMMMBB......",
-    ".....BBMMMMMMMMMMMMMMBB......",
-    "......BMMMMOOOOOOMMMMMB......",
-    "......BMMMOOCCCCOOMMMMB.......",
-    "......BMMMOOCOCCOOMMMMB.......",
-    "......BMMMMOOOOOOMMMMMB......",
-    ".......BMMMMMMMMMMMMMMB......",
-    "........BBBMMMMMMMMBBB.......",
-    "..........BB......BB.........",
-    ".........YYY......YYY........",
+    "..........O..O.................",
+    ".........OBOOBOOOO.............",
+    ".......OBBBBBBOOOBOO...........",
+    "......OBBBBOBBBBBBBBO..........",
+    ".....OBBBWBBBBBBBWBBBO.........",
+    "....OBBWWWWWBBBWWWWWBBO........",
+    "....OBBWWOWWBBBWWOWWBBO........",
+    "....OBWWOOOWWBWWOOOWWBO........",
+    "...OBBBOOOOOBBBOOOOOBBBO.......",
+    "....OBBWOCOWBBBWOCOWBBO........",
+    "....OBBBBOBBBBBBBOBBBBO........",
+    "....OBBBBBOYOYYYYYOBBBO........",
+    ".....OBBBBBOYYYYYOBBBO.........",
+    "......OBBBBBOAAAOBBBOCCCCCCCCCC",
+    "....OTMOOBBBBOAOBBOOMTNNNNNNNNC",
+    "....BMMMMOOOOBOOOOMMMMBNNNNNNNC",
+    "...BBBMMMMMMMOMMMMMMMBBDNNCNNNC",
+    "...BBBBBMMWWWWWWWMMMBBDDDNNCNNC",
+    "..BBBBBBBMWOWOWOWMMMBBDDDNCNNNC",
+    "...BBBBBMMWOOOOOWMMBBDDDDDNNCCC",
+    "...BBBBBMMWWOOOWWMMMBBDDDNNNNNC",
+    "....BBBMMMWOOOOOWMMMBBDDDCCCCCC",
+    "....OBMMMMMMMMMMMMMMMBBD.......",
+    "......OOMMMMMMMMMMMOO.B........",
+    "......YYYYOOOMOOYYYY...........",
+)
+
+COMPACT_WELCOME_PIXELS = (
+    "...B.B...",
+    "..BBBBB..",
+    ".BWWBWWB.",
+    ".BOOBOOB.",
+    ".BBCBCBB.",
+    "..BYYYB..",
+    ".MMMMMMM.",
+    ".MMOOOMM.",
+    "..Y...Y..",
 )
 
 WELCOME_PARTICLE_FRAMES = (
@@ -54,16 +69,26 @@ WELCOME_PARTICLE_FRAMES = (
 )
 
 
+def _pixel_text(rows: tuple[str, ...]) -> Text:
+    text = Text()
+    for row_index, row in enumerate(rows):
+        if row_index:
+            text.append("\n")
+        for pixel in row:
+            color = WELCOME_LOGO_PALETTE.get(pixel)
+            text.append("██" if color else "  ", style=color)
+    return text
+
+
 def welcome_renderable(*, compact: bool = False, particle_frame: int = 0) -> Align:
     """Render the animated logo, or a small-screen wordmark when space is tight."""
     if compact:
-        return Align.center(
-            Text.assemble(
-                ("R", "#81e8bb bold"),
-                ("ook", "#18cfcb bold"),
-                ("\nRookie coding agent", "#8a9aa4"),
-            )
-        )
+        text = _pixel_text(COMPACT_WELCOME_PIXELS)
+        text.append("\n")
+        text.append("R", style="#81e8bb bold")
+        text.append("ook", style="#18cfcb bold")
+        text.append("\nRookie coding agent", style="#8a9aa4")
+        return Align.center(text)
     rows = [list(row) for row in WELCOME_LOGO_PIXELS]
     frame = WELCOME_PARTICLE_FRAMES[particle_frame % len(WELCOME_PARTICLE_FRAMES)]
     for row_index, column_index, pixel in frame:
@@ -75,13 +100,7 @@ def welcome_renderable(*, compact: bool = False, particle_frame: int = 0) -> Ali
         if row[column_index] == ".":
             row[column_index] = pixel
 
-    text = Text()
-    for row_index, row in enumerate(rows):
-        if row_index:
-            text.append("\n")
-        for pixel in row:
-            color = WELCOME_LOGO_PALETTE.get(pixel)
-            text.append("██" if color else "  ", style=color)
+    text = _pixel_text(tuple("".join(row) for row in rows))
     text.append("\n\n")
     text.append("Rookie", style="#81e8bb bold")
     text.append(" · your tiny coding teammate", style="#8a9aa4")

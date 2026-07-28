@@ -1,4 +1,4 @@
-"""Render the concise, version-controlled Rook product demo.
+"""Render the concise, version-controlled Rook product demo GIF.
 
 This documentation helper uses only deterministic repository assets. It does
 not call a model, execute a Skill, or claim that scripted frames are a live
@@ -6,17 +6,15 @@ agent run.
 
 Build dependencies:
 
-    python -m pip install pillow imageio-ffmpeg
+    python -m pip install pillow
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
-import tempfile
+import shutil
 
-import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -38,16 +36,19 @@ RED = "#FF8278"
 @dataclass(frozen=True)
 class Slide:
     kind: str
-    duration: int
+    duration_ms: int
 
 
 SLIDES = (
-    Slide("hero", 10),
-    Slide("tui", 14),
-    Slide("forge", 14),
-    Slide("metrics", 14),
-    Slide("quickstart", 8),
+    Slide("hero", 1800),
+    Slide("tui", 2000),
+    Slide("forge", 2000),
+    Slide("metrics", 2000),
+    Slide("quickstart", 1800),
 )
+GIF_SIZE = (960, 540)
+TRANSITION_STEPS = 3
+TRANSITION_DURATION_MS = 120
 
 
 def _font(size: int, *, bold: bool = False, mono: bool = False) -> ImageFont.FreeTypeFont:
@@ -147,9 +148,9 @@ def _render_hero(index: int) -> Image.Image:
 
 def _render_tui(index: int) -> Image.Image:
     image, draw = _base(
-        index, "1. Rook 完成 Coding Task", "真实 Textual 组件 · 固定演示数据 · 无模型调用"
+        index, "1. 每次启动都有 Rookie", "真实 Textual 组件 · 固定演示数据 · 无模型调用"
     )
-    screenshot = Image.open(ROOT / "docs" / "images" / "rook-tui-conversation.png").convert("RGB")
+    screenshot = Image.open(ROOT / "docs" / "images" / "rook-tui-welcome.png").convert("RGB")
     shot = _fit_image(screenshot, (55, 166, 915, 620))
     sx = 55 + (860 - shot.width) // 2
     sy = 166 + (454 - shot.height) // 2
@@ -276,87 +277,48 @@ def _render_slide(slide: Slide, index: int) -> Image.Image:
     return renderers[slide.kind](index)
 
 
-def _render_thumbnail(first_slide: Image.Image) -> Image.Image:
-    image = first_slide.copy().convert("RGBA")
-    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    cx, cy = WIDTH // 2, HEIGHT // 2
-    draw.ellipse((cx - 60, cy - 60, cx + 60, cy + 60), fill=(5, 12, 20, 215))
-    draw.polygon(
-        ((cx - 17, cy - 31), (cx - 17, cy + 31), (cx + 37, cy)),
-        fill=(255, 255, 255, 245),
+def _gif_frame(image: Image.Image) -> Image.Image:
+    resized = image.resize(GIF_SIZE, Image.Resampling.LANCZOS)
+    return resized.convert(
+        "P",
+        palette=Image.Palette.ADAPTIVE,
+        colors=128,
+        dither=Image.Dither.NONE,
     )
-    return Image.alpha_composite(image, overlay).convert("RGB")
 
 
 def main() -> None:
-    video_dir = ROOT / "docs" / "video"
     image_dir = ROOT / "docs" / "images"
-    video_dir.mkdir(parents=True, exist_ok=True)
+    website_dir = ROOT / "website-demo" / "assets"
     image_dir.mkdir(parents=True, exist_ok=True)
-    output = video_dir / "rook-forge-demo.mp4"
-    thumbnail = image_dir / "rook-forge-video.png"
+    website_dir.mkdir(parents=True, exist_ok=True)
+    output = image_dir / "rook-demo.gif"
 
-    with tempfile.TemporaryDirectory(prefix="rook-demo-") as raw_temp:
-        temp = Path(raw_temp)
-        rendered: list[Path] = []
-        first_image: Image.Image | None = None
-        for index, slide in enumerate(SLIDES):
-            frame = _render_slide(slide, index)
-            if first_image is None:
-                first_image = frame.copy()
-            path = temp / f"slide-{index:02d}.png"
-            frame.save(path, optimize=True)
-            rendered.append(path)
+    slides = [_render_slide(slide, index) for index, slide in enumerate(SLIDES)]
+    frames: list[Image.Image] = [_gif_frame(slides[0])]
+    durations = [SLIDES[0].duration_ms]
+    for index, current in enumerate(slides[1:], start=1):
+        previous = slides[index - 1]
+        for step in range(1, TRANSITION_STEPS + 1):
+            ratio = step / (TRANSITION_STEPS + 1)
+            frames.append(_gif_frame(Image.blend(previous, current, ratio)))
+            durations.append(TRANSITION_DURATION_MS)
+        frames.append(_gif_frame(current))
+        durations.append(SLIDES[index].duration_ms)
 
-        assert first_image is not None
-        _render_thumbnail(first_image).save(thumbnail, optimize=True)
+    frames[0].save(
+        output,
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=True,
+        disposal=2,
+    )
+    shutil.copyfile(output, website_dir / output.name)
 
-        concat = temp / "slides.txt"
-        with concat.open("w", encoding="utf-8", newline="\n") as stream:
-            for path, slide in zip(rendered, SLIDES, strict=True):
-                safe_path = path.as_posix().replace("'", "'\\''")
-                stream.write(f"file '{safe_path}'\n")
-                stream.write(f"duration {slide.duration}\n")
-            stream.write(f"file '{rendered[-1].as_posix()}'\n")
-
-        command = [
-            imageio_ffmpeg.get_ffmpeg_exe(),
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(concat),
-            "-f",
-            "lavfi",
-            "-t",
-            str(sum(slide.duration for slide in SLIDES)),
-            "-i",
-            "anullsrc=channel_layout=stereo:sample_rate=44100",
-            "-vf",
-            "fps=24,format=yuv420p",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "slow",
-            "-crf",
-            "25",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "64k",
-            "-shortest",
-            "-movflags",
-            "+faststart",
-            str(output),
-        ]
-        subprocess.run(command, check=True)
-
-    seconds = sum(slide.duration for slide in SLIDES)
-    print(f"Rendered {output.relative_to(ROOT)} ({seconds}s)")
-    print(f"Rendered {thumbnail.relative_to(ROOT)}")
+    seconds = sum(durations) / 1000
+    print(f"Rendered {output.relative_to(ROOT)} ({seconds:.1f}s looping GIF)")
 
 
 if __name__ == "__main__":

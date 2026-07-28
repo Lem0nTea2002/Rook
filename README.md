@@ -23,7 +23,7 @@ useful enough to ship.
 
 ## Demo
 
-[![Watch the 60-second Rook product demo](docs/images/rook-forge-video.png)](docs/video/rook-forge-demo.mp4)
+![Rook product demo: Rookie startup, coding workflow, and Skill release gates](docs/images/rook-demo.gif)
 
 ## Quickstart
 
@@ -74,10 +74,12 @@ evidence, or content-hash mismatch.
 
 ## TUI
 
-![Rook Coding Agent and Rook Forge](docs/images/rook-tui-conversation.png)
+Rookie appears whenever the TUI starts, then steps aside after the first message.
 
-The screenshot is an offline deterministic documentation scene rendered with Rook's
-real Textual components. It is not presented as a live model result.
+![Rook startup screen with Rookie](docs/images/rook-tui-welcome.png)
+
+The mascot uses terminal-native color blocks, so it works without Kitty/Sixel image
+support. The screenshot is rendered offline with Rook's real Textual components.
 
 ## Verified results
 
