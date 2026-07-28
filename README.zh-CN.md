@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/rook-logo.png" alt="Rook logo" width="156">
+  <img src="assets/rookie-mascot.png" alt="Rook Coding Agent 的 Rookie 菜鸟吉祥物" width="184">
 </p>
 
 <h1 align="center">Rook</h1>
@@ -67,18 +67,29 @@ rook eval demo
 命令只使用确定性 Fake Agent 和隔离的本地 Registry，不产生网络或模型调用。
 版本库中的 dogfood 记录保留了真实审批/发布 id 和制品哈希。
 
+运行打磨后的 Issue → 人工审阅 Draft PR 演示：
+
+```sh
+rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo
+```
+
+第二条演示会创建真实本地 Git 分支、计划、代码补丁、测试结果、确定性
+Gate、哈希链贡献账本和可直接审阅的 PR 文案。它不调用模型，并有意停在
+GitHub 写入之前，确保发布仍是显式人工动作。详见
+[Issue → PR 演示说明](docs/ISSUE_TO_PR_DEMO.md)。
+
 ## 指标
 
 | 证据 | 结果 | 边界 |
 | --- | --- | --- |
-| 发布 | [v0.2.5](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.5)，wheel + sdist，7 个必需 PR check 全绿 | 已发布并做全新环境安装验证 |
+| 发布 | [v0.2.6](https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6)，wheel + sdist | Rookie UI 与 Issue-to-PR 增强版；承接已发布的 PR #19 里程碑 v0.2.5 |
 | 跨平台 CI | Ubuntu：1804 passed / 7 skipped；Windows：1805 passed / 6 skipped；Python 3.11/3.12；EvalOps 覆盖率 85.11% | 离线，无 Codex 进程和模型费用；覆盖率按两位小数严格门禁 |
 | Adapter v11 readiness | 在此前 profile 失败边界上 2/2 终态；轨迹完整度 100%；基础设施排除 0 | 仅证明就绪，单配对不是效果估计 |
 | `gpt-5.4-mini` Pilot | 24/24 次、12 个可比配对；Baseline 25% → Forced 100%（+75pp）；时延 -22.7%；Token -12.9%；新增回归 0 | 真实 Pilot，**不是** Formal |
 | 真实仓库 live holdout | 16/16 次调用、8 个有效配对、轨迹完整度 100%、基础设施排除 0 | 两个独立 Candidate 均因新增回归被拒绝；不声称效果提升，也未部署 |
 | Candidate v5 两仓库 holdout | 24/24 次、12 个有效配对；Baseline 33.3% → Forced 91.7%（+58.3pp）；能力任务提升 +87.5pp（bootstrap 95% CI：+62.5pp～+100pp）；新增回归 0 | 基于固定仓库形态案例的真实配对测量；中位时延增加 23.6%、Token 增加 10.8%；measurement-only |
 | Formal 发布生命周期 | 内容不同的 v5 独立通过 72-call Formal → 人工审批 → 仓库级 Codex v1→v5 部署；审计链修复期间真实执行 v5→v1 回滚后完成最终重部署 | 真实模型门禁、真实本地回滚和真实后继版本部署 |
-| Rook Coding Agent dogfood v2 | 10 个隔离任务，9 成功 / 1 失败；106 次 Provider 调用、观测到 738,729 Tokens、无关 Skill 误选 0 | 真实 DeepSeek 运行，单任务 20 次/总计 200 次硬上限；v1/v2 任务集不同，效率变化仅作方向性观察 |
+| Rook Coding Agent dogfood v3 | 10/10 个固定隔离任务通过；97 次 Provider 尝试事件、观测到 649,145 Tokens、中位时延 28.175 秒；干净终止 9/10 | 真实 `deepseek-v4-flash` 运行，单任务 12 次/总计 120 次硬上限；一个已通过任务在 Provider 上限终止；不是完整上游仓库运行 |
 | 治理 dogfood | 4 次审批、4 次部署、漂移发现/恢复、2 次原子回滚 | 真实本地控制面；Fake Agent 考试 |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 次、36 个可比配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；中位工具调用 -33.3%；新增回归 0 | 内容不同的 v5 使用 sealed holdout；轨迹完整度 100%；基础设施排除 0；美元成本和路由未观测 |
 | 完整仓库任务目录 | 24 个固定 SWE-bench Lite 任务，覆盖 pytest、scikit-learn、Sphinx；11 个关联 Issue + 13 个明确标记的维护 PR | 历史可复现任务；隐藏验证字段不暴露；不冒充新上游 PR |
@@ -90,7 +101,8 @@ rook eval demo
 [Candidate v5 两仓库 holdout](docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json) ·
 [Formal 发布生命周期](docs/evidence/rm2-formal-release-2026-07-27.json) ·
 [后继 v5 Formal 与发布](docs/evidence/rm2-v5-formal-release-2026-07-27.json) ·
-[Rook 真实 Coding dogfood v2](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
+[Rook 真实 Coding dogfood v3](docs/evidence/rook-coding-dogfood-v3-2026-07-28.json) ·
+[此前 v2 dogfood](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
 [原始五任务 dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
 [治理生命周期记录](docs/evidence/forge-lifecycle-2026-07-24.json) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
@@ -141,7 +153,7 @@ rook eval demo
 推荐用 `pipx` 安装已打标签的 GitHub release：
 
 ```sh
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.5"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
 ```
 
 也可以从本地克隆目录安装：
@@ -211,9 +223,9 @@ export ROOK_API_KEY="your-api-key"
 
 Rook 的 TUI 不是为了把 agent loop 藏起来，而是为了把它展示出来。你可以在一个界面里看到 session 状态、流式输出、工具调用、工具结果和权限请求。
 
-空闲状态：
+Rookie 空闲状态：
 
-![Rook 空闲状态](docs/images/rook-ready.png)
+![Rookie 空闲状态](docs/images/rookie-tui.png)
 
 基础对话流：
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import asyncio
+import threading
 import time
 
 import pytest
@@ -89,6 +90,18 @@ class SlowContextBuilder:
 
     def build_provider_messages(self, view, *, system_prefix=None, checkpoint=None):
         time.sleep(self.delay_seconds)
+        return list(system_prefix or [])
+
+
+class CoordinatedContextBuilder:
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def build_provider_messages(self, view, *, system_prefix=None, checkpoint=None):
+        self.started.set()
+        if not self.release.wait(timeout=2):
+            raise TimeoutError("test did not release the context builder")
         return list(system_prefix or [])
 
 
@@ -514,25 +527,28 @@ async def test_agent_chat_runner_streaming_does_not_block_event_loop_during_setu
     provider = FakeStreamingProvider(
         [ChatResponse(provider="fake-stream", model="fake-stream-model", content="streamed")]
     )
+    context_builder = CoordinatedContextBuilder()
     runner = AgentChatRunner(
         current_session=state,
         provider=provider,
-        context_builder=SlowContextBuilder(delay_seconds=0.08),
+        context_builder=context_builder,
         use_streaming=True,
     )
     ticks = 0
-    deadline = time.monotonic() + 0.04
 
     async def ticker() -> None:
         nonlocal ticks
-        while time.monotonic() < deadline:
+        while not context_builder.started.is_set():
+            await asyncio.sleep(0)
+        for _ in range(3):
             ticks += 1
             await asyncio.sleep(0)
+        context_builder.release.set()
 
     response, _ = await asyncio.gather(runner.arun_user_turn("你好"), ticker())
 
     assert response.content == "streamed"
-    assert ticks > 1
+    assert ticks == 3
 
 
 @pytest.mark.anyio

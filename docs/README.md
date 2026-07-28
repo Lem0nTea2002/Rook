@@ -36,6 +36,9 @@ Read in this order if you are new to the codebase:
 
 For a one-command, zero-cost walkthrough before reading the internals, run
 `rook eval demo` and follow [Offline Rook Forge Demo](DEMO.md).
+To demonstrate the application-facing delivery loop, run
+`rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo`
+and follow [Issue to Reviewed Draft PR](ISSUE_TO_PR_DEMO.md).
 
 Each design document contains a runnable observation and links to relevant
 tests. Read code with the document open; the goal is to build an executable
@@ -64,6 +67,7 @@ score.
 - [SWE-bench Lite Runbook](SWE_LITE_RUNBOOK.md) / [中文](SWE_LITE_RUNBOOK.zh-CN.md)
 - [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) / [中文](PORTFOLIO_EVIDENCE.zh-CN.md)
 - [Offline Rook Forge Demo](DEMO.md)
+- [Issue to Reviewed Draft PR](ISSUE_TO_PR_DEMO.md)
 - [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md)
 - [Live upstream contribution track](UPSTREAM_CONTRIBUTIONS.md)
 - [Codex Formal Hardening Timeline](incidents/CODEX_FORMAL_HARDENING.md)

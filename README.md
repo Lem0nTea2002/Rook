@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/rook-logo.png" alt="Rook logo" width="156">
+  <img src="assets/rookie-mascot.png" alt="Rookie, the Rook coding-agent mascot" width="184">
 </p>
 
 <h1 align="center">Rook</h1>
@@ -69,18 +69,30 @@ The command uses deterministic Fake Agents and an isolated local Registry. It
 makes no network/model call. A checked-in dogfood record contains real approval
 and release IDs plus artifact hashes.
 
+Run the polished Issue → reviewed Draft PR workflow:
+
+```sh
+rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo
+```
+
+This second demo creates a real local Git branch, plan, code patch, test run,
+deterministic gate, hash-chained contribution ledger, and review-ready PR body.
+It makes zero model calls and deliberately stops before a GitHub write so that
+publishing remains an explicit human action. See the
+[Issue-to-PR walkthrough](docs/ISSUE_TO_PR_DEMO.md).
+
 ## Metrics
 
 | Evidence | Result | Boundary |
 | --- | --- | --- |
-| Release | [v0.2.5](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.5), wheel + sdist, seven required PR checks green | Published and fresh-install verified |
+| Release | [v0.2.6](https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6), wheel + sdist | Rookie UI and Issue-to-PR release; supersedes the published PR #19 milestone v0.2.5 |
 | Cross-platform CI | Ubuntu: 1804 passed / 7 skipped; Windows: 1805 passed / 6 skipped; Python 3.11/3.12; EvalOps 85.11% coverage | Offline; no Codex process or model cost; coverage enforced at two-decimal precision |
 | Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
 | Real-repository live holdouts | 16/16 calls, 8 valid pairs, 100% trace completeness, 0 infrastructure exclusions | Both independent Candidates rejected for new regressions; no improvement claim or deployment |
 | Candidate v5 two-repository holdout | 24/24 calls, 12 valid pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp (bootstrap 95% CI +62.5pp to +100pp); 0 new regressions | Real paired measurement on pinned repository-shaped cases; median latency +23.6% and Token +10.8%; measurement-only |
 | Formal release lifecycle | Content-distinct v5 passed an independent 72-call Formal → human approval → repository-level Codex v1→v5 deployment; an audit-chain repair exercised a real v5→v1 rollback before the final redeploy | Real model gate, real local rollback, and real successor deployment |
-| Rook Coding Agent dogfood v2 | 10 isolated tasks, 9 passed / 1 failed; 106 provider calls, 738,729 observed Tokens, 0 unrelated Skill selections | Honest DeepSeek live run with a 20-call/task and 200-call total ceiling; v1/v2 task sets differ, so efficiency comparison is directional, not causal |
+| Rook Coding Agent dogfood v3 | 10/10 frozen isolated tasks passed; 97 Provider-attempt events, 649,145 observed Tokens, 28.175s median; clean termination 9/10 | Honest `deepseek-v4-flash` live run with a 12-call/task and 120-call total ceiling; one passing task ended at the Provider limit; not a full-upstream-repository run |
 | Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; median tool calls -33.3%; 0 new regressions | Content-distinct v5 on a sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
 | Full-repository catalog | 24 pinned SWE-bench Lite tasks across pytest, scikit-learn, and Sphinx; 11 linked Issues + 13 explicit maintenance PRs | Historical reproducible tasks; hidden verifier fields excluded; not new upstream PR submissions |
@@ -92,7 +104,8 @@ Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [Candidate v5 two-repository holdout](docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json) ·
 [Formal release lifecycle](docs/evidence/rm2-formal-release-2026-07-27.json) ·
 [successor v5 Formal and release](docs/evidence/rm2-v5-formal-release-2026-07-27.json) ·
-[Rook live coding dogfood v2](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
+[Rook live coding dogfood v3](docs/evidence/rook-coding-dogfood-v3-2026-07-28.json) ·
+[prior v2 dogfood](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
 [original five-task dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
 [lifecycle record](docs/evidence/forge-lifecycle-2026-07-24.json) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
@@ -143,7 +156,7 @@ Detailed subsystem design lives in the docs, not in this README.
 Install the tagged GitHub release with `pipx`:
 
 ```sh
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.5"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
 ```
 
 Or install from a local clone:
@@ -215,9 +228,9 @@ Provider support is centered on the OpenAI Chat Completions-compatible path. The
 
 Rook's TUI is designed to expose the agent loop instead of hiding it. You can see session state, streamed assistant output, tool calls, tool results, and permission prompts in one place.
 
-Ready state:
+Rookie ready state:
 
-![Rook ready state](docs/images/rook-ready.png)
+![Rookie ready state](docs/images/rookie-tui.png)
 
 Conversation flow:
 

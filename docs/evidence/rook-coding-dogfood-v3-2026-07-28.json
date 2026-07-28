@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "rook_coding_agent_live_dogfood_v3",
+  "recorded_at": "2026-07-28",
+  "authorization": {
+    "requested_task_count": 10,
+    "external_model_calls_allowed": true,
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "max_provider_calls_per_task": 12,
+    "max_provider_calls_total": 120,
+    "provider_attempt_events_observed": 97,
+    "token_observations": 96,
+    "budget_exceeded": false,
+    "codex_calls": 0
+  },
+  "isolation": {
+    "task_definition": "benchmark/rook_dogfood/tasks.v2.jsonl",
+    "task_definition_sha256": "8daaa0b0599953fee52e5aaaa84a105b547b49f27346a97bb82b661f9f905991",
+    "local_summary_sha256": "dd59328e5220869d14cdfedc9f9f16261781c5b97926f0622345d26c6b3ea5b6",
+    "repository_count": 2,
+    "network_requested_by_tasks": false,
+    "deterministic_validators": true,
+    "raw_sessions_committed": false,
+    "reason_raw_sessions_not_committed": "Local session events may contain prompts and tool output. Only hashes and bounded telemetry are public."
+  },
+  "aggregate": {
+    "coding_tasks": 10,
+    "tasks_passed": 10,
+    "tasks_failed": 0,
+    "task_success_rate": 1.0,
+    "clean_stop_tasks": 9,
+    "provider_limit_stop_tasks": 1,
+    "clean_terminal_rate": 0.9,
+    "trace_complete_tasks": 10,
+    "trace_completeness_rate": 1.0,
+    "provider_attempt_events": 97,
+    "tool_results": 98,
+    "input_tokens": 632950,
+    "output_tokens": 16195,
+    "total_tokens": 649145,
+    "average_provider_attempts_per_task": 9.7,
+    "average_tokens_per_task": 64914.5,
+    "elapsed_seconds_total": 278.085,
+    "elapsed_seconds_median": 28.175,
+    "tasks_with_unrelated_skill_selection": 0,
+    "tasks_with_loaded_skills": 0,
+    "usd_cost": null,
+    "usd_cost_observed": false
+  },
+  "tasks": [
+    {
+      "id": "DF2-RK-001",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 32.414,
+      "provider_attempt_events": 12,
+      "tool_results": 14,
+      "total_tokens": 81621,
+      "session_sha256": "a575c33c7881f84a10aee09020f491d231922bb84904681c237d5e827694012e"
+    },
+    {
+      "id": "DF2-RK-002",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "provider_call_limit",
+      "elapsed_seconds": 34.516,
+      "provider_attempt_events": 13,
+      "tool_results": 12,
+      "total_tokens": 82736,
+      "session_sha256": "b1ab74df2ffaaa0761510b18304d83f56c29186b77292712dc0605aae9f38543"
+    },
+    {
+      "id": "DF2-RK-003",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 21.722,
+      "provider_attempt_events": 7,
+      "tool_results": 8,
+      "total_tokens": 44991,
+      "session_sha256": "b67face4efb7cbb0decb542490f63530e1d067890d0f9bfce30041edaccf1352"
+    },
+    {
+      "id": "DF2-RK-004",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 26.848,
+      "provider_attempt_events": 7,
+      "tool_results": 7,
+      "total_tokens": 47331,
+      "session_sha256": "becf35f0fddbf12f9a20414622b92374a77910a2a81b185086ba4fbe10133611"
+    },
+    {
+      "id": "DF2-RK-005",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 29.501,
+      "provider_attempt_events": 10,
+      "tool_results": 11,
+      "total_tokens": 70359,
+      "session_sha256": "83888a3fb49017c4e1c1a5a494a2286604ae6f576e53916a6ec09dcc33392549"
+    },
+    {
+      "id": "DF2-RK-006",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 25.063,
+      "provider_attempt_events": 11,
+      "tool_results": 11,
+      "total_tokens": 73358,
+      "session_sha256": "e317a259651f051999be777fbf88dea434da43cc1a723ca8e183f3bf7a6b0945"
+    },
+    {
+      "id": "DF2-RAG-007",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 22.09,
+      "provider_attempt_events": 8,
+      "tool_results": 9,
+      "total_tokens": 52477,
+      "session_sha256": "df55f075f86d856ee08c0d03fc9ad329df6e851bfa068d21c5f39245fdb70a35"
+    },
+    {
+      "id": "DF2-RAG-008",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 30.378,
+      "provider_attempt_events": 10,
+      "tool_results": 9,
+      "total_tokens": 69006,
+      "session_sha256": "6ba08d38f2610e44f2f96d21c19ba677a519308f5a7901f416636ef424551079"
+    },
+    {
+      "id": "DF2-RK-009",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 30.417,
+      "provider_attempt_events": 12,
+      "tool_results": 11,
+      "total_tokens": 78766,
+      "session_sha256": "5bdd8e5d3fe0cf23eef5b7a966efdaf32fa86b80deb9df57d0849b9b6d2eb8ca"
+    },
+    {
+      "id": "DF2-RK-010",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "finish_reason": "stop",
+      "elapsed_seconds": 25.136,
+      "provider_attempt_events": 7,
+      "tool_results": 6,
+      "total_tokens": 48500,
+      "session_sha256": "b84bf6eafba337950052434b5bcd6c0d964a4051284ba73ff2479aec2623a7b6"
+    }
+  ],
+  "comparison_to_v2": {
+    "same_frozen_task_definition": true,
+    "v2_success_rate": 0.9,
+    "v3_success_rate": 1.0,
+    "v2_average_provider_calls_per_task": 10.6,
+    "v3_average_provider_attempts_per_task": 9.7,
+    "v2_average_tokens_per_task": 73872.9,
+    "v3_average_tokens_per_task": 64914.5,
+    "directional_provider_attempt_change": -0.08490566037735849,
+    "directional_token_change": -0.12126320332755223,
+    "claim_boundary": "The task definitions are frozen, but this is an unpaired rerun with stochastic model output. Changes are descriptive, not a causal effect estimate."
+  },
+  "terminal_note": {
+    "task_id": "DF2-RK-002",
+    "detail": "The deterministic test command passed, but the Agent attempted one additional provider step after the configured twelve-call ceiling. The runner stopped it with provider_call_limit, so the task counts as functionally passed but not cleanly terminated."
+  },
+  "claim_boundary": "This is live dogfood of the Rook Coding Agent on ten frozen, isolated repository-shaped tasks with deterministic validators. It is not a Skill-effect A/B result, not execution over complete upstream repositories, and USD cost was not observed."
+}

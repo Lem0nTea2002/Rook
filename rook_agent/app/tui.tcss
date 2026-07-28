@@ -1,7 +1,7 @@
 Screen {
     layout: vertical;
-    background: #0f1014;
-    color: #cfd1d6;
+    background: #0b1117;
+    color: #d8e4e8;
     overflow: hidden;
 }
 
@@ -24,7 +24,7 @@ ScrollBarCorner {
 
 #main {
     height: 1fr;
-    background: #0f1014;
+    background: #0b1117;
     overflow: hidden;
 }
 
@@ -32,16 +32,16 @@ ScrollBarCorner {
     height: auto;
     min-height: 2;
     padding: 0 2;
-    background: #0f1014;
-    color: #6e6d72;
-    border-bottom: solid #303238;
+    background: #101a22;
+    color: #8a9aa4;
+    border-bottom: solid #263d46;
     text-style: none;
 }
 
 #output {
     height: 1fr;
     padding: 1 3;
-    background: #0f1014;
+    background: #0b1117;
 }
 
 #output.welcome-active {
@@ -52,54 +52,55 @@ ScrollBarCorner {
     width: 100%;
     margin: 0;
     padding: 0;
-    background: #0f1014;
-    color: #cfd1d6;
+    background: #0b1117;
+    color: #d8e4e8;
 }
 
 .composer {
     height: auto;
     max-height: 9;
-    margin: 0 2 0 2;
-    background: #0f1014;
-    border-top: solid #626263;
+    margin: 0 2 1 2;
+    padding: 0 1;
+    background: #101a22;
+    border: round #2a6968;
 }
 
 #input {
     height: 3;
     margin: 0;
     padding: 0 1;
-    background: #0f1014;
+    background: #101a22;
     background-tint: transparent;
-    color: #808185;
+    color: #8a9aa4;
     border: none;
 }
 
 #input:focus {
-    background: #0f1014;
+    background: #101a22;
     background-tint: transparent;
-    color: #cfd1d6;
+    color: #f5fcfa;
     border: none;
 }
 
 #input > .input--cursor {
-    background: #cfd1d6;
-    color: #0f1014;
+    background: #81e8bb;
+    color: #07131b;
     text-style: none;
 }
 
 #input > .input--selection {
-    background: #0f1014;
-    color: #cfd1d6;
+    background: #203b43;
+    color: #f5fcfa;
 }
 
 #input > .text-area--placeholder {
-    color: #808185;
+    color: #74858f;
 }
 
 .activity-line {
     height: 1;
     margin: 0 3;
-    color: #527c3b;
+    color: #81e8bb;
 }
 
 .todo-panel {
@@ -107,9 +108,9 @@ ScrollBarCorner {
     max-height: 8;
     margin: 0 3 1 3;
     padding: 0 1;
-    color: #cfd1d6;
-    background: #0f1014;
-    border-left: solid #7bba55;
+    color: #d8e4e8;
+    background: #101a22;
+    border-left: solid #18cfcb;
 }
 
 .todo-panel.hidden {
@@ -120,7 +121,7 @@ ScrollBarCorner {
     width: 100%;
     margin: 0 0 1 0;
     padding: 0 1 0 1;
-    background: #0f1014;
+    background: #0b1117;
 }
 
 .system-message,
@@ -137,21 +138,21 @@ ScrollBarCorner {
 .tool-failed,
 .tool-skipped,
 .tool-denied {
-    color: #808185;
-    background: #0f1014;
-    border-left: solid #666769;
+    color: #8a9aa4;
+    background: #0b1117;
+    border-left: solid #43535c;
 }
 
 .user-message {
-    color: #cfd1d6;
-    background: #0f1014;
-    border-left: solid #50b7c2;
+    color: #f5fcfa;
+    background: #0e1820;
+    border-left: solid #45e6df;
 }
 
 .assistant-message {
-    color: #cfd1d6;
-    background: #0f1014;
-    border-left: solid #7bba55;
+    color: #f5fcfa;
+    background: #0e1817;
+    border-left: solid #81e8bb;
 }
 
 .assistant-message MarkdownBlock {
@@ -159,23 +160,23 @@ ScrollBarCorner {
 }
 
 .reasoning-message {
-    color: #527c3b;
-    border-left: solid #7bba55;
+    color: #81bca7;
+    border-left: solid #81e8bb;
 }
 
 .permission-message,
 .permission-requested {
-    color: #b28443;
-    background: #0f1014;
-    border-left: solid #b28443;
+    color: #f6c453;
+    background: #17150f;
+    border-left: solid #f6c453;
 }
 
 .error-message {
-    color: #c85f5f;
-    background: #0f1014;
-    border-left: solid #c85f5f;
+    color: #ff8278;
+    background: #1a1012;
+    border-left: solid #ff8278;
 }
 
 .streaming {
-    border-left: solid #7bba55;
+    border-left: solid #81e8bb;
 }

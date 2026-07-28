@@ -19,6 +19,9 @@
 9. [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)：查看两个公开仓库、四个隐藏 Validator 案例及其隔离边界。
 
 如果想先用一条命令、零模型费用体验完整链路，请运行 `rook eval demo`，并查看 [Rook Forge 离线演示](DEMO.md)。
+如果想演示面向应用的交付链路，请运行
+`rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo`，
+并查看 [Issue → 人工审阅 Draft PR](ISSUE_TO_PR_DEMO.md)。
 
 每篇设计文档都提供可观察的小实验和相关测试。建议边读边开源码；目标不是背文件名，而是建立能实际排障的运行模型。
 
@@ -43,6 +46,7 @@
 - [SWE-bench Lite 手册](SWE_LITE_RUNBOOK.zh-CN.md) / [English](SWE_LITE_RUNBOOK.md)
 - [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md) / [English](PORTFOLIO_EVIDENCE.md)
 - [Rook Forge 离线演示](DEMO.md)
+- [Issue → 人工审阅 Draft PR](ISSUE_TO_PR_DEMO.md)
 - [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)
 - [Codex Formal 加固时间线](incidents/CODEX_FORMAL_HARDENING.md)
 - [技术文章：把 Skill 当成软件发布](articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
