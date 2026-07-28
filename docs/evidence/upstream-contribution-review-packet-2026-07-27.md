@@ -1,7 +1,7 @@
 # Upstream contribution batch 1: human review packet
 
-Status: human review completed on 2026-07-28; no pull request has been
-submitted.
+Status: human review completed on 2026-07-28. The pytest patch was submitted
+as Draft PR #14789; the scikit-learn and Sphinx patches remain unsubmitted.
 
 The three claim comments were published by `Lem0nTea2002`. The same account
 must perform any later upstream submission so that the public issue and pull
@@ -13,6 +13,7 @@ request provenance remains unambiguous.
 - Base: `70f8650a624c92f91c94dd26b391326df2ea4143`
 - Branch: `rook/pytest-14771-frozen-docs`
 - Reviewed local commit: `dc5731148730fb5aed15c3795507fff32affe3c0`
+- Draft PR: <https://github.com/pytest-dev/pytest/pull/14789>
 - Claim:
   <https://github.com/pytest-dev/pytest/issues/14771#issuecomment-5092887093>
 - Changed files:

@@ -3,7 +3,7 @@
   "evidence_kind": "upstream_contribution_batch",
   "batch_id": "upstream-batch-1",
   "observed_at": "2026-07-27",
-  "status": "reviewed",
+  "status": "partially_submitted",
   "external_model_calls": false,
   "model_costs": false,
   "selection_policy": {
@@ -26,11 +26,12 @@
       "title": "--pyargs test discovery still fails in frozen application",
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "reviewed",
+      "selection_status": "submitted",
       "proposed_scope": "Clarify the frozen-application documentation and add a filesystem-backed test-data example; do not claim that pytest can collect tests stored only inside a PyInstaller PYZ archive.",
       "blocking_reason": "Current pytest collection is Path-based and the PyInstaller code archive does not expose test modules as filesystem paths. A new archive collector would be an architectural change, so only a documentation scope is eligible without maintainer design approval.",
       "reviewed_commit": "dc5731148730fb5aed15c3795507fff32affe3c0",
-      "human_action_required": "Create or authenticate a fork under the claiming account before deciding whether to submit the reviewed patch."
+      "pull_request_url": "https://github.com/pytest-dev/pytest/pull/14789",
+      "human_action_required": "Monitor CI and respond personally to maintainer review."
     },
     {
       "repository": "scikit-learn/scikit-learn",
@@ -112,6 +113,6 @@
   "withdrawals": [],
   "review_packet": "docs/evidence/upstream-contribution-review-packet-2026-07-27.md",
   "event_ledger": "docs/evidence/upstream-contribution-ledger-2026-07-27.jsonl",
-  "event_count": 23,
-  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. No pull request, upstream review, or merge is claimed. Publication remains blocked on forks under the claiming account and repository-specific submission rules."
+  "event_count": 24,
+  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. Pytest Draft PR #14789 is submitted; scikit-learn and Sphinx remain unsubmitted. No upstream approval or merge is claimed."
 }
