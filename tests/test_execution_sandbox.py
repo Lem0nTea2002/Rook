@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from rook_agent.utils.execution_sandbox import ExecutionSandbox
+import rook_agent.utils.execution_sandbox as execution_sandbox_module
 from rook_agent.utils.sandbox_access import SandboxAccess, SandboxAccessMode
 
 
@@ -56,3 +57,33 @@ def test_execution_sandbox_unrestricted_allows_cwd_outside_root(tmp_path):
     sandbox = ExecutionSandbox(tmp_path, access=access)
 
     assert sandbox.resolve_cwd(Path("..")) == tmp_path.parent.resolve()
+
+
+def test_windows_shell_uses_pwsh_without_loading_profile(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        from rook_agent.utils.subprocess import CommandResult
+
+        return CommandResult(0, "", "", False, False, True)
+
+    monkeypatch.setattr(execution_sandbox_module, "run_command", fake_run)
+    sandbox = ExecutionSandbox(
+        tmp_path,
+        platform_name="nt",
+        command_finder=lambda name: "C:/Program Files/PowerShell/7/pwsh.exe",
+    )
+
+    sandbox.run("Get-Location", shell=True)
+
+    assert captured["command"] == [
+        "C:/Program Files/PowerShell/7/pwsh.exe",
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-Location",
+    ]
+    assert captured["shell"] is False

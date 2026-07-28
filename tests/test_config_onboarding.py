@@ -120,6 +120,7 @@ def test_setup_reuses_existing_config_and_only_collects_missing_credential(
         project_root=tmp_path,
         env={},
         prompter=prompter,
+        credential_reader=lambda name: None,
         credential_writer=lambda name, value: stored.append((name, value)),
     )
 

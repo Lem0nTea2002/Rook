@@ -6,7 +6,9 @@ import subprocess
 import sys
 import threading
 import time
+import signal
 
+import rook_agent.utils.subprocess as subprocess_utils
 
 from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.utils.subprocess import CommandResult, run_command
@@ -147,3 +149,57 @@ class TestRunCommand:
         assert result.ok is False
         assert result.error == "命令已中断"
         assert elapsed < 2
+
+
+class _FakeTreeProcess:
+    def __init__(self, *, stopped_after_tree_kill: bool = True) -> None:
+        self.pid = 4321
+        self.stopped_after_tree_kill = stopped_after_tree_kill
+        self.terminated = False
+        self.killed = False
+
+    def poll(self):
+        return 1 if self.stopped_after_tree_kill else None
+
+    def wait(self, timeout=None):
+        if self.terminated or self.killed:
+            return 1
+        raise subprocess.TimeoutExpired(["fake"], timeout=timeout)
+
+    def terminate(self):
+        self.terminated = True
+
+    def kill(self):
+        self.killed = True
+
+
+def test_windows_cancellation_uses_taskkill_for_complete_tree(monkeypatch):
+    process = _FakeTreeProcess()
+    calls = []
+    monkeypatch.setattr(subprocess_utils, "_IS_WINDOWS", True)
+    monkeypatch.setattr(
+        subprocess_utils.subprocess,
+        "run",
+        lambda command, **kwargs: calls.append((command, kwargs)),
+    )
+
+    subprocess_utils._terminate_process(process)
+
+    assert calls[0][0] == ["taskkill", "/PID", "4321", "/T", "/F"]
+    assert process.terminated is False
+
+
+def test_posix_cancellation_uses_isolated_process_group(monkeypatch):
+    process = _FakeTreeProcess(stopped_after_tree_kill=False)
+    signals = []
+    monkeypatch.setattr(subprocess_utils, "_IS_WINDOWS", False)
+
+    def kill_group(pid, sig):
+        signals.append((pid, sig))
+        process.terminated = True
+
+    monkeypatch.setattr(subprocess_utils.os, "killpg", kill_group, raising=False)
+
+    subprocess_utils._terminate_process(process)
+
+    assert signals == [(4321, signal.SIGTERM)]

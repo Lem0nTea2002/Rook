@@ -81,6 +81,13 @@ class TuiTranscript:
         self.entries.append(entry)
         return entry
 
+    def visible_entries(self, limit: int) -> tuple[TuiTranscriptEntry, ...]:
+        """Return the mounted window while retaining the complete state list."""
+
+        if limit <= 0:
+            return ()
+        return tuple(self.entries[-limit:])
+
     def record_tool_activity(self, name: str, status: str, summary: str = "") -> TuiToolActivity:
         activity = TuiToolActivity(name=name, status=status, summary=summary)
         if status == "running":

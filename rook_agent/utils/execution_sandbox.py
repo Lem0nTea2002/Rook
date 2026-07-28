@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
+from collections.abc import Callable
 
 from rook_agent.agent.cancellation import current_cancellation_token
 from rook_agent.utils.sandbox_access import SandboxAccess
@@ -21,9 +23,18 @@ class ExecutionSandbox:
     a command may run; this class constrains how approved subprocesses run.
     """
 
-    def __init__(self, root: str | Path, *, access: SandboxAccess | None = None) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        access: SandboxAccess | None = None,
+        platform_name: str | None = None,
+        command_finder: Callable[[str], str | None] = shutil.which,
+    ) -> None:
         self.path_sandbox = PathSandbox(root, access=access)
         self.root = self.path_sandbox.root
+        self.platform_name = platform_name or os.name
+        self.command_finder = command_finder
 
     def resolve_cwd(self, cwd: str | Path | None = ".") -> Path:
         return self.path_sandbox.resolve_validated(cwd, expect="dir")
@@ -60,14 +71,38 @@ class ExecutionSandbox:
                 ok=False,
                 error=str(exc),
             )
+        resolved_command, resolved_shell = self._shell_boundary(command, shell=shell)
         return run_command(
-            command,
+            resolved_command,
             cwd=workdir,
             timeout_seconds=timeout_seconds,
             max_output_chars=max_output_chars,
-            shell=shell,
+            shell=resolved_shell,
             env=self.build_env(extra_env),
             cancellation_token=current_cancellation_token(),
+        )
+
+    def _shell_boundary(
+        self,
+        command: list[str] | str,
+        *,
+        shell: bool,
+    ) -> tuple[list[str] | str, bool]:
+        if not shell or self.platform_name != "nt" or not isinstance(command, str):
+            return command, shell
+        pwsh = self.command_finder("pwsh")
+        if pwsh is None:
+            return command, shell
+        return (
+            [
+                pwsh,
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                command,
+            ],
+            False,
         )
 
 

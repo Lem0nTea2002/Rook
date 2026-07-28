@@ -33,6 +33,10 @@ os.environ["TEXTUAL_COLOR_SYSTEM"] = "truecolor"
 # below the deterministic documentation environment setup.
 from rich.console import ColorSystem  # noqa: E402
 
+from rook_agent.app.command_registry import CommandRegistry  # noqa: E402
+from rook_agent.app.commands import CommandResult  # noqa: E402
+from rook_agent.app.help_commands import BUILTIN_COMMAND_SPECS  # noqa: E402
+from rook_agent.app.router import CompositeCommandHandler  # noqa: E402
 from rook_agent.app.tui import RookApp, RookTuiConfig  # noqa: E402
 from rook_agent.app.tui_state import TuiEntryKind  # noqa: E402
 
@@ -57,9 +61,38 @@ class Scene:
     name: str
     activity: str
     entries: tuple[SceneEntry, ...]
+    show_command_palette: bool = False
+
+
+class DocsCommandHandler:
+    def handle(self, text: str) -> CommandResult:
+        return CommandResult(handled=True, output=f"演示命令：{text}")
+
+
+def _docs_command_handler() -> CompositeCommandHandler:
+    handler = DocsCommandHandler()
+    registry = CommandRegistry()
+    for spec in BUILTIN_COMMAND_SPECS:
+        registry.register(spec, handler)
+    return CompositeCommandHandler([handler], registry=registry)
 
 
 SCENES = (
+    Scene(
+        name="workbench",
+        activity="idle · command palette",
+        entries=(
+            SceneEntry(
+                TuiEntryKind.SYSTEM,
+                "Coding Workbench：输出可选择复制；/ 管理会话与工具；@ 引用文件；! 运行受控命令。",
+            ),
+            SceneEntry(
+                TuiEntryKind.TOOL,
+                "git status · success · 0.4s\n  工作树 clean；命令已通过权限与执行边界。",
+            ),
+        ),
+        show_command_palette=True,
+    ),
     Scene(
         name="conversation",
         activity="idle · ready",
@@ -156,6 +189,7 @@ async def _render_welcome() -> str:
 
 async def _render_scene(scene: Scene) -> str:
     app = RookApp(
+        command_handler=_docs_command_handler(),
         config=RookTuiConfig(
             title="Rook",
             provider_name="OpenAI-compatible",
@@ -173,6 +207,11 @@ async def _render_scene(scene: Scene) -> str:
         for entry in scene.entries:
             app._write_line(entry.body, kind=entry.kind)
         app._set_activity(scene.activity)
+        if scene.show_command_palette:
+            input_widget = app.query_one("#input")
+            input_widget.load_text("/")
+            input_widget.cursor_location = input_widget.document.end
+            app._refresh_command_palette("/")
         await pilot.pause()
         return _normalize_svg(app.export_screenshot(title=f"Rook TUI · {scene.name}"))
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from rook_agent.app.command_actions import NewSessionAction, OpenPickerAction
 from rook_agent.app.commands import ContextCommandHandler
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import CurrentSessionState
@@ -98,14 +99,14 @@ def test_resume_without_id_returns_picker_action(tmp_path: Path) -> None:
     result = handler.handle("/resume")
 
     assert result.handled is True
-    assert result.action == {
-        "type": "resume_picker",
-        "selected_index": 0,
-        "sessions": [
+    assert result.action == OpenPickerAction(
+        kind="resume",
+        selected_index=0,
+        items=(
             {"session_id": "sess_two", "title": "第二个", "message_count": 1, "status": "ok"},
             {"session_id": "sess_one", "title": "第一个", "message_count": 1, "status": "ok"},
-        ],
-    }
+        ),
+    )
 
 
 def test_share_command_exports_current_or_selected_session(tmp_path: Path) -> None:
@@ -157,7 +158,7 @@ def test_new_command_creates_session_and_updates_current_session(tmp_path: Path)
     assert result.handled is True
     assert result.output.startswith("New session: sess_")
     assert "新会话" in result.output
-    assert result.action == {"type": "new_session"}
+    assert result.action == NewSessionAction()
     assert state.session.session_id != "sess_one"
     assert SessionCatalog(tmp_path).get_session(state.session.session_id).title == "新会话"
 
@@ -240,7 +241,7 @@ def test_composite_handler_routes_context_and_session_commands(tmp_path: Path) -
     assert "Sessions:" in router.handle("/sessions").output
     assert "Session: sess_one" in router.handle("/context").output
     assert router.handle("hello").handled is False
-    assert "Unknown command: /missing" in router.handle("/missing").output
+    assert "未知命令：/missing" in router.handle("/missing").output
 
 
 def test_resume_command_updates_context_command_current_session(tmp_path: Path) -> None:

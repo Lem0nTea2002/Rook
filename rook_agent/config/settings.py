@@ -213,7 +213,12 @@ def render_default_config() -> str:
             'mode = "ask"',
             "",
             "[ui]",
-            'theme = "default"',
+            'language = "zh-CN"',
+            'theme = "rook"',
+            "",
+            "[keybindings]",
+            'search_history = "ctrl+r"',
+            'open_model_picker = "alt+p"',
             "",
         ]
     )

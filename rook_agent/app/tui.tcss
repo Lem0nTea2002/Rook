@@ -117,6 +117,94 @@ ScrollBarCorner {
     display: none;
 }
 
+.footer-hints {
+    height: 1;
+    margin: 0 3;
+    color: #5f727c;
+    background: #0b1117;
+}
+
+Screen.theme-high-contrast {
+    background: #000000;
+    color: #ffffff;
+}
+
+Screen.theme-high-contrast #topbar,
+Screen.theme-high-contrast #composer,
+Screen.theme-high-contrast #command-palette {
+    background: #000000;
+    color: #ffffff;
+}
+
+Screen.theme-high-contrast #topbar {
+    border-bottom: solid #00ffff;
+}
+
+Screen.theme-high-contrast #composer,
+Screen.theme-high-contrast #command-palette {
+    border: round #00ffff;
+}
+
+ContentViewerScreen {
+    layout: vertical;
+    background: #0b1117;
+}
+
+.viewer-title {
+    height: 3;
+    padding: 1 2;
+    color: #f5fcfa;
+    background: #101a22;
+    border-bottom: solid #2a6968;
+    text-style: bold;
+}
+
+#viewer-summary {
+    height: auto;
+    padding: 0 2 1 2;
+    color: #81e8bb;
+    background: #101a22;
+}
+
+#viewer-content {
+    height: 1fr;
+    border: none;
+    background: #0b1117;
+    color: #d8e4e8;
+}
+
+.command-palette {
+    height: auto;
+    max-height: 12;
+    margin: 0 2;
+    padding: 1 2;
+    color: #d8e4e8;
+    background: #101a22;
+    border: round #2a6968;
+}
+
+.command-palette.hidden {
+    display: none;
+}
+
+.composer.shell-mode {
+    border: round #f6b73c;
+    background: #17150f;
+}
+
+.composer.shell-mode ComposerTextArea {
+    color: #ffe3a6;
+    background: #17150f;
+}
+
+.composer.input-mode-command {
+    border: round #5fb5ff;
+}
+
+.composer.input-mode-file_reference {
+    border: round #81e8bb;
+}
+
 .message {
     width: 100%;
     margin: 0 0 1 0;
@@ -141,6 +229,18 @@ ScrollBarCorner {
     color: #8a9aa4;
     background: #0b1117;
     border-left: solid #43535c;
+}
+
+ToolCard,
+PermissionCard {
+    height: auto;
+    padding: 0 1;
+    margin: 0 0 1 0;
+}
+
+ToolCard:hover,
+PermissionCard:hover {
+    background: #142029;
 }
 
 .user-message {

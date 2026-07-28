@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rook_agent.agent.loop_limits import AgentLoopLimits
+from rook_agent.app.command_actions import ModelChangedAction
 from rook_agent.app.factory import create_rook_app
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import AgentChatRunner
@@ -146,6 +147,74 @@ def test_create_rook_app_honors_streaming_disabled_config(tmp_path: Path) -> Non
     assert app.chat_runner.use_streaming is False
 
 
+def test_create_rook_app_loads_valid_ui_and_keybinding_config(tmp_path: Path) -> None:
+    config = AppConfig(
+        provider_name="fake",
+        env={},
+        project_config={
+            "ui": {
+                "language": "en",
+                "theme": "high-contrast",
+            },
+            "keybindings": {
+                "search_history": "ctrl+h",
+            },
+        },
+    )
+
+    app = create_rook_app(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider([]),
+        session_id="sess_test",
+        tools=[],
+        app_config=config,
+    )
+
+    assert app.config.language == "en"
+    assert app.config.theme == "high-contrast"
+    assert app.config.keybindings == {"search_history": "ctrl+h"}
+    assert "配置诊断：无" in app.command_handler.handle("/doctor").output
+
+
+def test_create_rook_app_falls_back_from_invalid_ui_and_conflicting_keybindings(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(
+        provider_name="fake",
+        env={},
+        project_config={
+            "ui": {
+                "language": "klingon",
+                "theme": "solarized",
+            },
+            "keybindings": {
+                "search_history": "ctrl+k",
+                "open_model_picker": "ctrl+k",
+                "unknown_action": "ctrl+u",
+            },
+        },
+    )
+
+    app = create_rook_app(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider([]),
+        session_id="sess_test",
+        tools=[],
+        app_config=config,
+    )
+    doctor = app.command_handler.handle("/doctor").output
+
+    assert app.config.language == "zh-CN"
+    assert app.config.theme == "rook"
+    assert app.config.keybindings == {}
+    assert "不支持的界面语言：klingon" in doctor
+    assert "不支持的界面主题：solarized" in doctor
+    assert "未知快捷键 action：unknown_action" in doctor
+    assert "快捷键冲突：ctrl+k" in doctor
+
+
 def test_model_command_switches_runtime_provider_and_compact_summarizer(tmp_path: Path) -> None:
     initial_provider = FakeProvider([ChatResponse(provider="fake", model="fake-model", content="ok")])
     config = AppConfig(
@@ -174,7 +243,7 @@ def test_model_command_switches_runtime_provider_and_compact_summarizer(tmp_path
     result = app.command_handler.handle("/model new-model")
 
     assert result.output == "Model switched: yurenapi/new-model"
-    assert result.action == {"type": "model_changed", "provider": "yurenapi", "model": "new-model"}
+    assert result.action == ModelChangedAction(provider="yurenapi", model="new-model")
     assert app.chat_runner.provider.name == "yurenapi"
     assert app.chat_runner.provider.model == "new-model"
     assert app.chat_runner.use_streaming is True
