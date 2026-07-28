@@ -64,7 +64,7 @@ SLIDES = (
                 ),
             ),
         ),
-        footer="Rook v0.2.2 | local Python coding agent + governance control plane",
+        footer="Rook v0.2.6 | local Python coding agent + governance control plane",
     ),
     Slide(
         title="1. Isolated paired exams",

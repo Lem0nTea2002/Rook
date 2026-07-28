@@ -131,7 +131,7 @@ Agent 数据包装成结果，而是修复证据边界后从零完成 Formal。�
 安装发布版：
 
 ```powershell
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.2"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
 ```
 
 运行零成本完整治理链路：
