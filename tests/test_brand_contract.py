@@ -18,6 +18,7 @@ TEXT_SUFFIXES = {
     ".json",
     ".md",
     ".py",
+    ".svg",
     ".tcss",
     ".toml",
     ".txt",
@@ -62,3 +63,30 @@ def test_filenames_and_text_have_no_legacy_identifier() -> None:
 
     unique_violations = sorted(set(violations))
     assert not unique_violations, "Legacy identifiers remain:\n" + "\n".join(unique_violations)
+
+
+def test_readmes_use_current_rook_tui_assets() -> None:
+    legacy_tui_assets = {
+        "docs/images/rook-demo.gif",
+        "docs/images/rook-ready.png",
+        "docs/images/tui-chat.png",
+        "docs/images/tui-empty.png",
+    }
+    for readme_name in ("README.md", "README.zh-CN.md"):
+        text = (ROOT / readme_name).read_text(encoding="utf-8")
+        assert "docs/images/rook-tui-conversation.svg" in text
+        assert not any(asset in text for asset in legacy_tui_assets)
+    assert (ROOT / "docs" / "images" / "rook-tui-conversation.svg").is_file()
+
+
+def test_demo_site_uses_current_rook_tui_assets() -> None:
+    text = (ROOT / "website-demo" / "index.html").read_text(encoding="utf-8")
+    assert "github.com/Lem0nTea2002/Rook" in text
+    assert "github.com/ZHUMUJUN/Rook" not in text
+    for filename in (
+        "rook-tui-conversation.svg",
+        "rook-tui-permission.svg",
+        "rook-tui-resume.svg",
+    ):
+        assert f"assets/{filename}" in text
+        assert (ROOT / "website-demo" / "assets" / filename).is_file()

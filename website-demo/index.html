@@ -41,7 +41,7 @@
           <div class="install-line"><span>终端安装</span><code>pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"</code><button class="copy" type="button" aria-label="复制安装命令">复制</button></div>
         </div>
         <figure class="hero-demo reveal" aria-label="Rook 实际终端工作过程">
-          <img src="assets/rook-demo.gif" alt="Rook 在终端中读取工具结果、更新任务并继续执行的真实运行过程" />
+          <img src="assets/rook-tui-conversation.svg" alt="Rook Coding Agent 与 Rook Forge 的当前产品对话界面" />
         </figure>
       </section>
 
@@ -84,7 +84,7 @@
         <article class="capability capability-permissions reveal">
           <div class="capability-number">03</div>
           <div class="capability-copy"><p class="eyebrow">PAUSE AT RISK · <code>permissions/</code></p><h3>需要冒险时，<br />任务会停下来等你。</h3><p>写文件、运行 shell、访问网络等动作先经过工具声明、注册表预检与策略判断。若结果是 <code>ask</code>，Loop 保存原始调用、暂停后续执行，等确认再按 request id 恢复。</p></div>
-          <figure class="permission-screen"><img src="assets/permission-confirmation.png" alt="Rook 在执行 shell 命令前请求用户确认，并在确认后继续任务的真实终端界面" /></figure>
+          <figure class="permission-screen"><img src="assets/rook-tui-permission.svg" alt="Rook 在执行 shell 命令前请求用户确认的当前终端界面" /></figure>
         </article>
         <article class="capability capability-context reveal">
           <div class="capability-number">04</div>
@@ -134,7 +134,7 @@
       </section>
 
       <section class="sessions shell split-section">
-        <figure class="session-screen reveal"><img src="assets/resume-session.gif" alt="Rook 输入 /resume 后恢复已有会话的真实运行过程" /></figure>
+        <figure class="session-screen reveal"><img src="assets/rook-tui-resume.svg" alt="Rook 输入 /resume 后恢复已有会话的当前终端界面" /></figure>
         <div class="sessions-copy reveal"><p class="eyebrow">05 / CONTINUE LATER · <code>session/</code></p><h2>离开终端，<br />任务也能从原处继续。</h2><p>每个项目的消息、工具调用、授权和结果都会追加为本地事件流。你可以恢复最近会话、选择旧会话、改名或分叉新思路；压缩之后，仍能重建可读记录。</p><div class="event-stream"><span>message</span><i></i><span>tool call</span><i></i><span>approval</span><i></i><span>result</span></div></div>
       </section>
 
@@ -150,12 +150,12 @@
       </section>
 
       <section class="architecture shell">
-        <div class="architecture-copy reveal"><p class="eyebrow">WHY THIS STAYS READABLE</p><h2>每个阶段，<br />都有一个能找到的模块。</h2><p>上下文、工具、权限、Provider 与会话各自处理自己的职责。Rook 的价值不在于让你相信它，而在于你可以从一次请求顺着模块读到具体实现。</p><ul><li><code>agent/</code><span>编排执行循环</span></li><li><code>tools/</code><span>运行本地工具</span></li><li><code>permissions/</code><span>管理策略与授权</span></li><li><code>context/</code><span>维护长对话上下文</span></li></ul><a class="inline-link" href="https://github.com/ZHUMUJUN/Rook" target="_blank" rel="noreferrer">浏览代码库 <span>↗</span></a></div>
-        <figure class="architecture-shot reveal"><img src="assets/tui-overview.png" alt="Rook 本地终端 TUI 的完整对话与任务说明界面" /></figure>
+        <div class="architecture-copy reveal"><p class="eyebrow">WHY THIS STAYS READABLE</p><h2>每个阶段，<br />都有一个能找到的模块。</h2><p>上下文、工具、权限、Provider 与会话各自处理自己的职责。Rook 的价值不在于让你相信它，而在于你可以从一次请求顺着模块读到具体实现。</p><ul><li><code>agent/</code><span>编排执行循环</span></li><li><code>tools/</code><span>运行本地工具</span></li><li><code>permissions/</code><span>管理策略与授权</span></li><li><code>context/</code><span>维护长对话上下文</span></li></ul><a class="inline-link" href="https://github.com/Lem0nTea2002/Rook" target="_blank" rel="noreferrer">浏览代码库 <span>↗</span></a></div>
+        <figure class="architecture-shot reveal"><img src="assets/rook-tui-conversation.svg" alt="Rook 本地终端 TUI 的完整对话与产品说明界面" /></figure>
       </section>
 
       <section class="start shell" id="start">
-        <div class="start-copy reveal"><p class="eyebrow">QUICKSTART</p><h2>从本地终端，<br />开始你的第一轮 Agent 工作。</h2><p>安装后可以直接打开 TUI，发送单条任务，或进入交互模式。模型配置留在本地，项目配置也能跟着仓库走。</p><a class="button button-primary" href="https://github.com/ZHUMUJUN/Rook#quickstart" target="_blank" rel="noreferrer">阅读使用文档 <span>↗</span></a></div>
+        <div class="start-copy reveal"><p class="eyebrow">QUICKSTART</p><h2>从本地终端，<br />开始你的第一轮 Agent 工作。</h2><p>安装后可以直接打开 TUI，发送单条任务，或进入交互模式。模型配置留在本地，项目配置也能跟着仓库走。</p><a class="button button-primary" href="https://github.com/Lem0nTea2002/Rook#quickstart" target="_blank" rel="noreferrer">阅读使用文档 <span>↗</span></a></div>
         <div class="terminal-code reveal" aria-label="Rook 快速开始命令"><div><span></span><span></span><span></span><b>terminal</b></div><pre><code><em>$</em> pipx install rook-agent
 <em>$</em> rook
 
@@ -182,7 +182,7 @@
         </div>
       </section>
 
-      <section class="closing shell reveal"><img src="assets/rookie-mascot.png" alt="Rookie mascot" /><p>写代码，也把代码背后的<br /><em>Agent 看明白。</em></p><a class="button button-primary" href="https://github.com/ZHUMUJUN/Rook" target="_blank" rel="noreferrer">Start with Rook <span>↗</span></a></section>
+      <section class="closing shell reveal"><img src="assets/rookie-mascot.png" alt="Rookie mascot" /><p>写代码，也把代码背后的<br /><em>Agent 看明白。</em></p><a class="button button-primary" href="https://github.com/Lem0nTea2002/Rook" target="_blank" rel="noreferrer">Start with Rook <span>↗</span></a></section>
     </main>
     <footer class="shell"><span>© 2026 Rook</span><span>Built to be understood.</span></footer>
     <script src="script.js"></script>
