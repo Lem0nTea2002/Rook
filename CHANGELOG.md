@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-07-28
+
+### Added
+
+- Added an automatic first-run Provider setup wizard plus the explicit
+  `rook config setup` command for OpenAI, DeepSeek, Qwen, Moonshot, Zhipu,
+  OpenRouter, Anthropic, Ollama, and custom OpenAI-compatible endpoints.
+- API keys are entered with hidden input and stored in the operating-system
+  credential manager; generated TOML files contain only the credential name.
+
+### Changed
+
+- Interactive startup now retries after setup, while non-interactive runs fail
+  closed with an actionable setup command and never prompt in CI.
+- Environment variables keep priority over system credentials and config files.
+
 ## [0.2.6] - 2026-07-28
 
 ### Added

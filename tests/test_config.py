@@ -89,6 +89,19 @@ def test_create_provider_from_config_reports_missing_api_key():
         create_provider_from_config(config)
 
 
+def test_create_provider_from_config_reads_system_credential(monkeypatch):
+    monkeypatch.setattr(
+        "rook_agent.providers.factory.read_api_key",
+        lambda name: "stored-secret" if name == "OPENAI_API_KEY" else None,
+    )
+    config = AppConfig(provider_name="openai", env={})
+
+    provider = create_provider_from_config(config)
+
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider.model == "gpt-4.1-mini"
+
+
 def test_create_provider_from_config_supports_custom_openai_compatible():
     config = AppConfig(
         provider_name="custom",
@@ -181,7 +194,9 @@ def test_create_provider_from_config_project_overrides_global_model():
 def test_render_default_config_uses_api_key_env_not_plain_secret():
     content = render_default_config()
 
-    assert "api_key_env" in content
+    assert 'model = "openai/gpt-4.1-mini"' in content
+    assert 'type = "openai"' in content
+    assert 'api_key_env = "OPENAI_API_KEY"' in content
     assert "api_key =" not in content
     assert "parallel_tool_calls = true" in content
 

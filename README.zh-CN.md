@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6"><img alt="Release v0.2.6" src="https://img.shields.io/badge/release-v0.2.6-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.7"><img alt="Release v0.2.7" src="https://img.shields.io/badge/release-v0.2.7-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.md">English</a>
@@ -27,9 +27,12 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.7"
 rook
 ```
+
+第一次交互启动时，Rook 会引导配置 Provider、模型、Base URL 和 API Key；
+配置过程不会发送模型请求。
 
 发送单条任务：
 
@@ -101,16 +104,26 @@ Fake Agent 演示只验证控制链路，不冒充真实模型效果。
 ## 配置
 
 ```bash
+rook config setup
 rook config init
 rook config path
 rook config show
 ```
 
-密钥建议通过环境变量注入：
+`rook config setup` 支持 OpenAI、DeepSeek、Qwen、Moonshot、智谱、
+OpenRouter、Anthropic、Ollama 和自定义 OpenAI-compatible 接口。API Key
+通过隐藏输入读取并保存到操作系统凭据库，不写入 `config.toml`。
+
+环境变量优先于系统凭据和配置文件，例如：
 
 ```bash
-export ROOK_API_KEY="your-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
+export OPENAI_MODEL="gpt-4.1-mini"
 ```
+
+自定义 OpenAI-compatible Provider 默认使用 `ROOK_API_KEY`、
+`ROOK_BASE_URL` 和 `ROOK_MODEL`。ChatGPT/Codex 订阅登录与 OpenAI API
+认证相互独立，Rook 当前不会复用 Codex 登录。
 
 配置文件：
 
