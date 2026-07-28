@@ -3,7 +3,7 @@
   "evidence_kind": "upstream_contribution_batch",
   "batch_id": "upstream-batch-1",
   "observed_at": "2026-07-27",
-  "status": "awaiting_human_claims",
+  "status": "reviewed",
   "external_model_calls": false,
   "model_costs": false,
   "selection_policy": {
@@ -26,10 +26,11 @@
       "title": "--pyargs test discovery still fails in frozen application",
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "scope_confirmation_required",
+      "selection_status": "reviewed",
       "proposed_scope": "Clarify the frozen-application documentation and add a filesystem-backed test-data example; do not claim that pytest can collect tests stored only inside a PyInstaller PYZ archive.",
       "blocking_reason": "Current pytest collection is Path-based and the PyInstaller code archive does not expose test modules as filesystem paths. A new archive collector would be an architectural change, so only a documentation scope is eligible without maintainer design approval.",
-      "human_action_required": "The contributor must personally read the issue and contribution policy, explain the filesystem boundary in their own words, and ask whether the documentation scope is welcome before implementation."
+      "reviewed_commit": "dc5731148730fb5aed15c3795507fff32affe3c0",
+      "human_action_required": "Create or authenticate a fork under the claiming account before deciding whether to submit the reviewed patch."
     },
     {
       "repository": "scikit-learn/scikit-learn",
@@ -46,10 +47,11 @@
       ],
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "awaiting_human_claim",
+      "selection_status": "reviewed",
       "proposed_scope": "Replace the skipped, numerically unstable doctest expectation with an architecture-stable example and validate it on the project test matrix.",
       "blocking_reason": null,
-      "human_action_required": "The contributor must personally review the issue, current doctest, and contribution policy, then post their own planned approach before code work starts."
+      "reviewed_commit": "dd73a22cb25a48a04e121e9f50b752f9d424ab18",
+      "human_action_required": "Create or authenticate a fork under the claiming account and include the required human-reviewed AI disclosure before submission."
     },
     {
       "repository": "sphinx-doc/sphinx",
@@ -66,10 +68,11 @@
       ],
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "awaiting_human_claim",
+      "selection_status": "reviewed",
       "proposed_scope": "Add an inline todo role with deterministic rendering, todo-domain collection, todolist integration, tests, documentation, and a change note.",
       "blocking_reason": null,
-      "human_action_required": "The contributor must personally review the issue and planned node semantics, then post the claim. All upstream interaction and PR submission must be performed by the human contributor."
+      "reviewed_commit": "0ff71a365a07fc399398b0d24932834c527f9c1e",
+      "human_action_required": "The contributor must create or authenticate a fork, write the PR description, disclose AI assistance, and perform all upstream interaction and submission."
     }
   ],
   "screening_rejections": [
@@ -107,7 +110,8 @@
     }
   ],
   "withdrawals": [],
+  "review_packet": "docs/evidence/upstream-contribution-review-packet-2026-07-27.md",
   "event_ledger": "docs/evidence/upstream-contribution-ledger-2026-07-27.jsonl",
-  "event_count": 11,
-  "claim_boundary": "No upstream claim comment, branch, pull request, review, or merge is recorded by this evidence. The batch cannot advance to implementation until the human contributor completes the repository-required issue interactions and reviews the proposed scopes."
+  "event_count": 23,
+  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. No pull request, upstream review, or merge is claimed. Publication remains blocked on forks under the claiming account and repository-specific submission rules."
 }

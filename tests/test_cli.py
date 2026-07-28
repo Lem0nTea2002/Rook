@@ -133,7 +133,7 @@ def test_main_dispatches_contribution_record_without_model_calls(tmp_path: Path)
             "--issue-url",
             "https://github.com/pytest-dev/pytest/issues/14771",
             "--status",
-            "awaiting_human_claim",
+            "reviewed",
             "--actor",
             "rook:screening",
             "--reason-code",
@@ -144,7 +144,7 @@ def test_main_dispatches_contribution_record_without_model_calls(tmp_path: Path)
 
     assert exit_code == 0
     assert seen[0].repo_command == "contribution-record"
-    assert seen[0].status == "awaiting_human_claim"
+    assert seen[0].status == "reviewed"
 
 
 def test_main_runs_single_message_with_injected_runner(tmp_path: Path, capsys):

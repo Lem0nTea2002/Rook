@@ -316,6 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
             "claimed",
             "in_progress",
             "ready_for_human_review",
+            "reviewed",
             "submitted",
             "accepted",
             "rejected",

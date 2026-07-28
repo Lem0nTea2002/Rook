@@ -56,6 +56,7 @@ class ContributionStatus(StrEnum):
     CLAIMED = "claimed"
     IN_PROGRESS = "in_progress"
     READY_FOR_HUMAN_REVIEW = "ready_for_human_review"
+    REVIEWED = "reviewed"
     SUBMITTED = "submitted"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
@@ -118,6 +119,15 @@ _TRANSITIONS = {
     ),
     ContributionStatus.READY_FOR_HUMAN_REVIEW: frozenset(
         {
+            ContributionStatus.REVIEWED,
+            ContributionStatus.REJECTED,
+            ContributionStatus.WITHDRAWN,
+            ContributionStatus.SUPERSEDED,
+            ContributionStatus.BLOCKED,
+        }
+    ),
+    ContributionStatus.REVIEWED: frozenset(
+        {
             ContributionStatus.SUBMITTED,
             ContributionStatus.REJECTED,
             ContributionStatus.WITHDRAWN,
@@ -141,6 +151,7 @@ _TRANSITIONS = {
             ContributionStatus.CLAIMED,
             ContributionStatus.IN_PROGRESS,
             ContributionStatus.READY_FOR_HUMAN_REVIEW,
+            ContributionStatus.REVIEWED,
             ContributionStatus.SUBMITTED,
             ContributionStatus.REJECTED,
             ContributionStatus.WITHDRAWN,

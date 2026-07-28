@@ -153,6 +153,39 @@ def test_blocked_contribution_can_resume_without_erasing_failure(
     assert resumed.previous_event_hash == history[0].event_hash
 
 
+def test_human_review_is_required_before_submission(tmp_path: Path) -> None:
+    ledger = ContributionLedger(tmp_path / "contributions.jsonl")
+    for status, reason_code in (
+        (ContributionStatus.SCREENED, "candidate_selected"),
+        (ContributionStatus.AWAITING_HUMAN_CLAIM, "repository_policy"),
+        (ContributionStatus.CLAIMED, "human_comment"),
+        (ContributionStatus.IN_PROGRESS, "patch_started"),
+        (ContributionStatus.READY_FOR_HUMAN_REVIEW, "patch_validated"),
+    ):
+        _record(ledger, status, reason_code=reason_code)
+
+    with pytest.raises(ValueError, match="invalid contribution transition"):
+        _record(
+            ledger,
+            ContributionStatus.SUBMITTED,
+            reason_code="pr_opened",
+        )
+
+    reviewed = _record(
+        ledger,
+        ContributionStatus.REVIEWED,
+        reason_code="human_review_completed",
+    )
+    submitted = _record(
+        ledger,
+        ContributionStatus.SUBMITTED,
+        reason_code="pr_opened",
+    )
+
+    assert reviewed.status is ContributionStatus.REVIEWED
+    assert submitted.previous_event_hash == reviewed.event_hash
+
+
 def test_contribution_record_and_history_cli(tmp_path: Path, capsys) -> None:
     ledger = tmp_path / "contributions.jsonl"
     record_args = type(
