@@ -2,8 +2,17 @@ from pathlib import Path
 
 from dataclasses import dataclass, field
 
+import pytest
+
 import rook_agent.cli as cli
-from rook_agent.cli import CliConfig, main, read_message, run_repl
+from rook_agent.cli import (
+    CliConfig,
+    _create_cli_app_with_onboarding,
+    main,
+    read_message,
+    run_repl,
+)
+from rook_agent.providers.factory import ProviderConfigError
 
 
 @dataclass
@@ -250,6 +259,31 @@ def test_main_config_init_refuses_to_overwrite_without_force(tmp_path: Path, mon
     assert "already exists" in capsys.readouterr().err
 
 
+def test_main_config_setup_dispatches_interactive_wizard(tmp_path: Path, monkeypatch, capsys):
+    seen: list[tuple[Path, str | None, bool]] = []
+
+    def fake_setup(*, project_root, provider_name=None, force=False):
+        seen.append((Path(project_root), provider_name, force))
+
+    monkeypatch.setattr(cli, "run_setup_wizard", fake_setup)
+
+    exit_code = main(
+        [
+            "--project",
+            str(tmp_path),
+            "--provider",
+            "deepseek",
+            "config",
+            "setup",
+            "--force",
+        ]
+    )
+
+    assert exit_code == 0
+    assert seen == [(tmp_path, "deepseek", True)]
+    assert "configuration complete" in capsys.readouterr().out
+
+
 def test_main_config_show_uses_project_config_without_leaking_key(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.delenv("ROOK_PROVIDER", raising=False)
     monkeypatch.setenv("YURENAPI_API_KEY", "secret-key")
@@ -275,6 +309,7 @@ def test_main_config_show_uses_project_config_without_leaking_key(tmp_path: Path
     assert "provider: openai-compatible" in output
     assert "model: yurenapi/gpt-5.5" in output
     assert "base_url: https://yurenapi.cn/v1" in output
+    assert "api_key: environment (YURENAPI_API_KEY)" in output
     assert "parallel_tool_calls: true" in output
     assert "secret-key" not in output
 
@@ -316,6 +351,58 @@ def test_main_tui_runs_textual_app(monkeypatch, tmp_path: Path):
             benchmark=False,
         )
     ]
+
+
+def test_interactive_app_retries_after_first_run_setup(tmp_path: Path, monkeypatch):
+    app = FakeCliApp()
+    attempts = 0
+    setup_calls: list[tuple[Path, str | None, bool]] = []
+
+    def fake_create_cli_app(config: CliConfig):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise ProviderConfigError("缺少环境变量：OPENAI_API_KEY")
+        return app
+
+    def fake_setup(*, project_root, provider_name=None, force=False):
+        setup_calls.append((Path(project_root), provider_name, force))
+
+    monkeypatch.setattr(cli, "create_cli_app", fake_create_cli_app)
+    config = CliConfig(
+        project_root=tmp_path,
+        data_root=None,
+        session_id=None,
+        provider_name=None,
+        message="",
+    )
+
+    created = _create_cli_app_with_onboarding(
+        config,
+        allow_prompt=True,
+        setup_runner=fake_setup,
+    )
+
+    assert created is app
+    assert attempts == 2
+    assert setup_calls == [(tmp_path, None, False)]
+
+
+def test_noninteractive_app_reports_setup_command(tmp_path: Path, monkeypatch):
+    def fake_create_cli_app(_config: CliConfig):
+        raise ProviderConfigError("缺少环境变量：OPENAI_API_KEY")
+
+    monkeypatch.setattr(cli, "create_cli_app", fake_create_cli_app)
+    config = CliConfig(
+        project_root=tmp_path,
+        data_root=None,
+        session_id=None,
+        provider_name=None,
+        message="",
+    )
+
+    with pytest.raises(ProviderConfigError, match="rook config setup"):
+        _create_cli_app_with_onboarding(config, allow_prompt=False)
 
 
 def test_run_repl_sends_multiple_user_messages(capsys):

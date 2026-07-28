@@ -202,13 +202,11 @@ def render_default_config() -> str:
     return "\n".join(
         [
             '# Rook global configuration. Project-level "./rook.toml" can override it.',
-            'model = "yurenapi/gpt-5.5"',
+            'model = "openai/gpt-4.1-mini"',
             "",
             "[provider]",
-            'type = "openai-compatible"',
-            'name = "yurenapi"',
-            'base_url = "https://yurenapi.cn/v1"',
-            'api_key_env = "YURENAPI_API_KEY"',
+            'type = "openai"',
+            'api_key_env = "OPENAI_API_KEY"',
             "parallel_tool_calls = true",
             "",
             "[permissions]",

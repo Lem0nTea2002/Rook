@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rook_agent.config import AppConfig, load_config
+from rook_agent.config.credentials import read_api_key
 from rook_agent.providers.anthropic_provider import AnthropicProvider
 from rook_agent.providers.base import ChatProvider
 from rook_agent.providers.openai_compatible import OpenAICompatibleProvider
@@ -137,8 +138,13 @@ def _provider_api_key(config: AppConfig, fallback_env: str, *, provider_name: st
         return key
     configured_env = config.get_provider_value("api_key_env", provider_name=provider_name)
     if configured_env:
-        return config.get_env(configured_env)
-    return config.get_provider_value("api_key", provider_name=provider_name)
+        configured_key = config.get_env(configured_env)
+        if configured_key:
+            return configured_key
+    plain_config_key = config.get_provider_value("api_key", provider_name=provider_name)
+    if plain_config_key:
+        return plain_config_key
+    return read_api_key(configured_env or fallback_env)
 
 
 def _provider_model(

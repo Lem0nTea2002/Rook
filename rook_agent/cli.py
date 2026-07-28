@@ -11,9 +11,13 @@ from typing import Callable, Iterable, Protocol
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.app.factory import create_rook_app
 from rook_agent.config import load_config
+from rook_agent.config.credentials import read_api_key
+from rook_agent.config.onboarding import run_setup_wizard
 from rook_agent.config.settings import default_global_config_path, project_config_path, render_default_config
 from rook_agent.eval.adapter import RookCodingAgentAdapter
 from rook_agent.eval.tasks import CodingTask
+from rook_agent.providers.factory import ProviderConfigError
+from rook_agent.providers.presets import PROVIDER_PRESETS
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +69,15 @@ def build_parser() -> argparse.ArgumentParser:
     config_subparsers = config_parser.add_subparsers(dest="config_command")
     config_subparsers.add_parser("path", help="Show global and project config paths.")
     config_subparsers.add_parser("show", help="Show effective provider configuration without secrets.")
+    setup_parser = config_subparsers.add_parser(
+        "setup",
+        help="Interactively configure a model Provider and store its API key securely.",
+    )
+    setup_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace the global Provider configuration instead of reusing it.",
+    )
     init_parser = config_subparsers.add_parser("init", help="Create a starter global config file.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite the existing global config.")
 
@@ -455,7 +468,10 @@ def main(
             benchmark=args.benchmark,
         )
         try:
-            app = create_cli_app(config)
+            app = _create_cli_app_with_onboarding(
+                config,
+                allow_prompt=_can_prompt_for_setup(),
+            )
             app.run()
         except Exception as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -473,7 +489,10 @@ def main(
             benchmark=args.benchmark,
         )
         try:
-            app = create_cli_app(config)
+            app = _create_cli_app_with_onboarding(
+                config,
+                allow_prompt=_can_prompt_for_setup(),
+            )
             lines = stdin_text.splitlines() if stdin_text is not None else None
             run_repl(app.chat_runner, lines, auto_approve=args.auto_approve)
         except Exception as exc:
@@ -498,6 +517,9 @@ def main(
     run = runner or run_single_turn
     try:
         output = run(config)
+    except ProviderConfigError as exc:
+        print(f"error: {_provider_setup_guidance(exc)}", file=sys.stderr)
+        return 1
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -551,6 +573,33 @@ def create_cli_app(config: CliConfig):
     return app
 
 
+def _create_cli_app_with_onboarding(
+    config: CliConfig,
+    *,
+    allow_prompt: bool,
+    setup_runner: Callable[..., object] = run_setup_wizard,
+):
+    try:
+        return create_cli_app(config)
+    except ProviderConfigError as exc:
+        if not allow_prompt:
+            raise ProviderConfigError(_provider_setup_guidance(exc)) from exc
+        setup_runner(
+            project_root=config.project_root,
+            provider_name=config.provider_name,
+            force=False,
+        )
+        return create_cli_app(config)
+
+
+def _can_prompt_for_setup() -> bool:
+    return bool(sys.stdin.isatty() and sys.stdout.isatty())
+
+
+def _provider_setup_guidance(error: Exception) -> str:
+    return f"{error}. Run `rook config setup` in an interactive terminal."
+
+
 def run_config_command(args: argparse.Namespace) -> int:
     command = args.config_command or "show"
     project_root = Path(args.project)
@@ -568,11 +617,27 @@ def run_config_command(args: argparse.Namespace) -> int:
         path.write_text(render_default_config(), encoding="utf-8")
         print(f"created: {path}")
         return 0
+    if command == "setup":
+        try:
+            run_setup_wizard(
+                project_root=project_root,
+                provider_name=args.provider,
+                force=bool(args.force),
+            )
+        except (EOFError, KeyboardInterrupt):
+            print("error: setup cancelled", file=sys.stderr)
+            return 1
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("configuration complete")
+        return 0
     if command == "show":
         config = load_config(args.provider, project_root=project_root)
         print(f"provider: {config.provider_name}")
         print(f"model: {_effective_model(config)}")
         print(f"base_url: {_effective_base_url(config)}")
+        print(f"api_key: {_effective_api_key_status(config)}")
         print(f"parallel_tool_calls: {_effective_parallel_tool_calls(config)}")
         print("config_files:")
         for path in config.loaded_config_paths:
@@ -601,6 +666,21 @@ def _effective_parallel_tool_calls(config) -> str:
         default=False,
     )
     return "true" if enabled else "false"
+
+
+def _effective_api_key_status(config) -> str:
+    if config.provider_name == "ollama":
+        return "not required"
+    if config.provider_name in {"openai-compatible", "custom"}:
+        key_env = config.get_provider_value("api_key_env") or "ROOK_API_KEY"
+    else:
+        preset = PROVIDER_PRESETS.get(config.provider_name)
+        key_env = preset.api_key_env if preset is not None else "ROOK_API_KEY"
+    if config.get_env(key_env):
+        return f"environment ({key_env})"
+    if read_api_key(key_env):
+        return f"system credential ({key_env})"
+    return f"missing ({key_env}; run `rook config setup`)"
 
 
 def _benchmark_limits(max_tool_rounds: int | None) -> AgentLoopLimits:

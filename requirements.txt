@@ -3,6 +3,7 @@ prompt_toolkit
 openai
 anthropic
 anyio
+keyring>=25,<26
 python-dotenv
 pydantic
 pytest

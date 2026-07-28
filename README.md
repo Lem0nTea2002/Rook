@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6"><img alt="Release v0.2.6" src="https://img.shields.io/badge/release-v0.2.6-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.7"><img alt="Release v0.2.7" src="https://img.shields.io/badge/release-v0.2.7-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.zh-CN.md">简体中文</a>
@@ -28,9 +28,12 @@ useful enough to ship.
 ## Quickstart
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.7"
 rook
 ```
+
+On the first interactive launch, Rook guides you through Provider, model, Base
+URL, and API-key setup. The wizard does not send a model request.
 
 Run one task without opening the TUI:
 
@@ -104,16 +107,27 @@ Evidence:
 ## Configuration
 
 ```bash
+rook config setup
 rook config init
 rook config path
 rook config show
 ```
 
-Pass secrets through environment variables:
+`rook config setup` supports OpenAI, DeepSeek, Qwen, Moonshot, Zhipu,
+OpenRouter, Anthropic, Ollama, and custom OpenAI-compatible endpoints. API keys
+use hidden input and are stored in the operating-system credential manager,
+never in `config.toml`.
+
+Environment variables override stored credentials. For example:
 
 ```bash
-export ROOK_API_KEY="your-api-key"
+export OPENAI_API_KEY="your-openai-api-key"
+export OPENAI_MODEL="gpt-4.1-mini"
 ```
+
+Custom OpenAI-compatible Providers default to `ROOK_API_KEY`,
+`ROOK_BASE_URL`, and `ROOK_MODEL`. ChatGPT/Codex subscription authentication
+is separate from OpenAI API authentication and is not reused by Rook.
 
 Configuration files:
 
