@@ -447,13 +447,20 @@ def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
     assert renderable.align == "center"
     assert "██" in text.plain
     assert "▀" not in text.plain
-    assert "Rook" not in text.plain
+    assert "Rookie · your tiny coding teammate" in text.plain
     assert "Commands:" not in text.plain
     assert any(span.style == "#81e8bb" for span in text.spans)
     assert any(span.style == "#18cfcb" for span in text.spans)
     assert any(span.style == "#f5fcfa" for span in text.spans)
     assert any(span.style == "#b8ffdf" for span in text.spans)
     assert text.plain != next_text.plain
+
+
+def test_compact_welcome_identifies_the_rookie_mascot() -> None:
+    text = welcome_renderable(compact=True).renderable
+
+    assert text.plain == "Rook\nRookie coding agent"
+    assert any("bold" in str(span.style) for span in text.spans)
 
 
 @pytest.mark.anyio

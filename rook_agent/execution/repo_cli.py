@@ -12,6 +12,7 @@ from rook_agent.execution.contributions import (
     ContributionLedger,
     ContributionStatus,
 )
+from rook_agent.execution.issue_pr_demo import run_issue_pr_demo
 from rook_agent.execution.models import FullRepoTask
 from rook_agent.execution.repository import (
     FullRepoTaskCatalog,
@@ -60,6 +61,13 @@ def run_repository_command(args: argparse.Namespace) -> int:
         )
         print(f"Materialized {task.task_id}: {checkout}")
         print(f"Base commit: {task.base_commit}")
+        return 0
+    if args.repo_command == "issue-pr-demo":
+        manifest = run_issue_pr_demo(args.output, approver=args.approver)
+        print(f"Draft PR bundle ready: {Path(args.output).resolve()}")
+        print(f"Tests: {'passed' if manifest['tests']['passed'] else 'failed'}")
+        print(f"Gate: {manifest['gate']['status']}")
+        print("GitHub write performed: no")
         return 0
     if args.repo_command == "contribution-record":
         event = ContributionLedger(args.ledger).record(

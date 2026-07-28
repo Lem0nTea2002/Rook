@@ -7,63 +7,50 @@ from rich.text import Text
 
 
 WELCOME_LOGO_PALETTE = {
+    "B": "#273444",
+    "N": "#142431",
     "M": "#81e8bb",
     "C": "#18cfcb",
     "T": "#1ba59e",
+    "Y": "#f6c453",
     "W": "#f5fcfa",
-    "O": "#002630",
+    "O": "#07131b",
     "P": "#b8ffdf",
     "Q": "#45e6df",
 }
 
 WELCOME_LOGO_PIXELS = (
-    ".................M..CCT",
-    "..................CCCTT",
-    ".................CCCTCT",
-    "......CTTCT......CTCTT",
-    ".......TCCTT....TTTTTC",
-    ".......CTCTTT...TTTT",
-    ".........TTTT...TC",
-    "",
-    "...............M",
-    "...............M",
-    "",
-    "............WWWWWWWW",
-    ".........MWWWWWWWWWWWM",
-    "........WWWWWWWWWWWWMMM",
-    "......MWWWWWWWWWWWWWMMMC",
-    ".....MWWWWWWWWWWWWWMMMMCC",
-    "....MMWWWWWWWWWWWMMMMMMMCC",
-    "....MMMMWWWWWWWMMMMMMMMMCC",
-    "...MMMMMMMMMMMMMMMMMMMMMCCC",
-    "..MMMMMMMMMMMMMMMMMMMMMMCCC",
-    "..MMMMMMMMMMMMMMMMMMMMMMMCC",
-    ".MMMWWMMMMMMMMMWWMMMMMMMMCCC",
-    ".MMMWWMMMMMMMMMWWMMMMMMMMCCC",
-    ".MMMWWMMMMMMMMMWWMMMMMMMMCCT",
-    "MMMMMMMMMWWWWMMMMMMMMMMMMCCC",
-    "MMMMMMMMMMMMMMMMMMMMMMMMMCCC",
-    "MMMMMMMMMMMMMMMMMMMMMMMMMCCC",
-    "MMMMMMMMMMMMWMMMMMMMMMMMMCCC",
-    "MMMMMMWWMMMWWMWMMMMMMMMMCCCC",
-    "MMMMMWWMMMMWMMMWWMMMMMMMCCCC",
-    "MMMMWWMMMMMWMMMMWWMMMMMMCCC",
-    "MMMMWWMMMMWMMMMMWWMMMMMMCCC",
-    ".MMMMWWMMMWMMMMWWMMMMMMCCCC",
-    ".MMMMMWWMMWMMMWWMMMMMMMCCC.M",
-    "..MMMMMMMWMMMMMMMMMMMMCCC",
-    "..MMMMMMMMMMMMMMMMMMMMCCC",
-    "...MMMMMMMMMMMMMMMMMMCCC",
-    ".....MMMMMMMMMMMMMMMCT",
-    "......MMMMMMMMMMMMMCC",
-    ".....M...MMMMMMMMM...M",
+    "..............B..............",
+    "............BBBB.............",
+    ".........BBBBBBBBBB..........",
+    ".......BBBBBBBBBBBBBB........",
+    "......BBBWWBBBBBBWWBBB.......",
+    ".....BBBWWOOBBBBOOWWBBB.......",
+    ".....BBBWWOOBBBBOOWWBBB......",
+    ".....BBBBBBBBBBBBBBBBBB......",
+    "......BBBBBBYYYYBBBBBB.......",
+    ".......BBBBYYYYBBBBBB........",
+    "........BBBBBBBBBBBB.........",
+    ".......BBBMMMMMMMMBBB........",
+    "......BBMMMMMMMMMMMMBB.......",
+    ".....BBMMMMMMMMMMMMMMBB......",
+    ".....BBMMMNMMMMMMNMMMBB......",
+    ".....BBMMMMMMMMMMMMMMBB......",
+    "......BMMMMOOOOOOMMMMMB......",
+    "......BMMMOOCCCCOOMMMMB.......",
+    "......BMMMOOCOCCOOMMMMB.......",
+    "......BMMMMOOOOOOMMMMMB......",
+    ".......BMMMMMMMMMMMMMMB......",
+    "........BBBMMMMMMMMBBB.......",
+    "..........BB......BB.........",
+    ".........YYY......YYY........",
 )
 
 WELCOME_PARTICLE_FRAMES = (
-    ((6, 3, "P"), (11, 26, "Q"), (25, 29, "P"), (37, 4, "P")),
-    ((5, 5, "Q"), (14, 1, "P"), (28, 30, "Q"), (38, 23, "P")),
-    ((4, 2, "P"), (10, 24, "P"), (21, 31, "Q"), (35, 28, "P")),
-    ((7, 1, "Q"), (16, 29, "P"), (31, 2, "P"), (39, 18, "Q")),
+    ((2, 3, "P"), (7, 27, "Q"), (18, 2, "P"), (22, 27, "P")),
+    ((3, 1, "Q"), (10, 27, "P"), (16, 1, "Q"), (21, 28, "P")),
+    ((1, 5, "P"), (8, 28, "P"), (20, 2, "Q"), (23, 26, "P")),
+    ((4, 2, "Q"), (12, 28, "P"), (19, 1, "P"), (22, 25, "Q")),
 )
 
 
@@ -74,7 +61,7 @@ def welcome_renderable(*, compact: bool = False, particle_frame: int = 0) -> Ali
             Text.assemble(
                 ("R", "#81e8bb bold"),
                 ("ook", "#18cfcb bold"),
-                ("\nlocal coding agent", "#6e6d72"),
+                ("\nRookie coding agent", "#8a9aa4"),
             )
         )
     rows = [list(row) for row in WELCOME_LOGO_PIXELS]
@@ -95,4 +82,7 @@ def welcome_renderable(*, compact: bool = False, particle_frame: int = 0) -> Ali
         for pixel in row:
             color = WELCOME_LOGO_PALETTE.get(pixel)
             text.append("██" if color else "  ", style=color)
+    text.append("\n\n")
+    text.append("Rookie", style="#81e8bb bold")
+    text.append(" · your tiny coding teammate", style="#8a9aa4")
     return Align.center(text)

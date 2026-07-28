@@ -299,6 +299,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explicitly allow a GitHub clone when no local source is supplied.",
     )
+    issue_pr_demo = repository_subparsers.add_parser(
+        "issue-pr-demo",
+        help="Build a zero-model local Issue-to-reviewed-Draft-PR evidence bundle.",
+    )
+    issue_pr_demo.add_argument(
+        "--output",
+        default=".rook/issue-pr-demo",
+        help="New output directory; existing paths are never overwritten.",
+    )
+    issue_pr_demo.add_argument(
+        "--approver",
+        required=True,
+        type=_nonempty_text,
+        help="Human reviewer identity recorded in the immutable demo ledger.",
+    )
     contribution_record = repository_subparsers.add_parser(
         "contribution-record",
         help="Append one hash-chained upstream contribution state event.",

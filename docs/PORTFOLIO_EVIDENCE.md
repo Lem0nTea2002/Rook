@@ -54,7 +54,7 @@ and trace-derived quarantined candidates.
 | Completed Adapter v11 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 100% (+75pp); median latency -16.7%; median Token -19.5%; 0 new regressions and infrastructure exclusions |
 | Candidate v5 / Adapter v12 Formal | 72/72 calls; 36 complete pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; 0 new regressions and infrastructure exclusions |
 | Candidate v5 two-repository holdout | 24/24 calls; 12 complete pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp with bootstrap 95% CI +62.5pp to +100pp; 0 new regressions and infrastructure exclusions; latency and Token increased |
-| Rook Coding Agent dogfood v2 | 10 isolated repository-shaped tasks; 9 passed / 1 failed; 106 Provider calls and 738,729 observed Tokens; unrelated Skill selections 0/10; bounded at 20 calls/task and 200 total |
+| Rook Coding Agent dogfood v3 | 10/10 frozen isolated repository-shaped tasks passed; 97 Provider-attempt events and 649,145 observed Tokens; median 28.175s; clean termination 9/10; bounded at 12 calls/task and 120 total |
 | Full-repository task catalog | 24 pinned SWE-bench Lite tasks across pytest, scikit-learn, and Sphinx; 11 linked Issues and 13 explicit maintenance PRs; gold/test patches and test names excluded |
 | Durable execution scale | 300 jobs per 10/25/50-worker profile; 38.17/80.34/106.65 jobs/s; 51/51 injected faults recovered; P95 266/297/844ms |
 | External calls in the control | None |
@@ -73,7 +73,7 @@ lower average calls/Tokens and higher pass rate are directional observations,
 not a causal before/after estimate. See
 [`rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json)
 and
-[`rook-coding-dogfood-v2-2026-07-27.json`](evidence/rook-coding-dogfood-v2-2026-07-27.json).
+[`rook-coding-dogfood-v3-2026-07-28.json`](evidence/rook-coding-dogfood-v3-2026-07-28.json).
 
 The full-repository catalog and scale benchmark are separate infrastructure
 claims. They prove pinned upstream provenance, full-clone isolation, durable

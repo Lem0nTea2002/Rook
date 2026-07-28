@@ -113,6 +113,30 @@ def test_main_dispatches_full_repo_catalog_verification(tmp_path: Path):
     assert seen[0].repo_command == "verify-catalog"
 
 
+def test_main_dispatches_issue_pr_demo_without_model_calls(tmp_path: Path):
+    seen = []
+
+    def repository_runner(args):
+        seen.append(args)
+        return 0
+
+    exit_code = main(
+        [
+            "repo",
+            "issue-pr-demo",
+            "--output",
+            str(tmp_path / "demo"),
+            "--approver",
+            "portfolio-owner",
+        ],
+        repository_runner=repository_runner,
+    )
+
+    assert exit_code == 0
+    assert seen[0].repo_command == "issue-pr-demo"
+    assert seen[0].approver == "portfolio-owner"
+
+
 def test_main_dispatches_contribution_record_without_model_calls(tmp_path: Path):
     seen = []
 

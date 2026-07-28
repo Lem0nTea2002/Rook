@@ -42,7 +42,7 @@
 | 已完成的 Adapter v11 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 100%（+75pp）；中位时延 -16.7%；中位 Token -19.5%；新增回归和基础设施排除均为 0 |
 | Candidate v5 / Adapter v12 Formal | 72/72 次；36 个完整配对；Baseline 25% → Forced 94.4%（+69.4pp）；中位时延 -5.8%；中位 Token -15.2%；新增回归和基础设施排除均为 0 |
 | Candidate v5 两仓库 holdout | 24/24 次；12 个完整配对；Baseline 33.3% → Forced 91.7%（+58.3pp）；能力提升 +87.5pp，bootstrap 95% CI 为 +62.5pp～+100pp；新增回归和基础设施排除均为 0；时延和 Token 增加 |
-| Rook Coding Agent dogfood v2 | 10 个隔离的仓库形态任务；9 成功 / 1 失败；106 次 Provider 调用、738,729 个观测 Token；无关 Skill 误选 0/10；单任务 20 次/总计 200 次硬上限 |
+| Rook Coding Agent dogfood v3 | 10/10 个固定隔离仓库形态任务通过；97 次 Provider 尝试事件、649,145 个观测 Token；中位时延 28.175 秒；干净终止 9/10；单任务 12 次/总计 120 次硬上限 |
 | 完整仓库任务目录 | 24 个固定 SWE-bench Lite 任务，覆盖 pytest、scikit-learn、Sphinx；11 个关联 Issue、13 个明确标记的维护 PR；不暴露 gold/test patch 和测试名 |
 | 持久执行规模 | 10/25/50 workers 每档 300 个任务；吞吐 38.17/80.34/106.65 jobs/s；51/51 注入故障恢复；P95 266/297/844ms |
 | 控制实验外部调用 | 0 |
@@ -59,7 +59,7 @@
 平均调用和 Token 只作方向性观察，不能写成因果前后对照。详见
 [`rm2-v5-two-repo-holdout-2026-07-27.json`](evidence/rm2-v5-two-repo-holdout-2026-07-27.json)
 和
-[`rook-coding-dogfood-v2-2026-07-27.json`](evidence/rook-coding-dogfood-v2-2026-07-27.json)。
+[`rook-coding-dogfood-v3-2026-07-28.json`](evidence/rook-coding-dogfood-v3-2026-07-28.json)。
 
 完整仓库目录与规模基准是独立的基础设施结论：它们证明固定上游来源、
 完整 clone 隔离、持久租约/重试以及 10–50 workers 有界执行；不证明 Rook

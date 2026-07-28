@@ -4,6 +4,7 @@ from dataclasses import replace
 import importlib.util
 import json
 from pathlib import Path
+import tomllib
 
 from rook_agent.evalops.adapters.fake import FakeAgentAdapter, FakeAgentScript
 from rook_agent.evalops.artifacts import ArtifactStore
@@ -79,7 +80,10 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
     assert evidence["authorization"]["formal_authorized"] is False
     assert "prompt" not in json.dumps(evidence).casefold()
     assert "pipx install rook-agent" not in english_readme + chinese_readme
-    assert "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.4" in english_readme
+    project = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    repository = project["project"]["urls"]["Repository"]
+    assert f"git+{repository}.git@v{version}" in english_readme
 
 
 def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None:
@@ -488,6 +492,40 @@ def test_public_rook_coding_dogfood_v2_preserves_budget_failure_and_claim_bounda
     assert evidence["incident_and_remediation"]["model_calls_retried"] == 0
     assert "task sets differ" in evidence["comparison_to_prior_dogfood"]["claim_boundary"]
     assert "not a Skill-effect A/B result" in evidence["claim_boundary"]
+
+
+def test_public_rook_coding_dogfood_v3_preserves_terminal_limit_boundary() -> None:
+    evidence = json.loads(
+        (
+            _ROOT
+            / "docs"
+            / "evidence"
+            / "rook-coding-dogfood-v3-2026-07-28.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert evidence["authorization"]["requested_task_count"] == 10
+    assert evidence["authorization"]["max_provider_calls_per_task"] == 12
+    assert evidence["authorization"]["max_provider_calls_total"] == 120
+    assert evidence["authorization"]["provider_attempt_events_observed"] == 97
+    assert evidence["authorization"]["codex_calls"] == 0
+    assert evidence["aggregate"]["tasks_passed"] == 10
+    assert evidence["aggregate"]["tasks_failed"] == 0
+    assert evidence["aggregate"]["clean_stop_tasks"] == 9
+    assert evidence["aggregate"]["provider_limit_stop_tasks"] == 1
+    assert evidence["aggregate"]["total_tokens"] == 649_145
+    assert evidence["aggregate"]["usd_cost_observed"] is False
+    assert len(evidence["tasks"]) == 10
+    limited = next(
+        item
+        for item in evidence["tasks"]
+        if item["finish_reason"] == "provider_call_limit"
+    )
+    assert limited["id"] == "DF2-RK-002"
+    assert limited["result"] == "passed"
+    assert limited["provider_attempt_events"] == 13
+    assert "not a Skill-effect A/B result" in evidence["claim_boundary"]
+    assert "not execution over complete upstream repositories" in evidence["claim_boundary"]
 
 
 def test_public_forge_lifecycle_evidence_preserves_fake_agent_boundary() -> None:

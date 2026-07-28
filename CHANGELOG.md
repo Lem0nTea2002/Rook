@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-07-28
+
+### Added
+
+- Added the Rookie baby-rook mascot, a friendlier mint-and-navy Textual
+  welcome screen, and refreshed repository/website visuals.
+- Added `rook repo issue-pr-demo`, a deterministic Issue-to-reviewed-Draft-PR
+  walkthrough with a real local Git branch, tests, path and secret gates,
+  hash-chained lifecycle evidence, and no implicit GitHub write.
+- Added a redacted ten-task Rook-only live dogfood v3 record: 10/10 validators
+  passed under a 120-call ceiling, with one Provider-limit terminal retained.
+
+### Fixed
+
+- Replaced the release-version assertion in the portfolio test with a value
+  derived from package metadata, preventing routine releases from breaking
+  every Linux/Windows matrix job on a stale hard-coded tag.
+
 ## [0.2.5] - 2026-07-28
 
 ### Added
