@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
+import subprocess
 
 from rook_agent.app.tui import RookApp, RookTuiConfig
 from rook_agent.app.tui_state import TuiEntryKind
@@ -122,7 +124,24 @@ async def _render_scene(scene: Scene) -> str:
         app._set_activity(scene.activity)
         await pilot.pause()
         svg = app.export_screenshot(title=f"Rook TUI · {scene.name}")
+        svg = re.sub(r"\s*@font-face\s*\{.*?\}", "", svg, flags=re.DOTALL)
+        svg = svg.replace(
+            "font-family: Fira Code, monospace;",
+            'font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;',
+        )
         return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
+
+
+def _render_png(svg_path: Path) -> Path:
+    magick = shutil.which("magick")
+    if magick is None:
+        raise RuntimeError("ImageMagick is required to render stable README PNG assets")
+    png_path = svg_path.with_suffix(".png")
+    subprocess.run(
+        [magick, "-background", "#0b1117", str(svg_path), str(png_path)],
+        check=True,
+    )
+    return png_path
 
 
 async def _render_all() -> None:
@@ -132,8 +151,10 @@ async def _render_all() -> None:
         filename = f"rook-tui-{scene.name}.svg"
         docs_path = DOC_IMAGES / filename
         docs_path.write_text(await _render_scene(scene), encoding="utf-8")
+        png_path = _render_png(docs_path)
         shutil.copyfile(docs_path, WEBSITE_IMAGES / filename)
-        print(docs_path.relative_to(ROOT))
+        shutil.copyfile(png_path, WEBSITE_IMAGES / png_path.name)
+        print(png_path.relative_to(ROOT))
 
 
 def main() -> None:

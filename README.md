@@ -1,276 +1,158 @@
 <p align="center">
-  <img src="assets/rookie-mascot.png" alt="Rookie, the Rook coding-agent mascot" width="184">
+  <img src="assets/rookie-mascot.png" alt="Rookie mascot" width="160">
 </p>
 
 <h1 align="center">Rook</h1>
 
 <p align="center">
-  <strong>A local Python coding agent with Rook Forge Skill exams, approval, deployment, and rollback.</strong>
+  <strong>A local Python coding agent with Skill exams, approval, deployment, and rollback.</strong>
 </p>
 
 <p align="center">
-  <a href="#quickstart"><img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white"></a>
-  <a href="#tui"><img alt="Textual TUI" src="https://img.shields.io/badge/Textual-TUI-5B5BD6?style=flat-square"></a>
-  <a href="#configuration"><img alt="OpenAI Compatible" src="https://img.shields.io/badge/OpenAI-Compatible-111827?style=flat-square"></a>
-  <a href="#development"><img alt="pytest" src="https://img.shields.io/badge/pytest-tested-0A9EDC?style=flat-square&logo=pytest&logoColor=white"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6"><img alt="Release v0.2.6" src="https://img.shields.io/badge/release-v0.2.6-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
+  <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-<p align="center">
-  English
-  · <a href="README.zh-CN.md">简体中文</a>
-</p>
+Rook reads and edits code in a local workspace, calls tools, runs tests, and keeps
+recoverable sessions. Its built-in **Rook Forge** decides whether a Skill is safe and
+useful enough to ship.
 
----
-
-## Problem
-
-Rook is a runnable local Python coding agent. **Rook Forge** solves the unsafe
-gap between writing a Skill and trusting it in an Agent: every generated or
-manual Skill is quarantined, examined against a no-Skill baseline, blocked on
-safety/regression failures, approved by a human, deployed per target, monitored
-for stale or drifted state, and recoverable through an atomic rollback.
-
-## Architecture
-
-The data plane runs isolated Baseline/Forced/Routed experiments and deterministic
-evaluators. The control plane records automatic gates, human approvals, Rook or
-repository-level Codex deployments, and immutable release history. A passing
-gate means **eligible**, never automatically active.
-
-```mermaid
-flowchart LR
-    A["Task trace or manual bundle"] --> B["Quarantined Candidate"]
-    B --> C["Isolated Baseline / Forced / Routed runs"]
-    C --> D["Evaluator + ScoreCard"]
-    D --> E{"Automatic gate"}
-    E -->|pass| F["Eligible; awaiting approval"]
-    E -->|fail| G["Rejected or quarantined"]
-    F --> H{"Human approval per target"}
-    H --> I["Deploy to Rook or repo Codex"]
-    I --> J["Stale / drift detection"]
-    J --> K["Atomic rollback"]
-```
+> Rook completes coding tasks. Rook Forge tests, approves, deploys, and rolls back Skills.
 
 ## Demo
 
-[![Watch the 2–3 minute Rook Forge demo](docs/images/rook-forge-video.png)](docs/video/rook-forge-demo.mp4)
-
-**[Read the engineering article (中文)](docs/articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)**
-· **[Open the 2–3 minute video](docs/video/rook-forge-demo.mp4)**
-
-Run the complete zero-cost Candidate → exam → gate → approval → dual deployment
-→ drift detection → rollback lifecycle:
-
-```sh
-rook eval demo
-```
-
-The command uses deterministic Fake Agents and an isolated local Registry. It
-makes no network/model call. A checked-in dogfood record contains real approval
-and release IDs plus artifact hashes.
-
-Run the polished Issue → reviewed Draft PR workflow:
-
-```sh
-rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo
-```
-
-This second demo creates a real local Git branch, plan, code patch, test run,
-deterministic gate, hash-chained contribution ledger, and review-ready PR body.
-It makes zero model calls and deliberately stops before a GitHub write so that
-publishing remains an explicit human action. See the
-[Issue-to-PR walkthrough](docs/ISSUE_TO_PR_DEMO.md).
-
-## Metrics
-
-| Evidence | Result | Boundary |
-| --- | --- | --- |
-| Release | [v0.2.6](https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.6), wheel + sdist | Rookie UI and Issue-to-PR release; supersedes the published PR #19 milestone v0.2.5 |
-| Cross-platform CI | Ubuntu: 1844 passed / 8 skipped; Windows: 1845 passed / 7 skipped; Python 3.11/3.12; EvalOps: 532 passed / 5 skipped at 85.07% coverage | v0.2.6 public-fork CI; offline, with no Codex process or model cost; coverage enforced at two-decimal precision |
-| Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
-| `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
-| Real-repository live holdouts | 16/16 calls, 8 valid pairs, 100% trace completeness, 0 infrastructure exclusions | Both independent Candidates rejected for new regressions; no improvement claim or deployment |
-| Candidate v5 two-repository holdout | 24/24 calls, 12 valid pairs; Baseline 33.3% → Forced 91.7% (+58.3pp); capability uplift +87.5pp (bootstrap 95% CI +62.5pp to +100pp); 0 new regressions | Real paired measurement on pinned repository-shaped cases; median latency +23.6% and Token +10.8%; measurement-only |
-| Formal release lifecycle | Content-distinct v5 passed an independent 72-call Formal → human approval → repository-level Codex v1→v5 deployment; an audit-chain repair exercised a real v5→v1 rollback before the final redeploy | Real model gate, real local rollback, and real successor deployment |
-| Rook Coding Agent dogfood v3 | 10/10 frozen isolated tasks passed; 97 Provider-attempt events, 649,145 observed Tokens, 28.175s median; clean termination 9/10 | Honest `deepseek-v4-flash` live run with a 12-call/task and 120-call total ceiling; one passing task ended at the Provider limit; not a full-upstream-repository run |
-| Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
-| `gpt-5.4-mini` Adapter v12 Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; median tool calls -33.3%; 0 new regressions | Content-distinct v5 on a sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
-| Full-repository catalog | 24 pinned SWE-bench Lite tasks across pytest, scikit-learn, and Sphinx; 11 linked Issues + 13 explicit maintenance PRs | Historical reproducible tasks; hidden verifier fields excluded; not new upstream PR submissions |
-| Execution scale | 300 jobs/profile; throughput 38.17 → 80.34 → 106.65 jobs/s at 10/25/50 workers; 51/51 injected faults recovered; P95 266/297/844ms | Offline 250ms deterministic payload; queue/recovery evidence, not model or Docker throughput |
-
-Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
-[real-repository holdouts](docs/REAL_REPO_HOLDOUTS.md) ·
-[live holdout results](docs/evidence/real-repo-live-holdouts-2026-07-27.json) ·
-[Candidate v5 two-repository holdout](docs/evidence/rm2-v5-two-repo-holdout-2026-07-27.json) ·
-[Formal release lifecycle](docs/evidence/rm2-formal-release-2026-07-27.json) ·
-[successor v5 Formal and release](docs/evidence/rm2-v5-formal-release-2026-07-27.json) ·
-[Rook live coding dogfood v3](docs/evidence/rook-coding-dogfood-v3-2026-07-28.json) ·
-[prior v2 dogfood](docs/evidence/rook-coding-dogfood-v2-2026-07-27.json) ·
-[original five-task dogfood](docs/evidence/rook-coding-dogfood-2026-07-27.json) ·
-[lifecycle record](docs/evidence/forge-lifecycle-2026-07-24.json) ·
-[v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
-[v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
-[Formal hardening timeline](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
-[dogfooding ledger](docs/DOGFOODING.md) ·
-[full-repository and scale design](docs/FULL_REPO_AND_SCALE.md) ·
-[scale report](docs/EXECUTION_SCALE_REPORT.md)
-
-## Why Rook
-
-Most coding-agent demos show the surface: a prompt goes in, code changes come out. Rook focuses on the machinery in between.
-
-Compared with larger projects like OpenCode, Rook is intentionally smaller in scope.
-
-| Dimension | Rook | Larger projects like OpenCode |
-| --- | --- | --- |
-| Primary goal | Make agent internals readable and teachable | Deliver a broader production-style coding-agent platform |
-| Codebase shape | Roughly 32k lines of Python runtime code in this repo | Roughly 575k lines of TS/JS across a much larger multi-surface codebase |
-| Engineering tradeoff | Drops some extra platform surface area to stay inspectable | Accepts more complexity to support a broader product surface |
-| Best fit | Learning, modification, interview prep, portfolio projects, and local experimentation | Users who want a larger, more full-surface coding-agent environment |
-
-The goal is not to out-feature a bigger coding agent. The goal is to keep the system real enough to use, but small enough that you can still read it end to end and understand why each subsystem exists.
-
-That also makes Rook a practical repo to study deeply, adapt for your own workflow, and turn into a resume-worthy or portfolio-friendly project after you have extended it.
-
-Compared with more tutorial-first or lightweight learning repos, Rook also tries to stay closer to a small but testable engineering system.
-
-| Dimension | Rook | Many learning-oriented agent repos |
-| --- | --- | --- |
-| Learning value | Readable subsystem boundaries and explicit docs | Often optimized for a single tutorial path or demo flow |
-| Practical surface | Real TUI, tools, permissions, sessions, provider adapters | Often focused on a narrower loop or a simpler proof of concept |
-| Verification | 120+ test files, cross-platform offline CI, and multiple benchmark entry points | Often lighter on testing and benchmark integration |
-| Extension path | Easier to adapt into a portfolio or resume project | Often better for following along than for long-term extension |
-
-In this repo, the learning goal is important, but it is paired with enough runtime structure, tests, and benchmark hooks to make the project useful after the first read-through.
-
-It is built for people who want to:
-
-- study how a coding agent is assembled
-- modify or extend a local Python implementation
-- understand the architecture well enough to explain it in an interview
-
-Detailed subsystem design lives in the docs, not in this README.
+[![Watch the 60-second Rook product demo](docs/images/rook-forge-video.png)](docs/video/rook-forge-demo.mp4)
 
 ## Quickstart
 
-Install the tagged GitHub release with `pipx`:
-
-```sh
+```bash
 pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"
-```
-
-Or install from a local clone:
-
-```sh
-pipx install .
-```
-
-Start the TUI:
-
-```sh
 rook
 ```
 
-Run one message without opening the TUI:
+Run one task without opening the TUI:
 
-```sh
-rook --message "Summarize this repository in one paragraph"
+```bash
+rook --message "Inspect this project and fix the failing test"
 ```
 
-Use line-oriented interactive mode:
+Try the complete Rook Forge lifecycle without a model or API cost:
 
-```sh
-rook --interactive
-```
-
-Try Rook Forge without configuring a provider or spending model tokens:
-
-```sh
+```bash
 rook eval demo
 ```
 
-## What You Get
+## Features
 
-- Local Python coding agent
-- Textual TUI that exposes agent activity instead of hiding it
-- Tool calling with permission checks before risky actions
-- Session persistence, resume flow, and context compaction
-- Skills, provider adapters, and clean modules for study and modification
-- Rook Forge Skill quarantine, isolated A/B exams, ScoreCards, human approval, target-specific deployment, and rollback
-- Pinned full-repository tasks, an idempotent leased worker queue, a networkless Docker backend, and Prometheus/OTLP hooks
+| Capability | What it provides |
+| --- | --- |
+| Coding agent | Read, search, edit, run commands, and verify changes |
+| Visible agent loop | Stream model output, tool calls, results, and todos in the TUI |
+| Permissions and sessions | Confirm risky actions; persist, resume, and compact sessions |
+| Skill exams | Run isolated Baseline, Forced, and Routed paired experiments |
+| Skill releases | Require human approval, deploy to Rook/Codex independently, and roll back |
+
+## How Rook Forge works
+
+```text
+Candidate quarantine
+        ↓
+Baseline / Forced / Routed exams
+        ↓
+Evaluator + ScoreCard
+        ↓
+Automatic gate → Human approval → Per-target deployment
+        ↓
+stale / drift detection → Atomic rollback
+```
+
+The automatic gate only decides release eligibility; it never activates a Skill.
+Human approval cannot bypass a safety failure, secret leak, new regression, stale
+evidence, or content-hash mismatch.
+
+## TUI
+
+![Rook Coding Agent and Rook Forge](docs/images/rook-tui-conversation.png)
+
+The screenshot is an offline deterministic documentation scene rendered with Rook's
+real Textual components. It is not presented as a live model result.
+
+## Verified results
+
+| Validation | Result |
+| --- | --- |
+| `gpt-5.4-mini` Formal | 72/72 calls and 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp) |
+| Efficiency and safety | Median latency -5.8%, median tokens -15.2%, 0 new regressions, 100% trace completeness |
+| Cross-platform CI | Ubuntu 1844 passed / 8 skipped; Windows 1845 passed / 7 skipped |
+| Release lifecycle | Real gate, human approval, dual-target deployment, drift detection, and atomic rollback |
+
+The Formal used a sealed holdout. Dollar cost and Codex routing activation were not
+observed, so Rook does not estimate them. Fake-Agent demos validate the control plane,
+not model effectiveness.
+
+Evidence:
+
+- [Portfolio evidence contract](docs/PORTFOLIO_EVIDENCE.zh-CN.md)
+- [Formal result](docs/PORTFOLIO_EVIDENCE.md#completed-candidate-v5--adapter-v12-formal)
+- [Real release lifecycle](docs/evidence/rm2-v5-formal-release-2026-07-27.json)
+- [Full-repository and scale execution](docs/FULL_REPO_AND_SCALE.md)
 
 ## Configuration
 
-Create a starter config:
-
-```sh
+```bash
 rook config init
 rook config path
 rook config show
 ```
 
-Keep secrets in environment variables:
+Pass secrets through environment variables:
 
-```sh
+```bash
 export ROOK_API_KEY="your-api-key"
 ```
 
-Default config locations:
+Configuration files:
 
 ```text
 global:  ~/.config/rook/config.toml
 project: ./rook.toml
 ```
 
-Provider support is centered on the OpenAI Chat Completions-compatible path. The OpenAI-compatible 流式 adapter is the mainline streaming implementation and normalizes provider errors such as PROMPT_TOO_LONG. The Anthropic provider is still 实验性 and does not yet expose Anthropic 原生 thinking/cache/streaming. Rook does not use the OpenAI Responses API yet, so native reasoning and 多模态 support are future provider work rather than current runtime behavior.
+The main provider path is OpenAI Chat Completions-compatible and implements
+OpenAI-compatible streaming, including normalized errors such as
+`PROMPT_TOO_LONG`. Rook does not use the OpenAI Responses API yet, so native
+reasoning and multimodal support remain future work. The Anthropic provider is
+experimental and does not expose native thinking/cache/streaming.
 
-## TUI
+## Project layout
 
-Rook's TUI is designed to expose the agent loop instead of hiding it. You can see session state, streamed assistant output, tool calls, tool results, and permission prompts in one place.
-
-Rookie ready state:
-
-![Rookie ready state](docs/images/rookie-tui.png)
-
-Current product flow: Rook completes coding tasks while Rook Forge governs Skill releases.
-
-![Rook Coding Agent and Rook Forge conversation](docs/images/rook-tui-conversation.svg)
+```text
+rook_agent/
+├── agent/          # Model → Tool → Model loop
+├── tools/          # File, search, edit, and command tools
+├── permissions/    # Policy checks and human confirmation
+├── context/        # Sessions, context projection, and compaction
+├── providers/      # Model providers
+└── evalops/        # Rook Forge exam and release control plane
+```
 
 ## Documentation
 
-- [Technical Docs Index](docs/README.md)
-- [Chinese Docs Index](docs/README.zh-CN.md)
-- [Codebase Reading Guide](docs/CODEBASE_READING_GUIDE.md)
-- [Codex-only Skill EvalOps](docs/EVALOPS.md)
-- [Offline Rook Forge Demo](docs/DEMO.md)
-- [Portfolio Evidence](docs/PORTFOLIO_EVIDENCE.md)
+- [Documentation index](docs/README.md)
+- [Codebase reading guide](docs/CODEBASE_READING_GUIDE.zh-CN.md)
+- [Rook Forge offline demo](docs/DEMO.md)
+- [Issue-to-PR demo](docs/ISSUE_TO_PR_DEMO.md)
+- [Engineering article: treating Skills as software releases](docs/articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
 
 ## Development
 
-Install dev dependencies:
-
-```sh
+```bash
 python -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
-```
-
-Run all tests:
-
-```sh
 .venv/bin/python -m pytest
 ```
 
-Run a focused test file:
-
-```sh
-.venv/bin/python -m pytest tests/test_app_tui.py -q
-```
-
-## Philosophy
-
-Rook was built to answer a question most coding agents do not address:
-
-> What actually happens inside when an agent streams, calls tools, asks for
-> permission, compacts context, and resumes a session?
-
-It is a real runnable agent, but it is also a readable Python project you can learn from one subsystem at a time.
+Rook aims to be a real, inspectable coding agent with clear boundaries. Rook Forge adds
+evidence, auditability, and rollback to the Skill release process.
