@@ -52,7 +52,10 @@ def test_filenames_and_text_have_no_legacy_identifier() -> None:
     violations: list[str] = []
 
     for path in ROOT.rglob("*"):
-        if any(part in {".venv", "__pycache__", ".pytest_cache"} for part in path.parts):
+        if any(
+            part in {".git", ".rook", ".venv", "__pycache__", ".pytest_cache"}
+            for part in path.parts
+        ):
             continue
         if any(token in path.name for token in forbidden):
             violations.append(str(path.relative_to(ROOT)))
@@ -74,9 +77,10 @@ def test_readmes_use_current_rook_tui_assets() -> None:
     }
     for readme_name in ("README.md", "README.zh-CN.md"):
         text = (ROOT / readme_name).read_text(encoding="utf-8")
-        assert "docs/images/rook-tui-conversation.svg" in text
+        assert "docs/images/rook-tui-conversation.png" in text
+        assert "docs/images/rook-tui-conversation.svg" not in text
         assert not any(asset in text for asset in legacy_tui_assets)
-    assert (ROOT / "docs" / "images" / "rook-tui-conversation.svg").is_file()
+    assert (ROOT / "docs" / "images" / "rook-tui-conversation.png").is_file()
 
 
 def test_demo_site_uses_current_rook_tui_assets() -> None:
@@ -84,9 +88,9 @@ def test_demo_site_uses_current_rook_tui_assets() -> None:
     assert "github.com/Lem0nTea2002/Rook" in text
     assert "github.com/ZHUMUJUN/Rook" not in text
     for filename in (
-        "rook-tui-conversation.svg",
-        "rook-tui-permission.svg",
-        "rook-tui-resume.svg",
+        "rook-tui-conversation.png",
+        "rook-tui-permission.png",
+        "rook-tui-resume.png",
     ):
         assert f"assets/{filename}" in text
         assert (ROOT / "website-demo" / "assets" / filename).is_file()

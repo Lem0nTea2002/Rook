@@ -89,23 +89,25 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
 def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None:
     english = (_ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (_ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    top = english[: english.index("## Why Rook")]
+    top = english[: english.index("## Configuration")]
 
-    assert [top.index(heading) for heading in (
-        "## Problem",
-        "## Architecture",
+    headings = (
         "## Demo",
-        "## Metrics",
-    )] == sorted(
-        top.index(heading)
-        for heading in ("## Problem", "## Architecture", "## Demo", "## Metrics")
+        "## Quickstart",
+        "## Features",
+        "## How Rook Forge works",
+        "## TUI",
+        "## Verified results",
     )
-    assert "`gpt-5.4-mini` Adapter v12 Formal" in top
+    assert [top.index(heading) for heading in headings] == sorted(
+        top.index(heading) for heading in headings
+    )
+    assert "`gpt-5.4-mini` Formal" in top
     assert "Baseline 25% → Forced 94.4% (+69.4pp)" in top
-    assert "Formal hardening timeline" in top
-    assert "2–3 minute video" in top
-    assert "## 问题" in chinese
-    assert "`gpt-5.4-mini` Adapter v12 Formal" in chinese
+    assert "60-second Rook product demo" in top
+    assert "docs/images/rook-tui-conversation.png" in top
+    assert "## 快速开始" in chinese
+    assert "`gpt-5.4-mini` Formal" in chinese
     assert "Baseline 25% → Forced 94.4%（+69.4pp）" in chinese
 
     video = _ROOT / "docs" / "video" / "rook-forge-demo.mp4"
