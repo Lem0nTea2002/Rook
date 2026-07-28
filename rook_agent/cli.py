@@ -81,6 +81,81 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser = config_subparsers.add_parser("init", help="Create a starter global config file.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite the existing global config.")
 
+    channel_parser = subparsers.add_parser(
+        "channel",
+        help="Pair and serve private Feishu or WeChat conversations.",
+    )
+    channel_subparsers = channel_parser.add_subparsers(
+        dest="channel_command",
+        required=True,
+    )
+    channel_setup = channel_subparsers.add_parser(
+        "setup",
+        help="Store official channel application credentials securely.",
+    )
+    channel_setup.add_argument("setup_channel", choices=("feishu",))
+    channel_setup.add_argument("--app-id", default=None)
+    channel_login = channel_subparsers.add_parser(
+        "login",
+        help="Log in to an official user-authorized channel.",
+    )
+    channel_login.add_argument("login_channel", choices=("weixin",))
+    channel_project = channel_subparsers.add_parser(
+        "project",
+        help="Manage the absolute local project whitelist.",
+    )
+    channel_project_subparsers = channel_project.add_subparsers(
+        dest="project_command",
+        required=True,
+    )
+    channel_project_add = channel_project_subparsers.add_parser("add")
+    channel_project_add.add_argument("alias", type=_nonempty_text)
+    channel_project_add.add_argument("--path", required=True)
+    channel_pair = channel_subparsers.add_parser(
+        "pair",
+        help="Create a single-use private-chat pairing code.",
+    )
+    channel_pair_subparsers = channel_pair.add_subparsers(
+        dest="pair_command",
+        required=True,
+    )
+    channel_pair_create = channel_pair_subparsers.add_parser("create")
+    channel_pair_create.add_argument(
+        "--channel",
+        required=True,
+        choices=("feishu", "weixin"),
+    )
+    channel_pair_create.add_argument("--project", required=True, type=_nonempty_text)
+    channel_serve = channel_subparsers.add_parser(
+        "serve",
+        help="Run the foreground local channel gateway.",
+    )
+    channel_serve.add_argument(
+        "--channels",
+        required=True,
+        help="Comma-separated channels: feishu,weixin.",
+    )
+    channel_status = channel_subparsers.add_parser(
+        "status",
+        help="Show non-secret channel configuration and health.",
+    )
+    channel_status.add_argument("--json", action="store_true")
+    channel_autostart = channel_subparsers.add_parser(
+        "autostart",
+        help="Manage the current-user Windows startup task.",
+    )
+    channel_autostart_subparsers = channel_autostart.add_subparsers(
+        dest="autostart_command",
+        required=True,
+    )
+    channel_autostart_install = channel_autostart_subparsers.add_parser("install")
+    channel_autostart_install.add_argument(
+        "--channels",
+        default="feishu,weixin",
+    )
+    channel_autostart_subparsers.add_parser("remove")
+    channel_autostart_subparsers.add_parser("status")
+
     eval_parser = subparsers.add_parser("eval", help="Run and inspect Rook Forge Skill exams.")
     eval_subparsers = eval_parser.add_subparsers(dest="eval_command", required=True)
     doctor_parser = eval_subparsers.add_parser("doctor", help="Probe Rook Forge Agent capabilities.")
@@ -413,10 +488,24 @@ def main(
     evalops_runner: Callable[[argparse.Namespace], int] | None = None,
     scale_runner: Callable[[argparse.Namespace], int] | None = None,
     repository_runner: Callable[[argparse.Namespace], int] | None = None,
+    channel_runner: Callable[[argparse.Namespace], int] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "config":
         return run_config_command(args)
+    if args.command == "channel":
+        if channel_runner is None:
+            from rook_agent.channels.cli import run_channel_command
+
+            channel_runner = run_channel_command
+        try:
+            return channel_runner(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
     if args.command in {"eval", "skill"}:
         if evalops_runner is None:
             from rook_agent.evalops.cli import run_evalops_command

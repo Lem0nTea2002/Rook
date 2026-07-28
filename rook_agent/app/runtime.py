@@ -94,6 +94,7 @@ class AgentChatRunner:
     _guidance_lock: threading.Lock = field(default_factory=threading.Lock)
     _cancellation_lock: threading.Lock = field(default_factory=threading.Lock)
     _active_cancellation_token: CancellationToken | None = None
+    execution_lock_factory: Callable[[], Any] | None = None
 
     def set_provider(self, provider: ChatProvider, *, use_streaming: bool) -> None:
         self.provider = provider
@@ -151,6 +152,12 @@ class AgentChatRunner:
                 self._active_cancellation_token = None
 
     def run_user_turn(self, content: str) -> ChatResponse:
+        if self.execution_lock_factory is None:
+            return self._run_user_turn(content)
+        with self.execution_lock_factory():
+            return self._run_user_turn(content)
+
+    def _run_user_turn(self, content: str) -> ChatResponse:
         before_count = len(self.current_session.rebuild_view().messages)
         self.last_pending_input = None
         cancellation_token = self._begin_cancellable_turn()
@@ -192,6 +199,12 @@ class AgentChatRunner:
         return response
 
     def resume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
+        if self.execution_lock_factory is None:
+            return self._resume_with_user_input(request_id, answer)
+        with self.execution_lock_factory():
+            return self._resume_with_user_input(request_id, answer)
+
+    def _resume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
         """恢复等待中的权限确认。
 
         普通 `ask_user` 后续仍走新的用户消息；权限确认必须先补齐原 tool_call 的
@@ -241,6 +254,12 @@ class AgentChatRunner:
         return response
 
     async def arun_user_turn(self, content: str) -> ChatResponse:
+        if not self.use_streaming or self.execution_lock_factory is None:
+            return await self._arun_user_turn(content)
+        with self.execution_lock_factory():
+            return await self._arun_user_turn(content)
+
+    async def _arun_user_turn(self, content: str) -> ChatResponse:
         """异步聊天入口。
 
         Textual 已经运行在 asyncio event loop 中，所以 UI 需要 await 这个入口；只有这里
@@ -288,6 +307,12 @@ class AgentChatRunner:
         return await asyncio.to_thread(self.run_user_turn, content)
 
     async def aresume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
+        if not self.use_streaming or self.execution_lock_factory is None:
+            return await self._aresume_with_user_input(request_id, answer)
+        with self.execution_lock_factory():
+            return await self._aresume_with_user_input(request_id, answer)
+
+    async def _aresume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
         if self.use_streaming:
             before_count = len(self.current_session.rebuild_view().messages)
             self.last_pending_input = None

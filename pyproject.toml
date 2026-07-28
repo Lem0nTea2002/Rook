@@ -4,10 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rook-agent"
-version = "0.3.1"
+version = "0.4.0"
 description = "Rook is a local coding agent with Rook Forge Skill governance."
 readme = "README.md"
 requires-python = ">=3.11"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = [
     "textual",
     "prompt_toolkit",
@@ -37,6 +38,10 @@ scale = [
     "opentelemetry-exporter-otlp-proto-http>=1.35,<2",
     "opentelemetry-sdk>=1.35,<2",
     "prometheus-client>=0.22,<1",
+]
+im = [
+    "lark-oapi>=1.7,<2",
+    "qrcode>=8,<9",
 ]
 
 [project.scripts]
@@ -71,6 +76,7 @@ files = [
     "rook_agent/evalops/service.py",
     "rook_agent/evalops/trends.py",
     "rook_agent/execution",
+    "rook_agent/channels",
 ]
 follow_imports = "skip"
 ignore_missing_imports = true

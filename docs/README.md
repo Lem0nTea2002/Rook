@@ -19,19 +19,21 @@ Read in this order if you are new to the codebase:
    end-to-end trace.
 2. [CLI / TUI Design](CLI_TUI_DESIGN.md) — process startup, dependency
    assembly, commands, streaming, and UI state.
-3. [Agent Loop Guardrails](AGENT_LOOP_GUARDRAILS.md) — the transaction that
+3. [Mobile Channels](MOBILE_CHANNELS.md) — paired Feishu/WeChat DMs, project
+   whitelist, durable queue, and IM permission approval.
+4. [Agent Loop Guardrails](AGENT_LOOP_GUARDRAILS.md) — the transaction that
    turns one user message into model calls and tool results.
-4. [Tools Design](TOOLS_DESIGN.md) and [Permissions Design](PERMISSIONS_DESIGN.md)
+5. [Tools Design](TOOLS_DESIGN.md) and [Permissions Design](PERMISSIONS_DESIGN.md)
    — how a model request becomes a controlled local operation.
-5. [Context Management Design](CONTEXT_MANAGEMENT_DESIGN.md) — durable facts,
+6. [Context Management Design](CONTEXT_MANAGEMENT_DESIGN.md) — durable facts,
    provider projection, compaction, and task boundaries.
-6. [Providers Design](PROVIDERS_DESIGN.md) and [Skill System Design](SKILL_SYSTEM_DESIGN.md)
+7. [Providers Design](PROVIDERS_DESIGN.md) and [Skill System Design](SKILL_SYSTEM_DESIGN.md)
    — the two main extension seams.
-7. [Rook Forge Skill Governance](EVALOPS.md) — isolated paired exams,
+8. [Rook Forge Skill Governance](EVALOPS.md) — isolated paired exams,
    automatic gates, human approval, target deployment, and rollback.
-8. [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) — reproducible control cases,
+9. [Portfolio Evidence](PORTFOLIO_EVIDENCE.md) — reproducible control cases,
    contribution boundary, and the claims that still require live measurements.
-9. [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md) — two pinned public
+10. [Real-repository Skill Holdouts](REAL_REPO_HOLDOUTS.md) — two pinned public
    repositories, four hidden-validator cases, and their quarantine boundary.
 
 For a one-command, zero-cost walkthrough before reading the internals, run
@@ -49,6 +51,7 @@ mental model, not memorize a directory tree.
 | Question | Document |
 | --- | --- |
 | How is the terminal app assembled and updated? | [CLI / TUI Design](CLI_TUI_DESIGN.md) / [中文](CLI_TUI_DESIGN.zh-CN.md) |
+| How can a phone safely control local Rook? | [Mobile Channels](MOBILE_CHANNELS.md) / [中文](MOBILE_CHANNELS.zh-CN.md) |
 | When does a turn stop, pause, or continue? | [Agent Loop Guardrails](AGENT_LOOP_GUARDRAILS.md) / [中文](AGENT_LOOP_GUARDRAILS.zh-CN.md) |
 | How can long conversations fit a model context window? | [Context Management Design](CONTEXT_MANAGEMENT_DESIGN.md) / [中文](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md) |
 | Why does a write or shell call need approval? | [Permissions Design](PERMISSIONS_DESIGN.md) / [中文](PERMISSIONS_DESIGN.zh-CN.md) |

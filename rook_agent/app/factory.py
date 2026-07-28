@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import subprocess
 
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.agent.session import AgentSession, create_project_permission_manager
+from rook_agent.agent.prompt_inputs import read_agents_md
+from rook_agent.agent.user_input import UserInputOption, UserInputRequest
 from rook_agent.app.commands import ContextCommandHandler
 from rook_agent.app.command_registry import CommandRegistry
 from rook_agent.app.custom_commands import load_custom_commands
@@ -24,6 +27,7 @@ from rook_agent.app.skill_commands import SkillCommandHandler, skill_command_spe
 from rook_agent.app.tui import RookApp, RookTuiConfig
 from rook_agent.app.workbench_commands import WorkbenchCommandHandler
 from rook_agent.config.settings import AppConfig, load_config
+from rook_agent.channels.locks import ProjectExecutionLock
 from rook_agent.context.identity import new_session_id
 from rook_agent.context.llm_compact import LlmCompactService
 from rook_agent.context.manager import ContextWindowManager
@@ -49,7 +53,34 @@ from rook_agent.tools.types import Tool
 from rook_agent.utils.sandbox_access import SandboxAccess
 
 
-def create_rook_app(
+@dataclass(slots=True)
+class RookRuntime:
+    """Shared Rook runtime used by the TUI and headless channel gateways."""
+
+    command_handler: CompositeCommandHandler
+    chat_runner: AgentChatRunner
+    current_session: CurrentSessionState
+    file_references: ProjectFileReferenceService
+    prompt_history: PromptHistoryStore
+    direct_shell: DirectShellService
+    tui_config: RookTuiConfig
+
+    def create_tui(self) -> RookApp:
+        return RookApp(
+            command_handler=self.command_handler,
+            chat_runner=self.chat_runner,
+            current_session=self.current_session,
+            file_references=self.file_references,
+            prompt_history=self.prompt_history,
+            direct_shell=self.direct_shell,
+            config=self.tui_config,
+        )
+
+    def close(self) -> None:
+        self.chat_runner.close()
+
+
+def create_rook_runtime(
     *,
     project_root: str | Path = ".",
     data_root: str | Path | None = None,
@@ -58,8 +89,9 @@ def create_rook_app(
     tools: list[Tool] | None = None,
     config: RookTuiConfig | None = None,
     app_config: AppConfig | None = None,
-) -> RookApp:
-    """组装可运行的 Rook TUI。
+    resume_existing: bool = False,
+) -> RookRuntime:
+    """组装可由 TUI 或 Channel Gateway 复用的 Rook 运行时。
 
     `data_root` 默认是 `<project_root>/.rook`，并传给 context/session 各组件作为
     统一数据根。
@@ -80,14 +112,28 @@ def create_rook_app(
     resolved_provider = provider or create_provider(project_root=project_path)
     grant_store = FilePermissionGrantStore(resolved_data_root / "permissions.json")
     permission_manager = create_project_permission_manager(project_path, grants=grant_store)
-    session = AgentSession.from_project(
-        store=store,
-        session_id=session_id or new_session_id(),
-        project_root=project_path,
-        tools=resolved_tools,
-        permission_manager=permission_manager,
-        sandbox_access=sandbox_access,
-    )
+    resolved_session_id = session_id or new_session_id()
+    session_path = resolved_data_root / "sessions" / f"{resolved_session_id}.jsonl"
+    if resume_existing and session_path.exists():
+        session = AgentSession.resume(
+            store=store,
+            session_id=resolved_session_id,
+            agents_md=read_agents_md(project_path),
+            skill_catalog=discover_all_skills(project_path),
+            tools=resolved_tools,
+            permission_manager=permission_manager,
+            sandbox_access=sandbox_access,
+        )
+        session.restore_pending_permission_execution()
+    else:
+        session = AgentSession.from_project(
+            store=store,
+            session_id=resolved_session_id,
+            project_root=project_path,
+            tools=resolved_tools,
+            permission_manager=permission_manager,
+            sandbox_access=sandbox_access,
+        )
     current = CurrentSessionState(session)
     compact_summarizer = ProviderLlmCompactSummarizer(resolved_provider)
     context_manager = ContextWindowManager(
@@ -168,7 +214,31 @@ def create_rook_app(
         limits=AgentLoopLimits.default(),
         use_streaming=_should_use_streaming(resolved_provider, resolved_app_config),
         candidate_coordinator=candidate_coordinator,
+        execution_lock_factory=lambda: ProjectExecutionLock(project_path),
     )
+    restored_permission = session.pending_permission_execution
+    if restored_permission is not None:
+        request = restored_permission.permission_request
+        chat_runner.last_pending_input = UserInputRequest(
+            id=restored_permission.request_id,
+            kind="permission_confirmation",
+            question=(
+                f"Allow {request.action.value} for {request.target}? "
+                "Mobile channels permit this action once or deny it."
+            ),
+            options=[
+                UserInputOption(id="deny", label="Deny"),
+                UserInputOption(id="allow_once", label="Allow once"),
+            ],
+            payload={
+                "tool_name": restored_permission.tool_call.name,
+                "permission_request": {
+                    "action": request.action.value,
+                    "target": request.target,
+                    "reason": request.reason,
+                },
+            },
+        )
     model_switcher = RuntimeModelSwitcher(
         app_config=resolved_app_config,
         chat_runner=chat_runner,
@@ -253,14 +323,14 @@ def create_rook_app(
             lambda: skill_command_specs(skill_catalog_provider()),
         ],
     )
-    return RookApp(
+    return RookRuntime(
         command_handler=command_handler,
         chat_runner=chat_runner,
         current_session=current,
         file_references=ProjectFileReferenceService(project_path),
         prompt_history=PromptHistoryStore(project_path),
         direct_shell=DirectShellService(lambda: current.session),
-        config=config
+        tui_config=config
         or RookTuiConfig(
             provider_name=resolved_provider.name,
             provider_model=resolved_provider.model,
@@ -274,6 +344,31 @@ def create_rook_app(
             ),
         ),
     )
+
+
+def create_rook_app(
+    *,
+    project_root: str | Path = ".",
+    data_root: str | Path | None = None,
+    provider: ChatProvider | None = None,
+    session_id: str | None = None,
+    tools: list[Tool] | None = None,
+    config: RookTuiConfig | None = None,
+    app_config: AppConfig | None = None,
+    resume_existing: bool = False,
+) -> RookApp:
+    """Create the Textual app from the same runtime used by mobile channels."""
+
+    return create_rook_runtime(
+        project_root=project_root,
+        data_root=data_root,
+        provider=provider,
+        session_id=session_id,
+        tools=tools,
+        config=config,
+        app_config=app_config,
+        resume_existing=resume_existing,
+    ).create_tui()
 
 
 _KEYBINDING_ACTIONS = {

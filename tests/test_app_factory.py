@@ -3,7 +3,7 @@ from pathlib import Path
 
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.app.command_actions import ModelChangedAction
-from rook_agent.app.factory import create_rook_app
+from rook_agent.app.factory import RookRuntime, create_rook_app, create_rook_runtime
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import AgentChatRunner
 from rook_agent.config.settings import AppConfig
@@ -56,6 +56,23 @@ def test_create_rook_app_wires_session_commands_context_and_chat(tmp_path: Path)
     response = app.chat_runner.run_user_turn("你好")
     assert response.content == "收到"
     assert "项目规则" in provider.requests[0].messages[0].content
+
+
+def test_create_rook_app_and_headless_channels_share_runtime_factory(tmp_path: Path) -> None:
+    runtime = create_rook_runtime(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider([]),
+        session_id="sess_channel",
+        tools=[],
+    )
+
+    assert isinstance(runtime, RookRuntime)
+    assert isinstance(runtime.chat_runner, AgentChatRunner)
+    assert runtime.current_session.session_id == "sess_channel"
+    app = runtime.create_tui()
+    assert app.chat_runner is runtime.chat_runner
+    assert app.current_session is runtime.current_session
 
 
 def test_create_rook_app_wires_candidate_coordinator_only_when_enabled(tmp_path: Path) -> None:
@@ -384,3 +401,52 @@ def test_create_rook_app_persists_permission_grants(tmp_path: Path) -> None:
 
     assert result.ok is True
     assert result.data.get("request_type") != "permission_confirmation"
+
+
+def test_headless_runtime_restores_pending_permission_with_mobile_safe_choices(
+    tmp_path: Path,
+) -> None:
+    first = create_rook_runtime(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider(
+            [
+                ChatResponse(
+                    provider="fake",
+                    model="fake-model",
+                    content="",
+                    tool_calls=[
+                        ToolCall(
+                            id="call_write",
+                            name="write",
+                            arguments={"path": "README.md", "content": "unsafe"},
+                        )
+                    ],
+                    finish_reason="tool_calls",
+                )
+            ]
+        ),
+        session_id="channel_session",
+        tools=[create_write_tool(tmp_path)],
+    )
+    first.chat_runner.run_user_turn("write")
+    pending_id = first.chat_runner.last_pending_input.id
+
+    restored = create_rook_runtime(
+        project_root=tmp_path,
+        data_root=tmp_path / ".rook",
+        provider=FakeProvider(
+            [ChatResponse(provider="fake", model="fake-model", content="denied")]
+        ),
+        session_id="channel_session",
+        tools=[create_write_tool(tmp_path)],
+        resume_existing=True,
+    )
+
+    pending = restored.chat_runner.last_pending_input
+    assert pending is not None
+    assert pending.id == pending_id
+    assert [option.id for option in pending.options] == ["deny", "allow_once"]
+    response = restored.chat_runner.resume_with_user_input(pending.id, "deny")
+    assert response.content == "denied"
+    assert not (tmp_path / "README.md").exists()

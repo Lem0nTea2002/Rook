@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.3.1"><img alt="Release v0.3.1" src="https://img.shields.io/badge/release-v0.3.1-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.zh-CN.md">简体中文</a>
@@ -28,7 +28,7 @@ useful enough to ship.
 ## Quickstart
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.3.1"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
 rook
 ```
 
@@ -55,8 +55,32 @@ rook eval demo
 | Coding workbench | Selectable output, Slash Palette, `@` files, controlled shell, diff, and transcript |
 | Visible agent loop | Stream model output, tool calls, results, permission requests, and todos |
 | Permissions and sessions | Confirm risky actions; persist, resume, and compact sessions |
+| Mobile channels | Paired Feishu/WeChat DMs submit tasks and approve one sensitive action |
 | Skill exams | Run isolated Baseline, Forced, and Routed paired experiments |
 | Skill releases | Require human approval, deploy to Rook/Codex independently, and roll back |
+
+## Control local Rook from Feishu or WeChat
+
+Rook v0.4.0 can run a local gateway. Your phone sends tasks and approves a
+single sensitive action; project files, model credentials, the Agent Loop,
+Skills, and tool execution remain on your computer.
+
+```powershell
+python -m pip install -e ".[im]"
+rook channel project add rook --path "D:\absolute\path\to\Rook"
+rook channel setup feishu
+rook channel login weixin
+rook channel pair create --channel feishu --project rook
+rook channel serve --channels feishu,weixin
+```
+
+Only a paired user's private text messages and explicitly whitelisted projects
+are accepted. Feishu uses approval cards and WeChat uses six-digit codes. Mobile
+approval is allow-once or deny only and expires as denial after five minutes.
+The TUI and mobile gateway share the same permission manager, session store,
+and project execution lock.
+
+[Full mobile-channel setup and security model](docs/MOBILE_CHANNELS.md)
 
 ## How Rook Forge works
 

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.3.1"><img alt="Release v0.3.1" src="https://img.shields.io/badge/release-v0.3.1-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.md">English</a>
@@ -27,7 +27,7 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.3.1"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
 rook
 ```
 
@@ -54,8 +54,29 @@ rook eval demo
 | Coding Workbench | 可复制输出、Slash Palette、`@` 文件、受控 Shell、Diff 和 Transcript |
 | 可见的 Agent Loop | 在 TUI 中展示流式输出、工具调用、结果、权限请求和待办 |
 | 权限与会话 | 高风险操作先确认；会话可持久化、恢复和压缩 |
+| 手机渠道 | 已配对的飞书/微信私聊可远程提交任务，并在 IM 中单次审批 |
 | Skill 考试 | 隔离运行 Baseline、Forced 和 Routed 配对实验 |
 | Skill 发布 | 自动门禁后仍需人工审批，支持 Rook/Codex 独立部署与回滚 |
+
+## 手机飞书 / 微信控制本地 Rook
+
+Rook v0.4.0 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
+审批；项目文件、模型凭据、Agent Loop、Skill 和工具执行仍留在电脑。
+
+```powershell
+python -m pip install -e ".[im]"
+rook channel project add rook --path "D:\absolute\path\to\Rook"
+rook channel setup feishu
+rook channel login weixin
+rook channel pair create --channel feishu --project rook
+rook channel serve --channels feishu,weixin
+```
+
+入口只接受已配对用户的私聊文本和本机白名单项目。敏感工具会暂停：飞书显示
+审批卡片，微信显示 6 位码；只能允许一次或拒绝，5 分钟超时自动拒绝。TUI 与
+手机入口复用同一权限管理器、Session Store 和项目执行锁。
+
+[完整配置与安全边界](docs/MOBILE_CHANNELS.zh-CN.md)
 
 ## Rook Forge 如何工作
 
@@ -188,12 +209,14 @@ rook_agent/
 ├── permissions/    # 权限策略与人工确认
 ├── context/        # 会话、上下文投影与压缩
 ├── providers/      # 模型 Provider
+├── channels/       # 飞书 / 微信 Adapter、配对、队列与 IM 审批
 └── evalops/        # Rook Forge 考试与发布控制面
 ```
 
 ## 文档
 
 - [技术文档入口](docs/README.zh-CN.md)
+- [手机飞书 / 微信接入](docs/MOBILE_CHANNELS.zh-CN.md)
 - [代码阅读指南](docs/CODEBASE_READING_GUIDE.zh-CN.md)
 - [Rook Forge 离线演示](docs/DEMO.md)
 - [Issue → PR 演示](docs/ISSUE_TO_PR_DEMO.md)
