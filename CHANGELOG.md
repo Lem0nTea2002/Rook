@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Added redacted evidence for a 24-call Candidate v5 cross-repository holdout
   and a bounded ten-task Rook Coding Agent live dogfood run.
+- Added a pinned 24-task SWE-bench Lite full-repository catalog spanning
+  pytest, scikit-learn, and Sphinx, with verified Issue/maintenance-PR
+  provenance and a hidden-verifier data boundary.
+- Added a SQLite WAL execution queue with idempotent enqueue, expiring leases,
+  recovery, retry budgets, dead letters, event history, 1-50 concurrent
+  workers, rate limiting, and deterministic fault injection.
+- Added digest-allowlisted, networkless Linux Docker execution with resource
+  ceilings, bounded redacted output, optional Prometheus/OTLP adapters, an
+  Ubuntu real-container CI check, and a reproducible scale report.
 
 ### Changed
 

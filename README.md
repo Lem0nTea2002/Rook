@@ -83,6 +83,8 @@ and release IDs plus artifact hashes.
 | Rook Coding Agent dogfood v2 | 10 isolated tasks, 9 passed / 1 failed; 106 provider calls, 738,729 observed Tokens, 0 unrelated Skill selections | Honest DeepSeek live run with a 20-call/task and 200-call total ceiling; v1/v2 task sets differ, so efficiency comparison is directional, not causal |
 | Governance dogfood | 4 approvals, 4 deployments, drift detected/remediated, 2 atomic rollbacks | Real local control plane; Fake-Agent exam |
 | `gpt-5.4-mini` Adapter v12 Formal | 72/72 calls, 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp); median latency -5.8%; median Token -15.2%; median tool calls -33.3%; 0 new regressions | Content-distinct v5 on a sealed holdout; 100% trace completeness; 0 infrastructure exclusions; USD cost and routing not observed |
+| Full-repository catalog | 24 pinned SWE-bench Lite tasks across pytest, scikit-learn, and Sphinx; 11 linked Issues + 13 explicit maintenance PRs | Historical reproducible tasks; hidden verifier fields excluded; not new upstream PR submissions |
+| Execution scale | 300 jobs/profile; throughput 38.17 → 80.34 → 106.65 jobs/s at 10/25/50 workers; 51/51 injected faults recovered; P95 266/297/844ms | Offline 250ms deterministic payload; queue/recovery evidence, not model or Docker throughput |
 
 Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [real-repository holdouts](docs/REAL_REPO_HOLDOUTS.md) ·
@@ -96,7 +98,9 @@ Evidence: [portfolio contract](docs/PORTFOLIO_EVIDENCE.md) ·
 [v11 readiness](docs/evidence/rm2-v11-smoke-2026-07-26.json) ·
 [v11 Formal](docs/evidence/rm2-formal-v11-summary-2026-07-26.json) ·
 [Formal hardening timeline](docs/incidents/CODEX_FORMAL_HARDENING.md) ·
-[dogfooding ledger](docs/DOGFOODING.md)
+[dogfooding ledger](docs/DOGFOODING.md) ·
+[full-repository and scale design](docs/FULL_REPO_AND_SCALE.md) ·
+[scale report](docs/EXECUTION_SCALE_REPORT.md)
 
 ## Why Rook
 
@@ -180,6 +184,7 @@ rook eval demo
 - Session persistence, resume flow, and context compaction
 - Skills, provider adapters, and clean modules for study and modification
 - Rook Forge Skill quarantine, isolated A/B exams, ScoreCards, human approval, target-specific deployment, and rollback
+- Pinned full-repository tasks, an idempotent leased worker queue, a networkless Docker backend, and Prometheus/OTLP hooks
 
 ## Configuration
 

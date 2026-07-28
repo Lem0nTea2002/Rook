@@ -8,7 +8,11 @@ on:
       - "rook_agent/agent/**"
       - "rook_agent/context/**"
       - "rook_agent/evalops/**"
+      - "rook_agent/execution/**"
       - "rook_agent/skills/**"
+      - "benchmark/full_repo/**"
+      - "tests/test_execution*.py"
+      - "tests/test_full_repo_catalog.py"
       - "tests/test_agent_skill_flow.py"
       - "tests/test_evalops*.py"
       - "tests/test_skill_router.py"
@@ -60,6 +64,9 @@ jobs:
           python -m pytest -q
           tests/test_evalops_pr_gate.py
           tests/test_evalops_real_repo_holdouts.py
+          tests/test_full_repo_catalog.py
+          tests/test_execution_repository.py
+          tests/test_execution_queue.py
           tests/test_agent_skill_flow.py
           tests/test_skill_router.py
 

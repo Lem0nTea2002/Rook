@@ -86,6 +86,8 @@ def test_pr_gate_is_not_applicable_to_unrelated_change(tmp_path: Path) -> None:
         "candidates": 0,
         "provenance_files": 0,
         "suites": 0,
+        "full_repo_tasks": 0,
+        "full_repo_repositories": 0,
     }
 
 
