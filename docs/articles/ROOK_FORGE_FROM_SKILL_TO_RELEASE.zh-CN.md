@@ -146,6 +146,6 @@ rook eval demo
 python -m pytest tests/test_evalops_real_repo_holdouts.py -q
 ```
 
-项目首页的 [2–3 分钟演示视频](../video/rook-forge-demo.mp4)
+项目首页的 [轻量 GIF 演示](../images/rook-demo.gif)
 展示了同一条 Candidate → Gate → Approval → Deploy → Drift → Rollback
 链路。真实 Formal 会在另一次明确授权的 72-call 运行完成后单独发布。

@@ -22,7 +22,7 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 
 ## 演示
 
-[![观看 Rook 60 秒产品演示](docs/images/rook-forge-video.png)](docs/video/rook-forge-demo.mp4)
+![Rook 动态演示：Rookie 启动页、Coding 工作流与 Skill 上线门禁](docs/images/rook-demo.gif)
 
 ## 快速开始
 
@@ -72,9 +72,12 @@ stale / drift 检测 → 原子回滚
 
 ## TUI
 
-![Rook Coding Agent 与 Rook Forge](docs/images/rook-tui-conversation.png)
+每次启动 TUI 时，Rookie 都会出现在欢迎区；发送第一条消息后自动让出工作空间。
 
-截图由真实 Textual 组件使用固定演示数据离线渲染，不是伪造的模型执行结果。
+![带有 Rookie 的 Rook 启动界面](docs/images/rook-tui-welcome.png)
+
+角色使用终端原生彩色字符绘制，不依赖 Kitty/Sixel 图片协议，在 Windows Terminal
+和普通终端中都能稳定显示。截图由 Rook 的真实 Textual 组件离线渲染。
 
 ## 可信结果
 

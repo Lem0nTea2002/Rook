@@ -70,17 +70,19 @@ def test_filenames_and_text_have_no_legacy_identifier() -> None:
 
 def test_readmes_use_current_rook_tui_assets() -> None:
     legacy_tui_assets = {
-        "docs/images/rook-demo.gif",
         "docs/images/rook-ready.png",
         "docs/images/tui-chat.png",
         "docs/images/tui-empty.png",
     }
     for readme_name in ("README.md", "README.zh-CN.md"):
         text = (ROOT / readme_name).read_text(encoding="utf-8")
-        assert "docs/images/rook-tui-conversation.png" in text
-        assert "docs/images/rook-tui-conversation.svg" not in text
+        assert "docs/images/rook-demo.gif" in text
+        assert "docs/images/rook-tui-welcome.png" in text
+        assert "docs/images/rook-tui-welcome.svg" not in text
+        assert "docs/video/rook-forge-demo.mp4" not in text
         assert not any(asset in text for asset in legacy_tui_assets)
-    assert (ROOT / "docs" / "images" / "rook-tui-conversation.png").is_file()
+    assert (ROOT / "docs" / "images" / "rook-demo.gif").is_file()
+    assert (ROOT / "docs" / "images" / "rook-tui-welcome.png").is_file()
 
 
 def test_demo_site_uses_current_rook_tui_assets() -> None:
@@ -88,6 +90,7 @@ def test_demo_site_uses_current_rook_tui_assets() -> None:
     assert "github.com/Lem0nTea2002/Rook" in text
     assert "github.com/ZHUMUJUN/Rook" not in text
     for filename in (
+        "rook-demo.gif",
         "rook-tui-conversation.png",
         "rook-tui-permission.png",
         "rook-tui-resume.png",

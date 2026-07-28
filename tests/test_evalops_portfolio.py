@@ -104,14 +104,13 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
     )
     assert "`gpt-5.4-mini` Formal" in top
     assert "Baseline 25% → Forced 94.4% (+69.4pp)" in top
-    assert "60-second Rook product demo" in top
-    assert "docs/images/rook-tui-conversation.png" in top
+    assert "docs/images/rook-demo.gif" in top
+    assert "docs/images/rook-tui-welcome.png" in top
     assert "## 快速开始" in chinese
     assert "`gpt-5.4-mini` Formal" in chinese
     assert "Baseline 25% → Forced 94.4%（+69.4pp）" in chinese
 
-    video = _ROOT / "docs" / "video" / "rook-forge-demo.mp4"
-    thumbnail = _ROOT / "docs" / "images" / "rook-forge-video.png"
+    demo = _ROOT / "docs" / "images" / "rook-demo.gif"
     article = (
         _ROOT
         / "docs"
@@ -119,9 +118,8 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
         / "ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md"
     )
     incident = _ROOT / "docs" / "incidents" / "CODEX_FORMAL_HARDENING.md"
-    assert video.stat().st_size > 100_000
-    assert b"ftyp" in video.read_bytes()[:64]
-    assert thumbnail.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert demo.stat().st_size > 100_000
+    assert demo.read_bytes()[:6] in {b"GIF87a", b"GIF89a"}
     assert article.exists()
     assert incident.exists()
 
