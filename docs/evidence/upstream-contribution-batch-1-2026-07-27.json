@@ -48,11 +48,12 @@
       ],
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "reviewed",
+      "selection_status": "submitted",
       "proposed_scope": "Replace the skipped, numerically unstable doctest expectation with an architecture-stable example and validate it on the project test matrix.",
       "blocking_reason": null,
       "reviewed_commit": "dd73a22cb25a48a04e121e9f50b752f9d424ab18",
-      "human_action_required": "Create or authenticate a fork under the claiming account and include the required human-reviewed AI disclosure before submission."
+      "pull_request_url": "https://github.com/scikit-learn/scikit-learn/pull/34587",
+      "human_action_required": "Monitor CI, respond personally to maintainer review, and add a PR-numbered changelog fragment if a reviewer requires one."
     },
     {
       "repository": "sphinx-doc/sphinx",
@@ -113,6 +114,6 @@
   "withdrawals": [],
   "review_packet": "docs/evidence/upstream-contribution-review-packet-2026-07-27.md",
   "event_ledger": "docs/evidence/upstream-contribution-ledger-2026-07-27.jsonl",
-  "event_count": 24,
-  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. Pytest Draft PR #14789 is submitted; scikit-learn and Sphinx remain unsubmitted. No upstream approval or merge is claimed."
+  "event_count": 25,
+  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. Pytest Draft PR #14789 and scikit-learn Draft PR #34587 are submitted; Sphinx remains unsubmitted. No upstream approval or merge is claimed."
 }

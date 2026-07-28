@@ -1,7 +1,8 @@
 # Upstream contribution batch 1: human review packet
 
-Status: human review completed on 2026-07-28. The pytest patch was submitted
-as Draft PR #14789; the scikit-learn and Sphinx patches remain unsubmitted.
+Status: human review completed on 2026-07-28. The pytest and scikit-learn
+patches were submitted as Draft PRs #14789 and #34587; the Sphinx patch
+remains unsubmitted.
 
 The three claim comments were published by `Lem0nTea2002`. The same account
 must perform any later upstream submission so that the public issue and pull
@@ -48,6 +49,7 @@ The completed human review covered:
 - Base: `e5f607658ace73fef757b52ad65a2f74011a4a5f`
 - Branch: `rook/sklearn-13762-stable-doctest`
 - Reviewed local commit: `dd73a22cb25a48a04e121e9f50b752f9d424ab18`
+- Draft PR: <https://github.com/scikit-learn/scikit-learn/pull/34587>
 - Claim:
   <https://github.com/scikit-learn/scikit-learn/issues/13762#issuecomment-5092891285>
 - Changed file: `sklearn/cluster/_bicluster.py`

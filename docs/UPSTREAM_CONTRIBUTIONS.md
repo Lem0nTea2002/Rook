@@ -33,7 +33,7 @@ workflow.
 | Repository | Issue | Current state | Eligible scope |
 | --- | --- | --- | --- |
 | pytest | [#14771](https://github.com/pytest-dev/pytest/issues/14771) | Draft PR [#14789](https://github.com/pytest-dev/pytest/pull/14789) submitted | Document the filesystem boundary for frozen tests; an archive Collector is excluded without maintainer design approval |
-| scikit-learn | [#13762](https://github.com/scikit-learn/scikit-learn/issues/13762) | Human reviewed; local commit `dd73a22cb2` | Replace the skipped ARM-unstable doctest with an architecture-stable example |
+| scikit-learn | [#13762](https://github.com/scikit-learn/scikit-learn/issues/13762) | Draft PR [#34587](https://github.com/scikit-learn/scikit-learn/pull/34587) submitted | Replace the skipped ARM-unstable doctest with an architecture-stable example |
 | Sphinx | [#6689](https://github.com/sphinx-doc/sphinx/issues/6689) | Human reviewed; local commit `0ff71a365` | Add an inline todo role, domain/todolist integration, tests, docs, and change note |
 
 The machine-readable snapshot is
@@ -42,11 +42,11 @@ It includes duplicate-task rejections, clone failures and recovery, empty
 withdrawal history, pinned repository heads, and the external-claim boundary.
 The append-only event history is
 [`upstream-contribution-ledger-2026-07-27.jsonl`](evidence/upstream-contribution-ledger-2026-07-27.jsonl).
-Its 24 events preserve the two recovered clone failures, three selected tasks,
+Its 25 events preserve the two recovered clone failures, three selected tasks,
 three human-claim gates, three screening rejections, the three human-authored
 claims, branch creation, locally validated review gates, and three completed
-human reviews plus the first human-owned Draft PR in one verified SHA-256 hash
-chain.
+human reviews plus the first two human-owned Draft PRs in one verified SHA-256
+hash chain.
 
 The
 [`upstream-contribution-review-packet-2026-07-27.md`](evidence/upstream-contribution-review-packet-2026-07-27.md)
@@ -107,9 +107,10 @@ and disclose AI assistance as required by the target repository.
 
 Batch 1 has completed the claim, local implementation, validation, and human
 review stages. Each patch has an isolated local commit and a fork branch under
-the claiming account. The pytest patch is accurately recorded as a submitted
-Draft PR; scikit-learn and Sphinx remain reviewed but unsubmitted because their
-repository policies require human-authored upstream communication.
+the claiming account. The pytest and scikit-learn patches are accurately
+recorded as submitted Draft PRs. Sphinx remains reviewed but unsubmitted
+because its repository policy requires the human contributor to create the
+pull request manually.
 
 ## Outcome records
 
