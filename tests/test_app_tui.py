@@ -22,7 +22,7 @@ from rook_agent.app.tui import _observe_markdown_update
 from rook_agent.app.picker import TuiPickerItem, TuiPickerState, render_picker
 from rook_agent.app.picker_adapters import render_picker_item
 from rook_agent.app.activity_view import tool_event_label, tool_event_status, turn_metrics_text
-from rook_agent.app.welcome import welcome_renderable
+from rook_agent.app.welcome import WELCOME_LOGO_PIXELS, welcome_renderable
 from rook_agent.app.transcript_view import entry_classes, tool_event_entry_kind
 from rook_agent.app.tui_state import TuiEntryKind, TuiTodoItem, TuiTranscript
 from rook_agent.app.tui_state import TuiTranscriptEntry
@@ -456,6 +456,19 @@ def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
     assert any(span.style == "#f09130" for span in text.spans)
     assert any(span.style == "#b8ffdf" for span in text.spans)
     assert text.plain != next_text.plain
+
+
+def test_welcome_mascot_keeps_a_side_profile_bird_and_terminal() -> None:
+    head = WELCOME_LOGO_PIXELS[:9]
+    body = WELCOME_LOGO_PIXELS[9:]
+
+    assert {len(row) for row in WELCOME_LOGO_PIXELS} == {32}
+    assert sum(row.count("W") for row in head) >= 5
+    assert sum(row.count("Y") + row.count("A") for row in head) >= 9
+    assert any(row.startswith("BBBBBBBBB.") for row in body)
+    assert WELCOME_LOGO_PIXELS[-1].count("Y") == 6
+    assert any("NNNNNN" in row for row in body)
+    assert any("CCCCCC" in row for row in body)
 
 
 def test_compact_welcome_identifies_the_rookie_mascot() -> None:

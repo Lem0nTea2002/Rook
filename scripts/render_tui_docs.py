@@ -13,6 +13,14 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+try:
+    sys.path.remove(str(ROOT))
+except ValueError:
+    pass
+sys.path.insert(0, str(ROOT))
 
 _DOC_COLOR_ENV_NAMES = ("NO_COLOR", "COLORTERM", "TERM", "TEXTUAL_COLOR_SYSTEM")
 _ORIGINAL_DOC_COLOR_ENV = {name: os.environ.get(name) for name in _DOC_COLOR_ENV_NAMES}
@@ -28,8 +36,12 @@ from rich.console import ColorSystem  # noqa: E402
 from rook_agent.app.tui import RookApp, RookTuiConfig  # noqa: E402
 from rook_agent.app.tui_state import TuiEntryKind  # noqa: E402
 
+_ROOK_TUI_SOURCE = Path(sys.modules[RookApp.__module__].__file__).resolve()
+if not _ROOK_TUI_SOURCE.is_relative_to(ROOT):
+    raise RuntimeError(
+        f"documentation renderer imported Rook outside this checkout: {_ROOK_TUI_SOURCE}"
+    )
 
-ROOT = Path(__file__).resolve().parents[1]
 DOC_IMAGES = ROOT / "docs" / "images"
 WEBSITE_IMAGES = ROOT / "website-demo" / "assets"
 
