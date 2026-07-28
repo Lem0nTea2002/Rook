@@ -1,8 +1,8 @@
 # Upstream contribution batch 1: human review packet
 
-Status: human review completed on 2026-07-28. The pytest and scikit-learn
-patches were submitted as Draft PRs #14789 and #34587; the Sphinx patch
-remains unsubmitted.
+Status: human review completed on 2026-07-28. All three patches were submitted
+as Draft PRs: pytest #14789, scikit-learn #34587, and Sphinx #14558. The Sphinx
+PR was created manually by the human contributor.
 
 The three claim comments were published by `Lem0nTea2002`. The same account
 must perform any later upstream submission so that the public issue and pull
@@ -90,6 +90,7 @@ The completed human review covered:
 - Base: `9af5b469df42c810c62453661c1974c0f254e674`
 - Branch: `rook/sphinx-6689-inline-todo`
 - Reviewed local commit: `0ff71a365a07fc399398b0d24932834c527f9c1e`
+- Draft PR: <https://github.com/sphinx-doc/sphinx/pull/14558>
 - Claim:
   <https://github.com/sphinx-doc/sphinx/issues/6689#issuecomment-5092896616>
 - Changed files:

@@ -3,7 +3,7 @@
   "evidence_kind": "upstream_contribution_batch",
   "batch_id": "upstream-batch-1",
   "observed_at": "2026-07-27",
-  "status": "partially_submitted",
+  "status": "submitted",
   "external_model_calls": false,
   "model_costs": false,
   "selection_policy": {
@@ -70,11 +70,12 @@
       ],
       "assignees": [],
       "linked_open_pull_requests": [],
-      "selection_status": "reviewed",
+      "selection_status": "submitted",
       "proposed_scope": "Add an inline todo role with deterministic rendering, todo-domain collection, todolist integration, tests, documentation, and a change note.",
       "blocking_reason": null,
       "reviewed_commit": "0ff71a365a07fc399398b0d24932834c527f9c1e",
-      "human_action_required": "The contributor must create or authenticate a fork, write the PR description, disclose AI assistance, and perform all upstream interaction and submission."
+      "pull_request_url": "https://github.com/sphinx-doc/sphinx/pull/14558",
+      "human_action_required": "Monitor CI and personally handle all maintainer interaction, revisions, and final ready-for-review transition."
     }
   ],
   "screening_rejections": [
@@ -114,6 +115,6 @@
   "withdrawals": [],
   "review_packet": "docs/evidence/upstream-contribution-review-packet-2026-07-27.md",
   "event_ledger": "docs/evidence/upstream-contribution-ledger-2026-07-27.jsonl",
-  "event_count": 25,
-  "claim_boundary": "Three human-authored claim comments, three locally validated patches, and three completed human reviews with immutable local commit hashes are recorded. Pytest Draft PR #14789 and scikit-learn Draft PR #34587 are submitted; Sphinx remains unsubmitted. No upstream approval or merge is claimed."
+  "event_count": 26,
+  "claim_boundary": "Three human-authored claim comments, three locally validated patches, three completed human reviews with immutable local commit hashes, and three submitted Draft PRs are recorded. The Sphinx PR was created manually by the human contributor. No upstream approval or merge is claimed."
 }
