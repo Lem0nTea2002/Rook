@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-07-28
+
 ### Added
 
 - Added redacted evidence for a 24-call Candidate v5 cross-repository holdout
@@ -207,7 +209,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.1...v0.2.2

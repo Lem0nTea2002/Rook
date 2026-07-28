@@ -73,7 +73,7 @@ and release IDs plus artifact hashes.
 
 | Evidence | Result | Boundary |
 | --- | --- | --- |
-| Release | [v0.2.4](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4), wheel + sdist, six required PR checks green | Published and fresh-install verified |
+| Release | [v0.2.5](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.5), wheel + sdist, seven required PR checks green | Published and fresh-install verified |
 | Cross-platform CI | Ubuntu: 1804 passed / 7 skipped; Windows: 1805 passed / 6 skipped; Python 3.11/3.12; EvalOps 85.11% coverage | Offline; no Codex process or model cost; coverage enforced at two-decimal precision |
 | Adapter v11 readiness | 2/2 terminal calls on the prior profile-failure boundary; 100% trace completeness; 0 infrastructure exclusions | Readiness only; one pair is not an effect estimate |
 | `gpt-5.4-mini` Pilot | 24/24 calls, 12 comparable pairs; Baseline 25% → Forced 100% (+75pp); median latency -22.7%; median Token -12.9%; 0 new regressions | Real Pilot, **not** Formal |
@@ -143,7 +143,7 @@ Detailed subsystem design lives in the docs, not in this README.
 Install the tagged GitHub release with `pipx`:
 
 ```sh
-pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.4"
+pipx install "git+https://github.com/ZHUMUJUN/Rook.git@v0.2.5"
 ```
 
 Or install from a local clone:
