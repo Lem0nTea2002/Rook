@@ -62,11 +62,16 @@ class FeishuAdapter(ChannelAdapter):
         reply_to: str | None = None,
         context_token: str | None = None,
     ) -> None:
+        feishu_reply_to = (
+            reply_to
+            if isinstance(reply_to, str) and reply_to.startswith("om_")
+            else None
+        )
         for index, part in enumerate(split_channel_text(text)):
             await self._sdk.send_text(
                 conversation_id,
                 part,
-                reply_to=reply_to if index == 0 else None,
+                reply_to=feishu_reply_to if index == 0 else None,
             )
 
     async def set_typing(

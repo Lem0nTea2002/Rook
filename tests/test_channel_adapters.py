@@ -260,9 +260,18 @@ def test_feishu_adapter_uses_injected_official_sdk_facade() -> None:
     sdk = FakeFeishuSdk()
     adapter = FeishuAdapter(app_id="cli_a", app_secret="secret", sdk=sdk)
 
-    asyncio.run(adapter.send("chat", "hello", reply_to="message"))
+    asyncio.run(adapter.send("chat", "hello", reply_to="om_message"))
 
-    assert sdk.sent == [("chat", "hello", "message")]
+    assert sdk.sent == [("chat", "hello", "om_message")]
+
+
+def test_feishu_adapter_does_not_reply_to_event_id() -> None:
+    sdk = FakeFeishuSdk()
+    adapter = FeishuAdapter(app_id="cli_a", app_secret="secret", sdk=sdk)
+
+    asyncio.run(adapter.send("chat", "hello", reply_to="event-id"))
+
+    assert sdk.sent == [("chat", "hello", None)]
 
 
 def test_feishu_typing_state_uses_progress_card_facade() -> None:
@@ -280,10 +289,10 @@ def test_feishu_long_reply_is_split_without_losing_content() -> None:
     adapter = FeishuAdapter(app_id="cli_a", app_secret="secret", sdk=sdk)
     text = "a" * 7_999 + "\n" + "b" * 20
 
-    asyncio.run(adapter.send("chat", text, reply_to="message"))
+    asyncio.run(adapter.send("chat", text, reply_to="om_message"))
 
     assert sdk.sent == [
-        ("chat", "a" * 7_999 + "\n", "message"),
+        ("chat", "a" * 7_999 + "\n", "om_message"),
         ("chat", "b" * 20, None),
     ]
 
