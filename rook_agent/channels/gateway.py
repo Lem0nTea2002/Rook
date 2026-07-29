@@ -590,8 +590,11 @@ def _pending_details(pending: object, *, project_root: Path) -> dict[str, str]:
         payload = {}
     request = payload.get("permission_request")
     if not isinstance(request, dict):
-        request = {}
-    tool_name = str(payload.get("tool_name") or "unknown")
+        request = payload
+    pending_tool_call = payload.get("pending_tool_call")
+    if not isinstance(pending_tool_call, dict):
+        pending_tool_call = {}
+    tool_name = str(payload.get("tool_name") or pending_tool_call.get("name") or "unknown")
     action = str(request.get("action") or "sensitive_action")
     target = str(request.get("target") or "not disclosed")
     stable = json.dumps(
