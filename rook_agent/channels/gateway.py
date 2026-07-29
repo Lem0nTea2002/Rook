@@ -468,8 +468,7 @@ class ChannelGateway:
                 f"目标：{details['target']}\n"
                 f"5 分钟内发送 `/approve {code}` 或 `/deny {code}`。仅本次有效。"
             )
-        visible = "\n".join(runtime.last_display_lines).strip()
-        return _bounded_redacted(visible or str(getattr(response, "content", "")))
+        return _channel_response_text(runtime, response)
 
     async def _resolve_approval(
         self,
@@ -549,10 +548,7 @@ class ChannelGateway:
                                     approval.request_id,
                                     answer,
                                 )
-                    visible = "\n".join(runtime.last_display_lines).strip()
-                    response = _bounded_redacted(
-                        visible or str(getattr(resumed, "content", "审批已处理。"))
-                    )
+                    response = _channel_response_text(runtime, resumed)
         await adapter.send(
             message.conversation_id,
             response,
@@ -574,6 +570,18 @@ class ChannelGateway:
             return self.adapters[channel]
         except KeyError as exc:
             raise ValueError(f"channel adapter is not configured: {channel}") from exc
+
+
+def _channel_response_text(runtime: ChannelRunner, response: Any) -> str:
+    content = str(getattr(response, "content", "") or "").strip()
+    if content:
+        return _bounded_redacted(content)
+    visible = "\n".join(
+        line
+        for line in runtime.last_display_lines
+        if not line.startswith(("Tool call:", "Tool result:"))
+    ).strip()
+    return _bounded_redacted(visible or "任务已完成，但模型未返回文本回复。")
 
 
 def _pending_details(pending: object, *, project_root: Path) -> dict[str, str]:

@@ -295,6 +295,43 @@ def test_gateway_rejects_unpaired_user_then_runs_paired_task_once(tmp_path: Path
     assert adapter.sent[-1][1] == "done"
 
 
+def test_gateway_sends_only_final_answer_without_tool_trace(tmp_path: Path) -> None:
+    class ToolTraceRunner(FakeRunner):
+        async def arun_user_turn(self, content: str):
+            self.calls.append(content)
+            self.last_display_lines = [
+                'Tool call: view {"path": "README.md"}',
+                "Tool result: view success: README content",
+                "项目名称：Rook",
+            ]
+            return type("Response", (), {"content": "项目名称：Rook"})()
+
+    state = ChannelStateStore(tmp_path / "state.sqlite3", clock=lambda: 100.0)
+    adapter = FakeAdapter(ChannelKind.WEIXIN)
+    runner = ToolTraceRunner()
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    gateway = ChannelGateway(
+        adapters={ChannelKind.WEIXIN: adapter},
+        state=state,
+        config=ChannelConfig(
+            default_project="demo",
+            projects={"demo": ProjectBinding(alias="demo", path=project)},
+        ),
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=tmp_path / "queue.sqlite3",
+    )
+    state.create_pair_code(ChannelKind.WEIXIN, "demo", code="PAIR12")
+
+    asyncio.run(
+        gateway.accept(message(channel=ChannelKind.WEIXIN, message_id="pair", text="/pair PAIR12"))
+    )
+    asyncio.run(gateway.accept(message(channel=ChannelKind.WEIXIN, message_id="task")))
+    asyncio.run(gateway.run_pending_once())
+
+    assert adapter.sent[-1][1] == "项目名称：Rook"
+
+
 def test_gateway_does_not_mark_job_succeeded_before_reply_is_delivered(
     tmp_path: Path,
 ) -> None:
