@@ -11,7 +11,7 @@ import pytest
 
 from rook_agent.channels.base import ChannelAdapter
 from rook_agent.channels.config import ChannelConfig, load_channel_config, save_channel_config
-from rook_agent.channels.gateway import ChannelGateway
+from rook_agent.channels.gateway import ChannelGateway, _safe_git_diff
 from rook_agent.channels.locks import ProjectExecutionLock
 from rook_agent.channels.models import ChannelKind, InboundMessage, ProjectBinding
 from rook_agent.channels.state import ChannelStateStore
@@ -248,6 +248,20 @@ def test_five_thousand_duplicate_deliveries_produce_one_claim(tmp_path: Path) ->
     claims = [state.claim_message(message()) for _ in range(5_000)]
 
     assert claims.count(True) == 1
+
+
+def test_channel_diff_includes_untracked_files(tmp_path: Path) -> None:
+    subprocess.run(
+        ["git", "init", "--quiet"],
+        cwd=tmp_path,
+        check=True,
+    )
+    (tmp_path / "new-file.txt").write_text("new\n", encoding="utf-8")
+
+    result = _safe_git_diff(tmp_path)
+
+    assert "未跟踪文件" in result
+    assert "?? new-file.txt" in result
 
 
 def test_gateway_rejects_unpaired_user_then_runs_paired_task_once(tmp_path: Path) -> None:

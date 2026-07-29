@@ -619,7 +619,7 @@ def _safe_target_for_channel(target: str, *, project_root: Path) -> str:
 def _safe_git_diff(project_root: Path) -> str:
     import subprocess
 
-    result = subprocess.run(
+    tracked = subprocess.run(
         ["git", "diff", "--stat", "--", "."],
         cwd=project_root,
         text=True,
@@ -627,9 +627,25 @@ def _safe_git_diff(project_root: Path) -> str:
         check=False,
         timeout=10,
     )
-    if result.returncode != 0:
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", "."],
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if tracked.returncode != 0 or untracked.returncode != 0:
         return "无法读取 Git diff。"
-    return result.stdout.strip() or "工作树没有未提交差异。"
+    sections = [tracked.stdout.strip()]
+    untracked_files = [
+        line.strip() for line in untracked.stdout.splitlines() if line.strip()
+    ]
+    if untracked_files:
+        sections.append(
+            "未跟踪文件：\n" + "\n".join(f"?? {path}" for path in untracked_files)
+        )
+    return "\n".join(section for section in sections if section) or "工作树没有未提交差异。"
 
 
 _SECRET_PATTERNS = (
