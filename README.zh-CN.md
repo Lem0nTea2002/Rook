@@ -84,6 +84,8 @@ rook channel serve --channels feishu,weixin
 
 [完整配置与安全边界](docs/MOBILE_CHANNELS.zh-CN.md)
 
+[脱敏的微信 iLink + DeepSeek 真实验收证据](docs/evidence/rook-weixin-live-acceptance-2026-07-29.json)
+
 ## Rook Forge 如何工作
 
 ```text

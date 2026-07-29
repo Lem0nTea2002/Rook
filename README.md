@@ -89,6 +89,8 @@ and project execution lock.
 
 [Full mobile-channel setup and security model](docs/MOBILE_CHANNELS.md)
 
+[Redacted WeChat iLink + DeepSeek live acceptance evidence](docs/evidence/rook-weixin-live-acceptance-2026-07-29.json)
+
 ## How Rook Forge works
 
 ```text
