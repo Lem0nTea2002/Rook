@@ -383,7 +383,7 @@ def _load_credential(
     reader: Callable[[str], str | None],
     name: str,
     label: str,
-) -> dict:
+) -> dict[str, object]:
     raw = reader(name)
     if raw is None:
         raise ValueError(f"{label} is not configured")
@@ -420,7 +420,14 @@ def _print_qr(content: str) -> None:
     image = qrcode.QRCode(border=1)
     image.add_data(content)
     image.make(fit=True)
-    image.print_ascii(invert=True)
+    print(_render_qr_ascii(image.get_matrix()))
+
+
+def _render_qr_ascii(matrix: list[list[bool]]) -> str:
+    return "\n".join(
+        "".join("##" if cell else "  " for cell in row)
+        for row in matrix
+    )
 
 
 __all__ = ["ChannelPaths", "default_channel_paths", "run_channel_command"]

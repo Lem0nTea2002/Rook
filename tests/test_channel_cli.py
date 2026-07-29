@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from rook_agent.channels.autostart import WindowsAutostart
-from rook_agent.channels.cli import ChannelPaths, _LiveSmokeRunner, run_channel_command
+from rook_agent.channels.cli import (
+    ChannelPaths,
+    _LiveSmokeRunner,
+    _render_qr_ascii,
+    run_channel_command,
+)
 from rook_agent.channels.config import load_channel_config
 from rook_agent.channels.state import ChannelStateStore
 from rook_agent.cli import build_parser, main
@@ -62,6 +67,19 @@ def test_live_smoke_runner_writes_marker_only_after_allow_once(
     assert runner.marker.read_text(encoding="utf-8") == (
         "Rook Mobile Channel Live Smoke\n"
     )
+
+
+def test_qr_renderer_is_ascii_only_for_windows_terminals() -> None:
+    rendered = _render_qr_ascii(
+        [
+            [False, True, False],
+            [True, True, True],
+            [False, True, False],
+        ]
+    )
+
+    assert rendered.splitlines() == ["  ##  ", "######", "  ##  "]
+    assert rendered.isascii()
 
 
 def test_project_add_requires_absolute_existing_directory(tmp_path: Path) -> None:
