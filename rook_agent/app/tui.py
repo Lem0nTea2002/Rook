@@ -60,7 +60,6 @@ from rook_agent.app.direct_shell import (
     ShellExecutionStatus,
 )
 from rook_agent.app.activity_view import (
-    activity_markup,
     post_tool_reasoning_text,
     todo_panel_text,
     tool_activity_line_text,
@@ -85,6 +84,8 @@ from rook_agent.app.transcript_view import (
     display_line_kind,
     display_line_status,
     entry_classes,
+    entry_display_label,
+    entry_display_markdown_text,
     entry_markdown_text,
     entry_plain_text,
     looks_like_markdown_response,
@@ -93,6 +94,12 @@ from rook_agent.app.transcript_view import (
     tool_event_entry_kind,
 )
 from rook_agent.app.tui_state import TuiEntryKind, TuiTranscript, TuiTranscriptEntry
+from rook_agent.app.tui_theme import (
+    ROOK_HIGH_CONTRAST_THEME,
+    ROOK_PIXEL_THEME,
+    THEME_NAME_MAP,
+    full_screen_truecolor,
+)
 from rook_agent.app.viewer import ContentViewerScreen
 from rook_agent.app.widgets import PermissionCard, ToolCard
 from rook_agent.permissions.types import PermissionMode
@@ -100,12 +107,12 @@ from rook_agent.app.welcome import welcome_renderable
 
 
 _HIDDEN_TOOL_STATUS_NAMES = {"task_boundary"}
-_YUREN_GLOW_PALETTE = ("#b8ffdf", "#81e8bb", "#18cfcb", "#45e6df", "#5fb5ff")
+_YUREN_GLOW_PALETTE = ("#F2F7F5", "#79E6B3", "#38CFE0", "#79E6B3")
 _PERMISSION_MODE_COLORS = {
-    "conservative": "#5fb5ff",
-    "standard": "#cfd1d6",
-    "aggressive": "#f6b73c",
-    "bypass": "#ff6b5f",
+    "conservative": "#38CFE0",
+    "standard": "#B5C3C9",
+    "aggressive": "#F2C14E",
+    "bypass": "#FF6B6B",
 }
 _FILE_REFERENCE_TAIL = re.compile(r"(?<!\S)@([^\s]*)$")
 
@@ -268,11 +275,15 @@ class RookApp(App[None]):
         prompt_history: PromptHistoryStore | None = None,
         external_editor: ExternalEditorService | None = None,
     ) -> None:
-        super().__init__()
+        with full_screen_truecolor():
+            super().__init__()
+        self.register_theme(ROOK_PIXEL_THEME)
+        self.register_theme(ROOK_HIGH_CONTRAST_THEME)
         self.command_handler = command_handler
         self.chat_runner = chat_runner
         self.current_session = current_session
         self.config = config or RookTuiConfig()
+        self.theme = THEME_NAME_MAP.get(self.config.theme, THEME_NAME_MAP["rook"])
         if self.config.keybindings:
             self._bindings.apply_keymap(self.config.keybindings)
         self._clipboard_service = clipboard or ClipboardService()
@@ -398,7 +409,9 @@ class RookApp(App[None]):
             if self._picker_select_number(int(text)):
                 return
 
-        self._write_line(f"> {text}", kind=TuiEntryKind.USER)
+        is_help_request = " ".join(text.split()) in {"/help", "/?"}
+        if not is_help_request:
+            self._write_line(f"> {text}", kind=TuiEntryKind.USER)
 
         if self._pending_shell_input is not None:
             choice = permission_choice_for_text(text, self._pending_shell_input)
@@ -808,25 +821,29 @@ class RookApp(App[None]):
         palette = self.query_one("#command-palette")
         if hasattr(palette, "remove_class"):
             palette.remove_class("hidden")
-        text = Text("命令  ↑↓ 选择 · Tab 补全 · Enter 执行 · Esc 关闭", style="#74858f")
+        text = Text("COMMAND DECK  ↑↓ 选择 · Tab 补全 · Enter 执行 · Esc 关闭", style="#8798A1")
         for index, suggestion in enumerate(self._command_suggestions):
             spec = suggestion.spec
             text.append("\n")
             selected = index == self._command_suggestion_index
-            text.append("› " if selected else "  ", style="#81e8bb bold" if selected else "#43535c")
+            selected_style = "#081018 on #79E6B3 bold"
+            text.append("▌ " if selected else "  ", style=selected_style if selected else "#2A4B5F")
             text.append(
                 suggestion.display_name,
-                style="#81e8bb bold" if selected else "#d8e4e8",
+                style=selected_style if selected else "#F2F7F5",
             )
             if spec.argument_hint and suggestion.argument_value is None:
-                text.append(f" {spec.argument_hint}", style="#74858f")
+                text.append(
+                    f" {spec.argument_hint}",
+                    style=selected_style if selected else "#8798A1",
+                )
             text.append(
                 f"  {suggestion.display_description}",
-                style="#f5fcfa" if selected else "#8a9aa4",
+                style=selected_style if selected else "#B5C3C9",
             )
             text.append(
                 f"  [{spec.category} · {_command_source_label(spec.source)}]",
-                style="#5f727c",
+                style=selected_style if selected else "#8798A1",
             )
         palette.update(text)
 
@@ -911,17 +928,18 @@ class RookApp(App[None]):
         palette = self.query_one("#command-palette")
         if hasattr(palette, "remove_class"):
             palette.remove_class("hidden")
-        text = Text("文件引用  ↑↓ 选择 · Tab 补全 · Esc 关闭", style="#74858f")
+        text = Text("FILE DECK  ↑↓ 选择 · Tab 补全 · Esc 关闭", style="#8798A1")
         for index, suggestion in enumerate(self._file_suggestions):
             selected = index == self._file_suggestion_index
             text.append("\n")
-            text.append("› " if selected else "  ", style="#81e8bb bold" if selected else "#43535c")
+            selected_style = "#081018 on #38CFE0 bold"
+            text.append("▌ " if selected else "  ", style=selected_style if selected else "#2A4B5F")
             marker = "目录" if suggestion.is_directory else "文件"
             text.append(
                 suggestion.path,
-                style="#81e8bb bold" if selected else "#d8e4e8",
+                style=selected_style if selected else "#F2F7F5",
             )
-            text.append(f"  [{marker}]", style="#5f727c")
+            text.append(f"  [{marker}]", style=selected_style if selected else "#8798A1")
         palette.update(text)
 
     def _close_file_palette(self) -> None:
@@ -1183,6 +1201,15 @@ class RookApp(App[None]):
             self._write_line(self._usage_text(), kind=TuiEntryKind.COMMAND)
             return True
         if isinstance(action, SwitchPageAction):
+            if action.page == "help":
+                self.push_screen(
+                    ContentViewerScreen(
+                        title="ROOK // COMMAND DECK",
+                        content=action.content or output or "当前没有可用命令。",
+                        kind="help",
+                    )
+                )
+                return True
             if action.page == "transcript":
                 transcript = self._transcript_markdown()
                 self.push_screen(
@@ -1225,6 +1252,8 @@ class RookApp(App[None]):
         return False
 
     def _apply_theme(self) -> None:
+        theme_name = THEME_NAME_MAP.get(self.config.theme, THEME_NAME_MAP["rook"])
+        self.theme = theme_name
         try:
             screen = self.screen
         except Exception:
@@ -1369,11 +1398,11 @@ class RookApp(App[None]):
                 markdown = RookMarkdown(classes=entry_classes(entry))
                 entry.widget = markdown
                 output.mount(markdown)
-                _observe_markdown_update(markdown.update(entry_markdown_text(entry)))
+                _observe_markdown_update(markdown.update(entry_display_markdown_text(entry)))
             elif entry.kind == TuiEntryKind.TOOL:
                 widget = ToolCard(
                     entry.body,
-                    header=entry.label,
+                    header=f"TOOL · {entry.label}",
                     classes=entry_classes(entry),
                 )
                 entry.widget = widget
@@ -1381,7 +1410,7 @@ class RookApp(App[None]):
             elif entry.kind == TuiEntryKind.PERMISSION:
                 widget = PermissionCard(
                     entry.body,
-                    header=entry.label,
+                    header=f"APPROVAL · {entry.label}",
                     classes=entry_classes(entry),
                 )
                 entry.widget = widget
@@ -1575,13 +1604,12 @@ class RookApp(App[None]):
     def _topbar_text(self, *, session_id: str | None = None, width: int | None = None) -> str:
         if session_id is None and self.current_session is not None:
             session_id = self.current_session.session_id
-        brand = "[#7bba55]Rook[/]"
-        status = activity_markup(self._activity_text)
+        brand = "[#79E6B3 bold](')[/][#F2C14E]>[/] [#F2F7F5 bold]ROOK[/]"
         metadata_values: list[tuple[str | None, str, int | None]] = []
         if self.config.project_name:
-            metadata_values.append(("#6e6d72", f"cwd {self.config.project_name}", 22))
+            metadata_values.append(("#B5C3C9", f"@ {self.config.project_name}", 18))
         if self.config.git_branch:
-            metadata_values.append(("#81e8bb", f"git {self.config.git_branch}", 18))
+            metadata_values.append(("#79E6B3", f"git {self.config.git_branch}", 18))
         if self.config.provider_name or self.config.provider_model:
             provider = self.config.provider_name or "provider"
             model = self.config.provider_model or "model"
@@ -1589,43 +1617,40 @@ class RookApp(App[None]):
                 (
                     None,
                     _provider_model_markup(provider, model, glow_frame=self._provider_glow_frame),
-                    18,
+                    20,
                 )
             )
         mode = getattr(self.current_session, "mode", None) if self.current_session is not None else None
+        mode_value: tuple[str | None, str, int | None] | None = None
         if mode:
             mode_text = str(mode)
-            mode_color = _PERMISSION_MODE_COLORS.get(mode_text, "#6e6d72")
-            metadata_values.append((mode_color, mode_text, None))
-        top_separator = "   [#303238]·[/]   "
+            mode_color = _PERMISSION_MODE_COLORS.get(mode_text, "#B5C3C9")
+            mode_value = (mode_color, mode_text, 12)
+            metadata_values.append(mode_value)
+        top_separator = " [#2A4B5F]·[/] "
         metadata = _metadata_markup(metadata_values, separator=top_separator)
-        compact = f"{brand}{top_separator}{status}{top_separator}{metadata}"
+        compact = f"{brand}{top_separator}{metadata}" if metadata else brand
         if width is None:
             return compact
         brand_width = _markup_width(brand)
-        status_width = _markup_width(status)
         metadata_width = _markup_width(metadata)
-        top_separator_width = _markup_width(top_separator) * 2
-        content_width = brand_width + status_width + metadata_width + top_separator_width
-        if content_width > width or status_width > max(1, width - brand_width - metadata_width - top_separator_width):
-            return _responsive_topbar_markup(
-                brand=brand,
-                status=status,
-                metadata_values=metadata_values,
-                width=width,
-            )
-        if width - content_width < 8:
-            available_status_width = width - brand_width - metadata_width - top_separator_width
-            if available_status_width < status_width:
-                status = activity_markup(truncate_activity_text(self._activity_text, max(1, available_status_width)))
-                compact = f"{brand}{top_separator}{status}{top_separator}{metadata}"
-            return compact
-        left_gap = max(3, (width // 2) - _markup_width(brand) - (_markup_width(status) // 2))
-        right_gap = width - brand_width - left_gap - _markup_width(status) - metadata_width
-        if right_gap < 3:
-            right_gap = 3
-            left_gap = width - brand_width - _markup_width(status) - metadata_width - right_gap
-        return f"{brand}{' ' * left_gap}{status}{' ' * right_gap}{metadata}"
+        if metadata and brand_width + metadata_width + 3 <= width:
+            return f"{brand}{' ' * (width - brand_width - metadata_width)}{metadata}"
+        if not metadata:
+            return brand
+
+        secondary_values = [
+            value for value in metadata_values if mode_value is None or value is not mode_value
+        ]
+        mode_markup = (
+            _metadata_markup([mode_value], separator=top_separator) if mode_value is not None else ""
+        )
+        first_gap = max(1, width - brand_width - _markup_width(mode_markup))
+        first_row = f"{brand}{' ' * first_gap}{mode_markup}" if mode_markup else brand
+        second_row = _metadata_markup(secondary_values, separator=top_separator)
+        if _markup_width(second_row) > width:
+            second_row = _truncate_markup(second_row, width)
+        return f"{first_row}\n{second_row}" if second_row else first_row
 
     def _install_stream_event_handler(self, token: int | None = None):
         if self.chat_runner is None or not hasattr(self.chat_runner, "stream_event_handler"):
@@ -1743,13 +1768,13 @@ class RookApp(App[None]):
             if kind == TuiEntryKind.TOOL:
                 widget = ToolCard(
                     text,
-                    header=label or "tool",
+                    header=f"TOOL · {label or 'activity'}",
                     classes=classes,
                 )
             elif kind == TuiEntryKind.PERMISSION:
                 widget = PermissionCard(
                     text,
-                    header=label or "permission",
+                    header=f"APPROVAL · {label or 'request'}",
                     classes=classes,
                 )
             else:
@@ -2036,7 +2061,7 @@ class RookApp(App[None]):
 
     def _write_markdown_message(self, content: str, *, classes: str = "message assistant-message") -> None:
         entry = self.transcript.add(TuiEntryKind.ASSISTANT, content)
-        text = entry_markdown_text(entry)
+        text = entry_display_markdown_text(entry)
         output = self.query_one("#output")
         if hasattr(output, "mount"):
             markdown = RookMarkdown(classes=classes)
@@ -2221,8 +2246,6 @@ class RookApp(App[None]):
         rendered = self.tool_activity_line_text(text, activity)
         if hasattr(activity, "update"):
             activity.update(self._activity_renderable(rendered))
-        self._refresh_topbar()
-        self._refresh_footer()
 
     def _refresh_topbar(self) -> None:
         if not getattr(self, "is_mounted", False):
@@ -2253,15 +2276,15 @@ class RookApp(App[None]):
             if isinstance(limit, int) and limit > 0:
                 percentage = min(999.9, self._last_context_tokens * 100 / limit)
                 context_text = f"{percentage:.1f}% ({self._last_context_tokens}/{limit})"
-        if width is not None and width < 100:
-            return f"Ctrl+R 历史 · Ctrl+Shift+C 复制 · Token {token_text}"
+        if width is not None and width < 80:
+            return f"/help 命令 · /keys 快捷键 · Token {token_text}"
         return (
-            "Ctrl+R 历史 · Ctrl+X Ctrl+E 编辑 · Ctrl+Shift+C 复制 · Alt+P 模型"
-            f"  |  Context {context_text}  |  Token {token_text}  |  {self._activity_text}"
+            "/help 命令 · /keys 快捷键 · Ctrl+R 历史 · Ctrl+Shift+C 复制 · Alt+P 模型"
+            f"  |  Context {context_text}  |  Token {token_text}"
         )
 
     def _activity_renderable(self, text: str) -> Text:
-        return Text(text, style="#527c3b")
+        return Text(text, style="#79E6B3")
 
     def tool_activity_line_text(self, text: str, activity) -> str:
         metrics = turn_metrics_text(self._turn_elapsed_seconds(), self._turn_tool_count)
@@ -2296,7 +2319,7 @@ class RookApp(App[None]):
                 self._schedule_stream_flush()
             return
         if hasattr(output, "write"):
-            prefix = "Rook:\n" if self._stream_text_buffer == text else ""
+            prefix = "**ROOK**\n\n" if self._stream_text_buffer == text else ""
             output.write(f"{prefix}{text}")
 
     def _close_stream_segment_for_tool(self) -> None:
@@ -2331,7 +2354,9 @@ class RookApp(App[None]):
         if self._stream_rendered_text == self._stream_text_buffer:
             return False
         self._stream_rendered_text = self._stream_text_buffer
-        _observe_markdown_update(self._stream_text_widget.update(f"Rook:\n\n{self._stream_rendered_text}"))
+        _observe_markdown_update(
+            self._stream_text_widget.update(f"**ROOK**\n\n{self._stream_rendered_text}")
+        )
         output = self.query_one("#output")
         self._scroll_output_end_if_pinned(output)
         return True
@@ -2359,21 +2384,51 @@ def _command_source_label(source: CommandSource) -> str:
 
 
 def _metadata_markup(values: list[tuple[str | None, str, int | None]], *, separator: str) -> str:
-    return separator.join(value if color is None else f"[{color}]{escape(value)}[/]" for color, value, _ in values)
+    rendered: list[str] = []
+    for color, value, max_width in values:
+        if color is None:
+            item = _truncate_markup(value, max_width) if max_width is not None else value
+        else:
+            plain = _truncate_plain(value, max_width) if max_width is not None else value
+            item = f"[{color}]{escape(plain)}[/]"
+        rendered.append(item)
+    return separator.join(rendered)
+
+
+def _truncate_plain(text: str, max_width: int) -> str:
+    if len(text) <= max_width:
+        return text
+    if max_width <= 1:
+        return "…"[:max_width]
+    return f"{text[: max_width - 1]}…"
+
+
+def _truncate_markup(markup: str, max_width: int) -> str:
+    text = Text.from_markup(markup)
+    if len(text.plain) <= max_width:
+        return markup
+    text.truncate(max_width, overflow="ellipsis")
+    return text.markup
 
 
 def _provider_name_markup(provider: str, *, glow_frame: int = 0) -> str:
     """Render the provider-only part for ordinary, non-easter-egg labels."""
     if provider != "Yuren":
-        return f"[#7bba55]{escape(provider)}[/]"
+        return f"[#38CFE0]{escape(provider)}[/]"
     return _glow_markup(provider, glow_frame=glow_frame)
 
 
 def _provider_model_markup(provider: str, model: str, *, glow_frame: int = 0) -> str:
     """Apply the Yuren glow to the provider and model name as one colour band."""
     if provider != "Yuren":
-        return f"{_provider_name_markup(provider, glow_frame=glow_frame)}[#6e6d72]/{escape(model)}[/]"
-    return f"{_glow_markup(provider, glow_frame=glow_frame)}[#6e6d72]/[/]{_glow_markup(model, glow_frame=glow_frame + len(provider) + 1)}"
+        return (
+            f"{_provider_name_markup(provider, glow_frame=glow_frame)}"
+            f"[#8798A1]/{escape(model)}[/]"
+        )
+    return (
+        f"{_glow_markup(provider, glow_frame=glow_frame)}[#8798A1]/[/]"
+        f"{_glow_markup(model, glow_frame=glow_frame + len(provider) + 1)}"
+    )
 
 
 def _glow_markup(text: str, *, glow_frame: int) -> str:
@@ -2384,80 +2439,31 @@ def _glow_markup(text: str, *, glow_frame: int) -> str:
     )
 
 
-def _responsive_topbar_markup(
-    *,
-    brand: str,
-    status: str,
-    metadata_values: list[tuple[str | None, str, int | None]],
-    width: int,
-) -> str:
-    """Wrap topbar metadata on narrow screens without losing any fields.
-
-    Every line retains the wide layout's left/right relationship: brand or
-    activity at the left, and session/provider/mode/project metadata at the
-    right.  The short rows are preferable to truncating a session identity or
-    silently removing the active provider.
-    """
-    separator = " [#303238]·[/] "
-    remaining = list(metadata_values)
-    # Status detail can be verbose during a tool call. Keep its category and
-    # most useful detail, while reserving enough horizontal space for the
-    # immutable session/provider metadata the user needs to see.
-    status = activity_markup(truncate_activity_text(_markup_plain(status), max(1, min(width, 48))))
-    left_values = [brand, status]
-    rows: list[tuple[str, str]] = []
-    while remaining:
-        left = left_values.pop(0) if left_values else ""
-        right_values: list[tuple[str, str, int | None]] = []
-        while remaining:
-            candidate = right_values + [remaining[0]]
-            candidate_right = _metadata_markup(candidate, separator=separator)
-            if right_values and _markup_width(left) + 3 + _markup_width(candidate_right) > width:
-                break
-            right_values.append(remaining.pop(0))
-        rows.append((left, _metadata_markup(right_values, separator=separator)))
-
-    # If metadata all fitted beside the brand, the activity still needs its
-    # own left-anchored row rather than disappearing at narrow widths.
-    if left_values:
-        rows.append((left_values.pop(0), ""))
-
-    rendered_rows: list[str] = []
-    for left, right in rows:
-        left_width = _markup_width(left)
-        right_width = _markup_width(right)
-        if not right:
-            rendered_rows.append(left)
-            continue
-        if left_width + 3 + right_width > width:
-            # A value may itself be wider than a tiny terminal. Place the
-            # whole value on its own row; wrapping is handled by Rich/Textual,
-            # and no semantic information is dropped.
-            if left:
-                rendered_rows.append(left)
-            rendered_rows.append(right)
-            continue
-        gap = max(1, width - left_width - right_width)
-        rendered_rows.append(f"{left}{' ' * gap}{right}")
-    return "\n".join(rendered_rows)
-
-
-def _markup_plain(markup: str) -> str:
-    return Text.from_markup(markup).plain
-
-
 def _entry_renderable(entry: TuiTranscriptEntry, rendered: str) -> object:
-    if entry.kind != TuiEntryKind.COMMAND:
-        return rendered
-    if not any(line.startswith("> ") for line in rendered.splitlines()):
-        return rendered
+    role_styles = {
+        TuiEntryKind.USER: "#38CFE0 bold",
+        TuiEntryKind.ASSISTANT: "#79E6B3 bold",
+        TuiEntryKind.SYSTEM: "#B5C3C9 bold",
+        TuiEntryKind.COMMAND: "#38CFE0 bold",
+        TuiEntryKind.REASONING: "#79E6B3 bold",
+        TuiEntryKind.TOOL: "#8798A1 bold",
+        TuiEntryKind.PERMISSION: "#F2C14E bold",
+        TuiEntryKind.ERROR: "#FF6B6B bold",
+    }
+    body = entry.body or rendered
     text = Text()
-    for line_index, line in enumerate(rendered.splitlines()):
+    text.append("▌ ", style=role_styles[entry.kind])
+    text.append(entry_display_label(entry), style=role_styles[entry.kind])
+    if body:
+        text.append("\n")
+    for line_index, line in enumerate(body.splitlines()):
         if line_index:
             text.append("\n")
-        if line.startswith("> "):
-            text.append(">", style="#7bba55 bold")
-            text.append(line[1:])
+        if entry.kind == TuiEntryKind.COMMAND and line.startswith("> "):
+            text.append(line, style="#081018 on #79E6B3 bold")
+        elif line.startswith("> ") and entry.kind == TuiEntryKind.USER:
+            text.append(">", style="#38CFE0 bold")
+            text.append(line[1:], style="#F2F7F5")
         else:
             text.append(line)
     return text

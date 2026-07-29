@@ -21,16 +21,16 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH = 1280
 HEIGHT = 720
-BACKGROUND = "#081019"
-PANEL = "#101B27"
-PANEL_ALT = "#142334"
-TEXT = "#F3F8FA"
-MUTED = "#9FB0BA"
-CYAN = "#45E6DF"
-GREEN = "#81E8BB"
-BLUE = "#56A8FF"
-YELLOW = "#F6C453"
-RED = "#FF8278"
+BACKGROUND = "#081018"
+PANEL = "#101B26"
+PANEL_ALT = "#142434"
+TEXT = "#F2F7F5"
+MUTED = "#B5C3C9"
+CYAN = "#38CFE0"
+GREEN = "#79E6B3"
+BLUE = "#38CFE0"
+YELLOW = "#F2C14E"
+RED = "#FF6B6B"
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ def _base(index: int, title: str, subtitle: str) -> tuple[Image.Image, ImageDraw
     draw.line((64, 655, 1216, 655), fill="#29404E", width=2)
     draw.text(
         (64, 674),
-        "Rook v0.3.1 · github.com/Lem0nTea2002/Rook",
+        "Rook v0.4.1 · github.com/Lem0nTea2002/Rook",
         font=_font(17),
         fill=MUTED,
     )
@@ -248,7 +248,7 @@ def _render_quickstart(index: int) -> Image.Image:
     _panel(draw, (90, 180, 1190, 555), fill="#071017", outline="#2A555D")
     code_font = _font(22, mono=True)
     commands = (
-        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.3.1"', CYAN),
+        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"', CYAN),
         ("$ rook", GREEN),
         ("$ rook eval demo", BLUE),
     )

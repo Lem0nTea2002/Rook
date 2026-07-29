@@ -13,4 +13,4 @@ Copyright (c) Tencent
 ```
 
 Rook does not copy or embed the OpenClaw host or npm plugin. It provides an
-independent Python transport with `bot_agent` set to `Rook/0.4.0`.
+independent Python transport with `bot_agent` set to `Rook/0.4.1`.

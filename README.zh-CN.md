@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.1"><img alt="Release v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-38CFE0?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.md">English</a>
@@ -27,7 +27,7 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
 rook
 ```
 
@@ -60,7 +60,7 @@ rook eval demo
 
 ## 手机飞书 / 微信控制本地 Rook
 
-Rook v0.4.0 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
+Rook v0.4.1 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
 审批；项目文件、模型凭据、Agent Loop、Skill 和工具执行仍留在电脑。
 
 ```powershell

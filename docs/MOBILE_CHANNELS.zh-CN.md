@@ -1,6 +1,6 @@
 # Rook 手机渠道：飞书与微信
 
-Rook v0.4.0 可以在电脑上运行一个本地常驻 Gateway，让已配对的手机飞书或
+Rook v0.4.1 可以在电脑上运行一个本地常驻 Gateway，让已配对的手机飞书或
 微信私聊把 Coding Task 交给本机 Rook。电脑必须在线；代码、项目凭据、会话和
 工具执行都留在本机。
 
@@ -21,7 +21,7 @@ IM 单次审批 → 结果回传
 ## 安装
 
 ```powershell
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
 pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 ```
 

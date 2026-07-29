@@ -9,7 +9,7 @@ import re
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Footer, Static, TextArea
+from textual.widgets import Footer, MarkdownViewer, Static, TextArea
 
 from rook_agent.app.clipboard import ClipboardResult
 
@@ -48,13 +48,21 @@ class ContentViewerScreen(Screen[None]):
         yield Static(self.viewer_title, id="viewer-title", classes="viewer-title")
         if self.kind == "diff":
             yield Static(_diff_summary_text(summarize_diff(self.content)), id="viewer-summary")
-        yield TextArea(
-            self.content,
-            id="viewer-content",
-            read_only=True,
-            show_line_numbers=self.kind == "diff",
-            soft_wrap=self.kind != "diff",
-        )
+        if self.kind == "help":
+            yield MarkdownViewer(
+                self.content,
+                id="help-content",
+                show_table_of_contents=False,
+                open_links=False,
+            )
+        else:
+            yield TextArea(
+                self.content,
+                id="viewer-content",
+                read_only=True,
+                show_line_numbers=self.kind == "diff",
+                soft_wrap=self.kind != "diff",
+            )
         yield Footer()
 
     def action_close(self) -> None:

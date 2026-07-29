@@ -244,9 +244,12 @@ def test_command_picker_renderable_colors_selected_cursor() -> None:
     rendered = _entry_renderable(entry, "Select:\n> 1. first\n  2. second")
 
     assert isinstance(rendered, Text)
-    assert rendered.plain == "Select:\n> 1. first\n  2. second"
-    assert any(span.start == len("Select:\n") and span.end == len("Select:\n>") for span in rendered.spans)
-    assert any(span.style == "#7bba55 bold" for span in rendered.spans)
+    assert rendered.plain == "▌ CMD\nSelect:\n> 1. first\n  2. second"
+    assert any(
+        rendered.plain[span.start : span.end] == "> 1. first"
+        and "on #79e6b3" in str(span.style).lower()
+        for span in rendered.spans
+    )
 
 
 def test_picker_rerender_updates_existing_command_widget_without_full_rerender(monkeypatch) -> None:
@@ -284,7 +287,9 @@ def test_picker_rerender_updates_existing_command_widget_without_full_rerender(m
 
     assert rerendered is False
     assert len(widget.updates) == 1
-    assert getattr(widget.updates[0], "plain", "") == "Select a model:\n  1. old\n> 2. new\nUse up/down and enter to select."
+    assert getattr(widget.updates[0], "plain", "") == (
+        "▌ CMD\nSelect a model:\n  1. old\n> 2. new\nUse up/down and enter to select."
+    )
     assert app.transcript.entries[-1].body.startswith("Select a model:")
     assert "> 2. new" in app.transcript.entries[-1].body
 
@@ -718,10 +723,10 @@ def test_rook_app_shift_tab_cycles_safe_permission_modes(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ("mode", "color"),
     [
-        ("conservative", "#5fb5ff"),
-        ("standard", "#cfd1d6"),
-        ("aggressive", "#f6b73c"),
-        ("bypass", "#ff6b5f"),
+        ("conservative", "#38CFE0"),
+        ("standard", "#B5C3C9"),
+        ("aggressive", "#F2C14E"),
+        ("bypass", "#FF6B6B"),
     ],
 )
 def test_rook_app_topbar_colors_each_permission_mode(mode, color) -> None:
@@ -732,14 +737,15 @@ def test_rook_app_topbar_colors_each_permission_mode(mode, color) -> None:
     session.mode = mode
     app = RookApp(current_session=session)
 
-    assert app._topbar_text() == (
-        "[#7bba55]Rook[/]   [#303238]·[/]   [#7bba55]idle · ready[/]   "
-        f"[#303238]·[/]   [{color}]{mode}[/]"
-    )
-    assert "sess_test" not in app._topbar_text()
+    topbar = app._topbar_text()
+
+    assert "[#F2F7F5 bold]ROOK[/]" in topbar
+    assert f"[{color}]{mode}[/]" in topbar
+    assert "idle · ready" not in topbar
+    assert "sess_test" not in topbar
 
 
-def test_rook_app_topbar_shows_a_green_provider_and_hides_session_id() -> None:
+def test_rook_app_topbar_shows_provider_and_hides_session_id() -> None:
     app = RookApp(
         current_session=FakeSession(),
         config=RookTuiConfig(
@@ -749,12 +755,12 @@ def test_rook_app_topbar_shows_a_green_provider_and_hides_session_id() -> None:
         ),
     )
 
-    assert app._topbar_text() == (
-        "[#7bba55]Rook[/]   [#303238]·[/]   [#7bba55]idle · ready[/]   "
-        "[#303238]·[/]   [#6e6d72]cwd Rook[/]   [#303238]·[/]   "
-        "[#7bba55]yurenapi[/][#6e6d72]/gpt-5.5[/]   [#303238]·[/]   "
-        "[#cfd1d6]standard[/]"
-    )
+    topbar = app._topbar_text()
+
+    assert "[#B5C3C9]@ Rook[/]" in topbar
+    assert "[#38CFE0]yurenapi[/][#8798A1]/gpt-5.5[/]" in topbar
+    assert "[#B5C3C9]standard[/]" in topbar
+    assert "sess_test" not in topbar
 
 
 def test_yuren_provider_and_model_use_one_moving_colour_band() -> None:
@@ -763,14 +769,16 @@ def test_yuren_provider_and_model_use_one_moving_colour_band() -> None:
 
     assert Text.from_markup(first).plain == "Yuren/gpt-5.6-terra"
     assert first != next_frame
-    assert "[#18cfcb]" in first
-    assert "[#5fb5ff]" in first
-    assert "[#6e6d72]/[/]" in first
+    assert "[#38CFE0]" in first
+    assert "[#79E6B3]" in first
+    assert "[#8798A1]/[/]" in first
 
 
-def test_other_provider_names_keep_the_standard_green() -> None:
-    assert _provider_name_markup("OpenAI", glow_frame=4) == "[#7bba55]OpenAI[/]"
-    assert _provider_model_markup("OpenAI", "gpt-5.6", glow_frame=4) == "[#7bba55]OpenAI[/][#6e6d72]/gpt-5.6[/]"
+def test_other_provider_names_use_the_secondary_cyan() -> None:
+    assert _provider_name_markup("OpenAI", glow_frame=4) == "[#38CFE0]OpenAI[/]"
+    assert _provider_model_markup("OpenAI", "gpt-5.6", glow_frame=4) == (
+        "[#38CFE0]OpenAI[/][#8798A1]/gpt-5.6[/]"
+    )
 
 
 @pytest.mark.anyio
@@ -826,35 +834,34 @@ def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
     assert renderable.align == "center"
     assert "██" in text.plain
     assert "▀" not in text.plain
-    assert "Rookie · your tiny coding teammate" in text.plain
+    assert "ROOKIE // your tiny coding teammate" in text.plain
     assert "Commands:" not in text.plain
-    assert any(span.style == "#81e8bb" for span in text.spans)
-    assert any(span.style == "#18cfcb" for span in text.spans)
-    assert any(span.style == "#f5fcfa" for span in text.spans)
-    assert any(span.style == "#f6c453" for span in text.spans)
-    assert any(span.style == "#f09130" for span in text.spans)
-    assert any(span.style == "#b8ffdf" for span in text.spans)
-    assert text.plain != next_text.plain
+    assert any(span.style == "#79E6B3" for span in text.spans)
+    assert any(span.style == "#F2C14E" for span in text.spans)
+    assert any(span.style == "#F2F7F5" for span in text.spans)
+    assert any(span.style == "#2A4B5F" for span in text.spans)
+    assert any(span.style == "#1A2B3B" for span in text.spans)
+    assert text.spans != next_text.spans
 
 
-def test_welcome_mascot_keeps_a_side_profile_bird_and_terminal() -> None:
+def test_welcome_mascot_keeps_a_side_profile_bird_and_hoodie() -> None:
     head = WELCOME_LOGO_PIXELS[:9]
     body = WELCOME_LOGO_PIXELS[9:]
 
-    assert {len(row) for row in WELCOME_LOGO_PIXELS} == {32}
+    assert {len(row) for row in WELCOME_LOGO_PIXELS} == {24}
     assert sum(row.count("W") for row in head) >= 5
-    assert sum(row.count("Y") + row.count("A") for row in head) >= 9
-    assert any(row.startswith("BBBBBBBBB.") for row in body)
-    assert WELCOME_LOGO_PIXELS[-1].count("Y") == 6
-    assert any("NNNNNN" in row for row in body)
-    assert any("CCCCCC" in row for row in body)
+    assert sum(row.count("Y") for row in head) >= 7
+    assert any(row.startswith("BBBBB") for row in body)
+    assert WELCOME_LOGO_PIXELS[-1].count("Y") == 4
+    assert any("DD" in row for row in body)
+    assert sum(row.count("M") for row in body) > 60
 
 
 def test_compact_welcome_identifies_the_rookie_mascot() -> None:
     text = welcome_renderable(compact=True).renderable
 
     assert "██" in text.plain
-    assert "Rook\nRookie coding agent" in text.plain
+    assert "ROOK\nROOKIE // local coding agent" in text.plain
     assert any("bold" in str(span.style) for span in text.spans)
 
 
@@ -905,7 +912,7 @@ async def test_rook_app_uses_compact_welcome_in_an_80_by_24_terminal() -> None:
         welcome = app.query_one("#welcome")
         plain = getattr(getattr(welcome.content, "renderable", welcome.content), "plain", str(welcome.content))
 
-        assert "Rook" in plain
+        assert "ROOK" in plain
         assert "██" in plain
         assert app._welcome_particle_timer is None
         assert app.query_one("#input").display is True
@@ -952,11 +959,11 @@ def test_rook_app_topbar_uses_spacious_two_sided_layout_when_width_is_known() ->
 
     text = app._topbar_text(width=120)
 
-    assert text.startswith("[#7bba55]Rook[/]")
-    assert "[#7bba55]idle · ready[/]" in text
+    assert text.startswith("[#79E6B3 bold](')[/]")
+    assert "idle · ready" not in text
     assert "sess_test" not in text
-    assert "[#7bba55]yurenapi[/][#6e6d72]/gpt-5.5[/]" in text
-    assert "[#6e6d72]cwd Rook[/]" in text
+    assert "[#38CFE0]yurenapi[/][#8798A1]/gpt-5.5[/]" in text
+    assert "[#B5C3C9]@ Rook[/]" in text
     assert " " * 20 in text
 
 
@@ -967,21 +974,19 @@ def test_rook_app_topbar_highlights_bypass_mode_and_truncates_long_session() -> 
 
     app = RookApp(current_session=BypassSession())
 
-    assert app._topbar_text() == (
-        "[#7bba55]Rook[/]   [#303238]·[/]   [#7bba55]idle · ready[/]   "
-        "[#303238]·[/]   [#ff6b5f]bypass[/]"
-    )
+    assert "[#FF6B6B]bypass[/]" in app._topbar_text()
+    assert "idle · ready" not in app._topbar_text()
 
 
-def test_rook_app_topbar_includes_live_activity_status() -> None:
+def test_rook_app_topbar_excludes_live_activity_status() -> None:
     app = RookApp(current_session=FakeSession())
 
     app._activity_text = "thinking [.. ] planning next step..."
 
-    assert "[#7bba55]thinking [.. ] planning next step...[/]" in app._topbar_text(width=120)
+    assert "thinking" not in app._topbar_text(width=120)
 
 
-def test_rook_app_topbar_truncates_long_activity_before_metadata() -> None:
+def test_rook_app_topbar_ignores_long_activity_and_preserves_metadata() -> None:
     app = RookApp(
         current_session=FakeSession(),
         config=RookTuiConfig(
@@ -994,10 +999,10 @@ def test_rook_app_topbar_truncates_long_activity_before_metadata() -> None:
 
     text = app._topbar_text(width=150)
 
-    assert "[#7bba55]yurenapi[/][#6e6d72]/very-long-model-name[/]" in text
-    assert "[#6e6d72]cwd Rook[/]" in text
+    assert "yurenapi/very-long" in Text.from_markup(text).plain
+    assert "@ Rook" in Text.from_markup(text).plain
     assert "reading think tool result reading think tool result" not in text
-    assert "thinking" in Text.from_markup(text).plain
+    assert "thinking" not in Text.from_markup(text).plain
 
 
 def test_rook_app_topbar_fits_narrow_width_with_long_activity_and_metadata() -> None:
@@ -1014,17 +1019,17 @@ def test_rook_app_topbar_fits_narrow_width_with_long_activity_and_metadata() -> 
     text = app._topbar_text(width=80)
     plain = Text.from_markup(text).plain
 
-    assert "\n" in plain
     assert "sess_test" not in plain
-    assert "yurenapi/very-long-model-name" in plain
-    assert "cwd Rook" in plain
+    assert "yurenapi/very-long" in plain
+    assert "@ Rook" in plain
+    assert len(plain.splitlines()) <= 2
 
     narrow_plain = Text.from_markup(app._topbar_text(width=60)).plain
 
-    assert "\n" in narrow_plain
     assert "sess_test" not in narrow_plain
-    assert "yurenapi/very-long-model-name" in narrow_plain
-    assert "cwd Rook" in narrow_plain
+    assert "yurenapi/very-long" in narrow_plain
+    assert "@ Rook" in narrow_plain
+    assert len(narrow_plain.splitlines()) <= 2
 
 
 def test_rook_app_topbar_wraps_narrow_metadata_with_each_row_right_aligned() -> None:
@@ -1039,11 +1044,12 @@ def test_rook_app_topbar_wraps_narrow_metadata_with_each_row_right_aligned() -> 
 
     plain_rows = Text.from_markup(app._topbar_text(width=60)).plain.splitlines()
 
-    assert plain_rows[0].startswith("Rook")
+    assert "ROOK" in plain_rows[0]
     assert "sess_test" not in "\n".join(plain_rows)
-    assert any("idle · ready" in row for row in plain_rows)
-    assert any("yurenapi/very-long-model-name" in row for row in plain_rows)
-    assert any("cwd Rook" in row for row in plain_rows)
+    assert not any("idle · ready" in row for row in plain_rows)
+    assert any("yurenapi/very-long" in row for row in plain_rows)
+    assert any("@ Rook" in row for row in plain_rows)
+    assert len(plain_rows) <= 2
 
 
 def test_tui_transcript_records_structured_entries_with_stable_labels() -> None:
@@ -1725,7 +1731,7 @@ def test_rook_app_streams_text_delta_without_repeating_final_text(monkeypatch) -
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
     assert output.mounted[0].allow_select is True
-    assert output.mounted[0].updates[-1] == "Rook:\n\nhello"
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\nhello"
     assert app._stream_text_buffer == "hello"
     assert runner.seen == [
         ChatStreamEvent(kind="text_delta", text="he"),
@@ -1748,7 +1754,7 @@ def test_rook_app_streaming_skips_normalized_duplicate_assistant_line(monkeypatc
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
     assert output.mounted[0].allow_select is True
-    assert output.mounted[0].updates[-1] == "Rook:\n\nhello"
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\nhello"
 
 
 def test_rook_app_streaming_skips_replaying_intermediate_assistant_lines(monkeypatch) -> None:
@@ -1772,7 +1778,7 @@ def test_rook_app_streaming_skips_replaying_intermediate_assistant_lines(monkeyp
     app._restore_stream_event_handler(previous_handler)
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
-    assert output.mounted[0].updates[-1] == "Rook:\n\n最终结论"
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\n最终结论"
     assert [entry.body for entry in app.transcript.entries if entry.kind == TuiEntryKind.ASSISTANT] == ["最终结论"]
 
 
@@ -1790,12 +1796,12 @@ def test_rook_app_paces_stream_markdown_updates(monkeypatch) -> None:
     markdown = output.mounted[0]
     assert type(markdown).__name__ == "RookMarkdown"
     assert markdown.allow_select is True
-    assert markdown.updates == ["Rook:\n\n我"]
+    assert markdown.updates == ["**ROOK**\n\n我"]
     assert app._stream_text_buffer == "我在这里"
 
     app._flush_stream_text()
 
-    assert markdown.updates[-1] == "Rook:\n\n我在这里"
+    assert markdown.updates[-1] == "**ROOK**\n\n我在这里"
 
 
 def test_rook_app_does_not_scroll_stream_when_render_is_deferred(monkeypatch) -> None:
@@ -2017,7 +2023,7 @@ def test_rook_app_replaces_partial_stream_when_final_response_differs(monkeypatc
     app._restore_stream_event_handler(previous_handler)
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
-    assert output.mounted[0].updates[-1] == "Rook:\n\ncomplete ok"
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\ncomplete ok"
     assert app._stream_text_buffer == "complete ok"
 
 
@@ -2431,7 +2437,7 @@ async def test_rook_app_todo_panel_preserves_status_markers_as_plain_text() -> N
         assert str(panel.render()) == "Todo\n[✓] 已完成\n[~] 进行中\n[ ] 未完成"
 
 
-def test_rook_app_updates_topbar_when_activity_changes(monkeypatch) -> None:
+def test_rook_app_keeps_activity_in_dedicated_line(monkeypatch) -> None:
     output = FakeOutput()
     activity = FakeActivity()
     topbar = FakeTopbar()
@@ -2453,7 +2459,7 @@ def test_rook_app_updates_topbar_when_activity_changes(monkeypatch) -> None:
     assert activity.updates[0].startswith("waiting · permission")
     assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
     assert app._activity_text == "waiting · permission"
-    assert "[#b28443]waiting · permission[/]" in topbar.updates[-1]
+    assert topbar.updates == []
 
 
 def test_rook_app_live_tool_events_filter_final_tool_summary(monkeypatch) -> None:
@@ -2505,8 +2511,8 @@ def test_rook_app_starts_new_stream_block_after_tool_event(monkeypatch) -> None:
     first_markdown, _, second_markdown = output.mounted
     assert first_markdown.allow_select is True
     assert second_markdown.allow_select is True
-    assert first_markdown.updates[-1] == "Rook:\n\n我先看看。"
-    assert second_markdown.updates[-1] == "Rook:\n\n看完了。"
+    assert first_markdown.updates[-1] == "**ROOK**\n\n我先看看。"
+    assert second_markdown.updates[-1] == "**ROOK**\n\n看完了。"
 
 
 def test_permission_requested_tool_event_uses_permission_style() -> None:

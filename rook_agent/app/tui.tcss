@@ -1,7 +1,7 @@
 Screen {
     layout: vertical;
-    background: #0b1117;
-    color: #d8e4e8;
+    background: $background;
+    color: $foreground;
     overflow: hidden;
 }
 
@@ -24,24 +24,25 @@ ScrollBarCorner {
 
 #main {
     height: 1fr;
-    background: #0b1117;
+    background: $background;
     overflow: hidden;
 }
 
 .topbar {
     height: auto;
-    min-height: 2;
+    min-height: 1;
+    max-height: 2;
     padding: 0 2;
-    background: #101a22;
-    color: #8a9aa4;
-    border-bottom: solid #263d46;
+    background: $surface;
+    color: $rook-text-secondary;
+    border-bottom: solid $rook-border;
     text-style: none;
 }
 
 #output {
     height: 1fr;
     padding: 1 3;
-    background: #0b1117;
+    background: $background;
 }
 
 #output.welcome-active {
@@ -52,8 +53,8 @@ ScrollBarCorner {
     width: 100%;
     margin: 0;
     padding: 0;
-    background: #0b1117;
-    color: #d8e4e8;
+    background: $background;
+    color: $foreground;
 }
 
 .composer {
@@ -61,46 +62,46 @@ ScrollBarCorner {
     max-height: 9;
     margin: 0 2 1 2;
     padding: 0 1;
-    background: #101a22;
-    border: round #2a6968;
+    background: $surface;
+    border: solid $primary;
 }
 
 #input {
     height: 3;
     margin: 0;
     padding: 0 1;
-    background: #101a22;
+    background: $surface;
     background-tint: transparent;
-    color: #8a9aa4;
+    color: $rook-text-secondary;
     border: none;
 }
 
 #input:focus {
-    background: #101a22;
+    background: $surface;
     background-tint: transparent;
-    color: #f5fcfa;
+    color: $foreground;
     border: none;
 }
 
 #input > .input--cursor {
-    background: #81e8bb;
-    color: #07131b;
-    text-style: none;
+    background: $primary;
+    color: $background;
+    text-style: bold;
 }
 
 #input > .input--selection {
-    background: #203b43;
-    color: #f5fcfa;
+    background: $panel;
+    color: $foreground;
 }
 
 #input > .text-area--placeholder {
-    color: #74858f;
+    color: $rook-text-muted;
 }
 
 .activity-line {
     height: 1;
     margin: 0 3;
-    color: #81e8bb;
+    color: $primary;
 }
 
 .todo-panel {
@@ -108,9 +109,9 @@ ScrollBarCorner {
     max-height: 8;
     margin: 0 3 1 3;
     padding: 0 1;
-    color: #d8e4e8;
-    background: #101a22;
-    border-left: solid #18cfcb;
+    color: $foreground;
+    background: $panel;
+    border-left: solid $secondary;
 }
 
 .todo-panel.hidden {
@@ -120,57 +121,41 @@ ScrollBarCorner {
 .footer-hints {
     height: 1;
     margin: 0 3;
-    color: #5f727c;
-    background: #0b1117;
-}
-
-Screen.theme-high-contrast {
-    background: #000000;
-    color: #ffffff;
-}
-
-Screen.theme-high-contrast #topbar,
-Screen.theme-high-contrast #composer,
-Screen.theme-high-contrast #command-palette {
-    background: #000000;
-    color: #ffffff;
-}
-
-Screen.theme-high-contrast #topbar {
-    border-bottom: solid #00ffff;
-}
-
-Screen.theme-high-contrast #composer,
-Screen.theme-high-contrast #command-palette {
-    border: round #00ffff;
+    color: $rook-text-muted;
+    background: $background;
 }
 
 ContentViewerScreen {
     layout: vertical;
-    background: #0b1117;
+    background: $background;
 }
 
 .viewer-title {
     height: 3;
     padding: 1 2;
-    color: #f5fcfa;
-    background: #101a22;
-    border-bottom: solid #2a6968;
+    color: $foreground;
+    background: $surface;
+    border-bottom: solid $primary;
     text-style: bold;
 }
 
 #viewer-summary {
     height: auto;
     padding: 0 2 1 2;
-    color: #81e8bb;
-    background: #101a22;
+    color: $primary;
+    background: $surface;
 }
 
-#viewer-content {
+#viewer-content,
+#help-content {
     height: 1fr;
     border: none;
-    background: #0b1117;
-    color: #d8e4e8;
+    background: $background;
+    color: $foreground;
+}
+
+#help-content {
+    padding: 1 3;
 }
 
 .command-palette {
@@ -178,9 +163,9 @@ ContentViewerScreen {
     max-height: 12;
     margin: 0 2;
     padding: 1 2;
-    color: #d8e4e8;
-    background: #101a22;
-    border: round #2a6968;
+    color: $foreground;
+    background: $panel;
+    border: solid $secondary;
 }
 
 .command-palette.hidden {
@@ -188,37 +173,37 @@ ContentViewerScreen {
 }
 
 .composer.shell-mode {
-    border: round #f6b73c;
-    background: #17150f;
+    border: solid $warning;
+    background: $surface;
 }
 
 .composer.shell-mode ComposerTextArea {
-    color: #ffe3a6;
-    background: #17150f;
+    color: $warning;
+    background: $surface;
 }
 
 .composer.input-mode-command {
-    border: round #5fb5ff;
+    border: solid $secondary;
 }
 
 .composer.input-mode-file_reference {
-    border: round #81e8bb;
+    border: solid $primary;
 }
 
 .message {
     width: 100%;
     margin: 0 0 1 0;
-    padding: 0 1 0 1;
-    background: #0b1117;
+    padding: 0 1;
+    background: $background;
 }
 
 .system-message,
 .command-message,
 .reasoning-message,
 .tool-message {
-    color: #808185;
-    background: #0f1014;
-    border-left: solid #666769;
+    color: $rook-text-secondary;
+    background: $surface;
+    border-left: solid $rook-border;
 }
 
 .tool-running,
@@ -226,9 +211,22 @@ ContentViewerScreen {
 .tool-failed,
 .tool-skipped,
 .tool-denied {
-    color: #8a9aa4;
-    background: #0b1117;
-    border-left: solid #43535c;
+    color: $rook-text-secondary;
+    background: $background;
+    border-left: solid $rook-border;
+}
+
+.tool-running {
+    border-left: solid $secondary;
+}
+
+.tool-done {
+    border-left: solid $primary;
+}
+
+.tool-failed,
+.tool-denied {
+    border-left: solid $error;
 }
 
 ToolCard,
@@ -240,19 +238,19 @@ PermissionCard {
 
 ToolCard:hover,
 PermissionCard:hover {
-    background: #142029;
+    background: $panel;
 }
 
 .user-message {
-    color: #f5fcfa;
-    background: #0e1820;
-    border-left: solid #45e6df;
+    color: $foreground;
+    background: $surface;
+    border-left: solid $secondary;
 }
 
 .assistant-message {
-    color: #f5fcfa;
-    background: #0e1817;
-    border-left: solid #81e8bb;
+    color: $foreground;
+    background: $surface;
+    border-left: solid $primary;
 }
 
 .assistant-message MarkdownBlock {
@@ -260,23 +258,28 @@ PermissionCard:hover {
 }
 
 .reasoning-message {
-    color: #81bca7;
-    border-left: solid #81e8bb;
+    color: $rook-text-secondary;
+    border-left: solid $primary;
 }
 
 .permission-message,
 .permission-requested {
-    color: #f6c453;
-    background: #17150f;
-    border-left: solid #f6c453;
+    color: $warning;
+    background: $surface;
+    border-left: solid $warning;
 }
 
 .error-message {
-    color: #ff8278;
-    background: #1a1012;
-    border-left: solid #ff8278;
+    color: $error;
+    background: $surface;
+    border-left: solid $error;
 }
 
 .streaming {
-    border-left: solid #81e8bb;
+    border-left: solid $primary;
+}
+
+Screen.theme-high-contrast .composer,
+Screen.theme-high-contrast .command-palette {
+    border: double $primary;
 }

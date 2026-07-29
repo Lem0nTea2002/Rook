@@ -5,6 +5,28 @@ from __future__ import annotations
 from rook_agent.app.tui_state import TuiEntryKind, TuiTranscriptEntry
 
 
+_DISPLAY_LABELS = {
+    TuiEntryKind.SYSTEM: "SYS",
+    TuiEntryKind.COMMAND: "CMD",
+    TuiEntryKind.USER: "YOU",
+    TuiEntryKind.ASSISTANT: "ROOK",
+    TuiEntryKind.REASONING: "THINK",
+    TuiEntryKind.TOOL: "TOOL",
+    TuiEntryKind.PERMISSION: "APPROVAL",
+    TuiEntryKind.ERROR: "ERROR",
+}
+
+
+def entry_display_label(entry: TuiTranscriptEntry) -> str:
+    """返回只用于界面呈现的稳定角色标签。"""
+
+    return _DISPLAY_LABELS[entry.kind]
+
+
+def entry_display_markdown_text(entry: TuiTranscriptEntry) -> str:
+    return f"**{entry_display_label(entry)}**\n\n{entry.body}"
+
+
 def looks_like_markdown_response(line: str) -> bool:
     return not looks_like_tool_display_line(line)
 

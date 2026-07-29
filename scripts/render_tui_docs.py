@@ -222,7 +222,7 @@ def _render_png(svg_path: Path) -> Path:
         raise RuntimeError("ImageMagick is required to render stable README PNG assets")
     png_path = svg_path.with_suffix(".png")
     subprocess.run(
-        [magick, "-background", "#0b1117", str(svg_path), str(png_path)],
+        [magick, "-background", "#081018", str(svg_path), str(png_path)],
         check=True,
     )
     return png_path
