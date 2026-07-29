@@ -131,6 +131,7 @@ def test_feishu_setup_can_reuse_existing_app_with_hidden_secret(
     monkeypatch,
 ) -> None:
     stored: dict[str, str] = {}
+    verified: list[tuple[str, str]] = []
     monkeypatch.setattr(
         channel_cli.getpass,
         "getpass",
@@ -145,13 +146,41 @@ def test_feishu_setup_can_reuse_existing_app_with_hidden_secret(
         feishu_registrar=lambda: pytest.fail(
             "manual setup must not create another application"
         ),
+        feishu_verifier=lambda app_id, app_secret: verified.append(
+            (app_id, app_secret)
+        ),
     )
 
     assert result == 0
+    assert verified == [("cli_existing", "local-secret")]
     assert json.loads(stored["channel:feishu:default"]) == {
         "app_id": "cli_existing",
         "app_secret": "local-secret",
     }
+
+
+def test_feishu_setup_does_not_store_rejected_manual_credentials(
+    monkeypatch,
+) -> None:
+    def reject(_app_id: str, _app_secret: str) -> None:
+        raise ValueError("Feishu rejected the application credentials")
+
+    monkeypatch.setattr(
+        channel_cli.getpass,
+        "getpass",
+        lambda _prompt: "wrong-secret",
+    )
+
+    with pytest.raises(ValueError, match="rejected"):
+        run_channel_command(
+            build_parser().parse_args(
+                ["channel", "setup", "feishu", "--app-id", "cli_existing"]
+            ),
+            credential_writer=lambda _name, _value: pytest.fail(
+                "rejected credentials must not be stored"
+            ),
+            feishu_verifier=reject,
+        )
 
 
 def test_feishu_registration_requests_only_mobile_gateway_capabilities(
@@ -203,6 +232,70 @@ def test_feishu_registration_requests_only_mobile_gateway_capabilities(
     }
     assert rendered == ["https://accounts.feishu.cn/device"]
     assert "registered-secret" not in capsys.readouterr().out
+
+
+def test_feishu_credential_verifier_requires_successful_token_response(
+    monkeypatch,
+) -> None:
+    requests = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc, _traceback):
+            return False
+
+        @staticmethod
+        def read() -> bytes:
+            return json.dumps(
+                {
+                    "code": 0,
+                    "msg": "ok",
+                    "tenant_access_token": "temporary-token",
+                }
+            ).encode()
+
+    def open_request(request, *, timeout):
+        requests.append((request, timeout))
+        return Response()
+
+    monkeypatch.setattr(channel_cli, "urlopen", open_request)
+
+    channel_cli._verify_feishu_credentials("cli_rook", "local-secret")
+
+    assert len(requests) == 1
+    request, timeout = requests[0]
+    assert timeout == 15
+    assert request.full_url.endswith("/tenant_access_token/internal/")
+    assert json.loads(request.data) == {
+        "app_id": "cli_rook",
+        "app_secret": "local-secret",
+    }
+
+
+def test_feishu_credential_verifier_surfaces_platform_rejection(
+    monkeypatch,
+) -> None:
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc, _traceback):
+            return False
+
+        @staticmethod
+        def read() -> bytes:
+            return b'{"code":1000040345,"msg":"app_id or app_secret is invalid"}'
+
+    monkeypatch.setattr(
+        channel_cli,
+        "urlopen",
+        lambda _request, *, timeout: Response(),
+    )
+
+    with pytest.raises(ValueError, match="1000040345"):
+        channel_cli._verify_feishu_credentials("cli_rook", "wrong-secret")
 
 
 def test_project_add_requires_absolute_existing_directory(tmp_path: Path) -> None:

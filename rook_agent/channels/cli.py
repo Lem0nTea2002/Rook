@@ -14,6 +14,8 @@ from pathlib import Path
 import time
 from types import SimpleNamespace
 from typing import Any, Callable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from rook_agent.app.factory import RookRuntime, create_rook_runtime
 from rook_agent.app.runtime import AgentChatRunner
@@ -40,6 +42,7 @@ from rook_agent.config.credentials import read_secret, write_secret
 FEISHU_CREDENTIAL = "channel:feishu:default"
 WEIXIN_CREDENTIAL = "channel:weixin:default"
 FeishuRegistrar = Callable[[], dict[str, object]]
+FeishuCredentialVerifier = Callable[[str, str], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +71,7 @@ def run_channel_command(
     credential_reader: Callable[[str], str | None] = read_secret,
     credential_writer: Callable[[str, str], None] = write_secret,
     feishu_registrar: FeishuRegistrar | None = None,
+    feishu_verifier: FeishuCredentialVerifier | None = None,
 ) -> int:
     selected = paths or default_channel_paths()
     command = args.channel_command
@@ -82,6 +86,7 @@ def run_channel_command(
             args,
             credential_writer,
             feishu_registrar or _register_feishu_application,
+            feishu_verifier or _verify_feishu_credentials,
         )
     if command == "login":
         return _run_login(args, credential_writer)
@@ -165,12 +170,16 @@ def _run_setup(
     args: argparse.Namespace,
     credential_writer: Callable[[str, str], None],
     feishu_registrar: FeishuRegistrar,
+    feishu_verifier: FeishuCredentialVerifier,
 ) -> int:
     if args.setup_channel != "feishu":
         raise ValueError("only Feishu setup is supported by this command")
     if args.app_id:
         app_id = str(args.app_id).strip()
         app_secret = getpass.getpass("Feishu App Secret: ").strip()
+        if not app_id or not app_secret:
+            raise ValueError("Feishu App ID and App Secret are required")
+        feishu_verifier(app_id, app_secret)
     else:
         registration = feishu_registrar()
         app_id = _required_registration_value(registration, "client_id")
@@ -249,6 +258,45 @@ def _required_registration_value(
     if not isinstance(value, str) or not value.strip():
         raise ValueError("Feishu registration result is incomplete")
     return value.strip()
+
+
+def _verify_feishu_credentials(app_id: str, app_secret: str) -> None:
+    request = Request(
+        "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal/",
+        data=json.dumps(
+            {"app_id": app_id, "app_secret": app_secret},
+            separators=(",", ":"),
+        ).encode("utf-8"),
+        headers={"Content-Type": "application/json; charset=utf-8"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=15) as response:
+            raw = response.read()
+    except HTTPError as exc:
+        raise RuntimeError(
+            f"Feishu credential verification failed with HTTP {exc.code}"
+        ) from exc
+    except URLError as exc:
+        raise RuntimeError(
+            f"Feishu credential verification could not reach the API: {exc.reason}"
+        ) from exc
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Feishu credential verification returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("Feishu credential verification returned invalid data")
+    code = payload.get("code")
+    if not isinstance(code, int) or code != 0:
+        message = payload.get("msg")
+        description = message if isinstance(message, str) else "unknown error"
+        raise ValueError(
+            f"Feishu rejected the application credentials: {code}: {description}"
+        )
+    token = payload.get("tenant_access_token")
+    if not isinstance(token, str) or not token:
+        raise RuntimeError("Feishu credential verification returned no access token")
 
 
 def _run_login(
