@@ -370,7 +370,7 @@ def _normalize_weixin_message(
 
 
 def _base_info() -> dict[str, Any]:
-    return {"channel_version": 1, "bot_agent": BOT_AGENT}
+    return {"channel_version": "0.4.0", "bot_agent": BOT_AGENT}
 
 
 def _require_success(response: dict[str, Any], *, operation: str) -> None:

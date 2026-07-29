@@ -78,6 +78,7 @@ def test_weixin_poll_normalizes_direct_text_and_persists_cursor(tmp_path) -> Non
     assert url.endswith("/ilink/bot/getupdates")
     assert headers["Authorization"] == "Bearer secret"
     assert base64.b64decode(headers["X-WECHAT-UIN"]).decode() == "123"
+    assert payload["base_info"]["channel_version"] == "0.4.0"
     assert payload["base_info"]["bot_agent"] == "Rook/0.4.0"
 
 
