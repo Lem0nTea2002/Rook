@@ -60,6 +60,10 @@ rook channel setup feishu
 App Secret 通过隐藏输入读取并写入操作系统凭据库，不进入
 `channels.toml`、启动参数或日志。
 
+飞书没有面向机器人的原生“正在输入”接口。Rook 会先发送“正在处理”进度卡，
+任务结束后原地更新为“处理完成”，再回复最终结果；不会把普通消息伪装成原生
+输入状态。
+
 ## 3. 登录微信
 
 ```powershell
@@ -113,6 +117,9 @@ rook channel autostart status
 rook channel autostart remove
 ```
 
+安装命令发现同名计划任务时会拒绝覆盖。请先用 `status` 确认，再显式
+`remove` 后重装。
+
 Linux 和 macOS 的 v1 只支持前台 `serve`，不安装系统服务。
 
 ## 手机命令
@@ -161,6 +168,30 @@ Linux/macOS:
 
 `channels.toml` 只保存项目别名和绝对路径。渠道 Secret 始终由操作系统凭据库保存。
 日志轮转且不记录正文、Token、审批码或 Secret。
+
+## 故障排查
+
+先运行：
+
+```powershell
+rook channel status --json
+rook channel serve --channels feishu,weixin
+Get-Content "$env:APPDATA\rook\channel.log" -Tail 100
+```
+
+- 飞书收不到消息：确认应用已启用机器人、长连接、`im.message.receive_v1` 和
+  `card.action.trigger`，并已发布当前应用版本。
+- 飞书能收不能发：检查 `im:message:send_as_bot`，不要把用户身份权限误当成
+  应用身份权限。
+- 微信提示 `errcode=-14`：iLink 凭据已过期，重新执行
+  `rook channel login weixin`，Rook 不会重试旧 Token。
+- 微信扫码后仍未配置：运行 `rook channel status --json`，确认
+  `weixin.configured=true`；二维码只在五分钟内有效。
+- 手机提示未配对：重新创建一次性配对码；旧码使用一次或十分钟后即失效。
+- 任务一直排队：确认本机仍联网且 `channel serve` 进程存在；同一项目会与
+  TUI 和其他手机会话串行执行。
+- 计划任务已存在：Rook 会拒绝覆盖同名任务。先检查任务来源，确认属于 Rook 后
+  再执行 `rook channel autostart remove`。
 
 ## 明确边界
 

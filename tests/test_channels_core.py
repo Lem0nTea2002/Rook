@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+import subprocess
+import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +12,7 @@ import pytest
 from rook_agent.channels.base import ChannelAdapter
 from rook_agent.channels.config import ChannelConfig, load_channel_config, save_channel_config
 from rook_agent.channels.gateway import ChannelGateway
+from rook_agent.channels.locks import ProjectExecutionLock
 from rook_agent.channels.models import ChannelKind, InboundMessage, ProjectBinding
 from rook_agent.channels.state import ChannelStateStore
 from rook_agent.execution.models import JobStatus
@@ -116,6 +120,17 @@ class PermissionRunner(FakeRunner):
         return type("Response", (), {"content": self.last_display_lines[0]})()
 
 
+class ExternalPathPermissionRunner(PermissionRunner):
+    def __init__(self, target: Path) -> None:
+        super().__init__()
+        self.target = target
+
+    async def arun_user_turn(self, content: str):
+        response = await super().arun_user_turn(content)
+        self.last_pending_input.payload["permission_request"]["target"] = str(self.target)
+        return response
+
+
 def message(
     *,
     message_id: str = "m1",
@@ -124,6 +139,7 @@ def message(
     channel: ChannelKind = ChannelKind.FEISHU,
     account_id: str = "acct",
     conversation_id: str = "chat",
+    received_at: float = 100.0,
 ) -> InboundMessage:
     return InboundMessage(
         channel=channel,
@@ -132,7 +148,7 @@ def message(
         conversation_id=conversation_id,
         message_id=message_id,
         text=text,
-        received_at=100.0,
+        received_at=received_at,
         context_token="ctx",
     )
 
@@ -190,6 +206,40 @@ def test_message_claim_is_idempotent_under_concurrency(tmp_path: Path) -> None:
 
     results = asyncio.run(exercise())
     assert sum(results) == 1
+
+
+def test_project_execution_lock_serializes_processes(tmp_path: Path) -> None:
+    project = tmp_path / "repo"
+    project.mkdir()
+    ready = tmp_path / "ready"
+    acquired = tmp_path / "acquired"
+    script = (
+        "from pathlib import Path\n"
+        "from rook_agent.channels.locks import ProjectExecutionLock\n"
+        f"project = Path({str(project)!r})\n"
+        f"ready = Path({str(ready)!r})\n"
+        f"acquired = Path({str(acquired)!r})\n"
+        "ready.write_text('ready', encoding='utf-8')\n"
+        "with ProjectExecutionLock(project):\n"
+        "    acquired.write_text('acquired', encoding='utf-8')\n"
+    )
+
+    with ProjectExecutionLock(project):
+        child = subprocess.Popen([sys.executable, "-c", script])
+        try:
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert ready.exists()
+            assert child.poll() is None
+            assert not acquired.exists()
+        except BaseException:
+            child.kill()
+            child.wait(timeout=5)
+            raise
+
+    assert child.wait(timeout=5) == 0
+    assert acquired.read_text(encoding="utf-8") == "acquired"
 
 
 def test_five_thousand_duplicate_deliveries_produce_one_claim(tmp_path: Path) -> None:
@@ -408,9 +458,235 @@ def test_mobile_permission_is_bound_and_allow_once_resumes_same_session(
             )
         )
     )
+    asyncio.run(gateway.run_pending_once())
 
     assert runner.resumed == [("permission-1", "allow_once")]
     assert adapter.sent[-1][1] == "approved"
+
+
+def test_mobile_permission_does_not_disclose_path_outside_project(
+    tmp_path: Path,
+) -> None:
+    state = ChannelStateStore(tmp_path / "state.sqlite3", clock=lambda: 100.0)
+    adapter = FakeAdapter(ChannelKind.WEIXIN)
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    outside = (tmp_path / "private" / "secret.txt").resolve()
+    runner = ExternalPathPermissionRunner(outside)
+    gateway = ChannelGateway(
+        adapters={ChannelKind.WEIXIN: adapter},
+        state=state,
+        config=ChannelConfig(
+            default_project="demo",
+            projects={"demo": ProjectBinding(alias="demo", path=project)},
+        ),
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=tmp_path / "queue.sqlite3",
+    )
+    state.create_pair_code(ChannelKind.WEIXIN, "demo", code="PAIR12")
+    asyncio.run(
+        gateway.accept(
+            message(channel=ChannelKind.WEIXIN, message_id="pair", text="/pair PAIR12")
+        )
+    )
+    asyncio.run(gateway.accept(message(channel=ChannelKind.WEIXIN, message_id="task")))
+    asyncio.run(gateway.run_pending_once())
+
+    approval_text = adapter.sent[-1][1]
+    assert str(outside) not in approval_text
+    assert "[项目外路径已隐藏]" in approval_text
+
+
+def test_out_of_order_messages_each_produce_one_task(tmp_path: Path) -> None:
+    state = ChannelStateStore(tmp_path / "state.sqlite3")
+    adapter = FakeAdapter(ChannelKind.FEISHU)
+    runner = FakeRunner()
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    gateway = ChannelGateway(
+        adapters={ChannelKind.FEISHU: adapter},
+        state=state,
+        config=ChannelConfig(
+            default_project="demo",
+            projects={"demo": ProjectBinding(alias="demo", path=project)},
+        ),
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=tmp_path / "queue.sqlite3",
+    )
+    state.create_pair_code(ChannelKind.FEISHU, "demo", code="PAIR12")
+    asyncio.run(gateway.accept(message(message_id="pair", text="/pair PAIR12")))
+    asyncio.run(
+        gateway.accept(
+            message(message_id="later", text="later", received_at=200.0)
+        )
+    )
+    asyncio.run(
+        gateway.accept(
+            message(message_id="earlier", text="earlier", received_at=100.0)
+        )
+    )
+
+    asyncio.run(gateway.run_pending_once())
+    asyncio.run(gateway.run_pending_once())
+
+    assert runner.calls == ["later", "earlier"]
+
+
+def test_queued_task_survives_gateway_restart(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.sqlite3"
+    queue_path = tmp_path / "queue.sqlite3"
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    config = ChannelConfig(
+        default_project="demo",
+        projects={"demo": ProjectBinding(alias="demo", path=project)},
+    )
+    first_adapter = FakeAdapter(ChannelKind.FEISHU)
+    first_state = ChannelStateStore(state_path)
+    first = ChannelGateway(
+        adapters={ChannelKind.FEISHU: first_adapter},
+        state=first_state,
+        config=config,
+        runtime_factory=lambda binding, session_id: FakeRunner(),
+        queue_path=queue_path,
+    )
+    first_state.create_pair_code(ChannelKind.FEISHU, "demo", code="PAIR12")
+    asyncio.run(first.accept(message(message_id="pair", text="/pair PAIR12")))
+    asyncio.run(first.accept(message(message_id="task", text="survive restart")))
+    asyncio.run(first.close())
+
+    runner = FakeRunner()
+    second = ChannelGateway(
+        adapters={ChannelKind.FEISHU: FakeAdapter(ChannelKind.FEISHU)},
+        state=ChannelStateStore(state_path),
+        config=config,
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=queue_path,
+    )
+
+    assert asyncio.run(second.run_pending_once()) is True
+    assert runner.calls == ["survive restart"]
+
+
+def test_cancel_command_reaches_current_session_runtime(tmp_path: Path) -> None:
+    state = ChannelStateStore(tmp_path / "state.sqlite3")
+    adapter = FakeAdapter(ChannelKind.WEIXIN)
+    runner = FakeRunner()
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    gateway = ChannelGateway(
+        adapters={ChannelKind.WEIXIN: adapter},
+        state=state,
+        config=ChannelConfig(
+            default_project="demo",
+            projects={"demo": ProjectBinding(alias="demo", path=project)},
+        ),
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=tmp_path / "queue.sqlite3",
+    )
+    state.create_pair_code(ChannelKind.WEIXIN, "demo", code="PAIR12")
+    asyncio.run(
+        gateway.accept(
+            message(channel=ChannelKind.WEIXIN, message_id="pair", text="/pair PAIR12")
+        )
+    )
+    asyncio.run(gateway.accept(message(channel=ChannelKind.WEIXIN, message_id="task")))
+    asyncio.run(gateway.run_pending_once())
+
+    asyncio.run(
+        gateway.accept(
+            message(channel=ChannelKind.WEIXIN, message_id="cancel", text="/cancel")
+        )
+    )
+
+    assert runner.cancelled is True
+    assert adapter.sent[-1][1] == "已请求取消当前任务。"
+
+
+def test_approval_rejects_wrong_user_and_cannot_be_reused(tmp_path: Path) -> None:
+    state = ChannelStateStore(tmp_path / "state.sqlite3", clock=lambda: 100.0)
+    inbound = message(channel=ChannelKind.WEIXIN)
+    state.create_approval(
+        message=inbound,
+        project_alias="demo",
+        session_id="session",
+        request_id="request",
+        tool_name="write",
+        action="write_path",
+        target="README.md",
+        action_hash="a" * 64,
+        code="123456",
+    )
+
+    wrong_user = message(channel=ChannelKind.WEIXIN, user_id="u2")
+    assert (
+        state.resolve_approval(
+            message=wrong_user,
+            code="123456",
+            allow=True,
+            expected_action_hash="a" * 64,
+        )
+        is None
+    )
+    assert (
+        state.resolve_approval(
+            message=inbound,
+            code="123456",
+            allow=True,
+            expected_action_hash="a" * 64,
+        )
+        is not None
+    )
+    assert (
+        state.resolve_approval(
+            message=inbound,
+            code="123456",
+            allow=True,
+            expected_action_hash="a" * 64,
+        )
+        is None
+    )
+
+
+def test_approval_action_tampering_forces_deny(tmp_path: Path) -> None:
+    state = ChannelStateStore(tmp_path / "state.sqlite3", clock=lambda: 100.0)
+    adapter = FakeAdapter(ChannelKind.WEIXIN)
+    runner = PermissionRunner()
+    project = (tmp_path / "repo").resolve()
+    project.mkdir()
+    gateway = ChannelGateway(
+        adapters={ChannelKind.WEIXIN: adapter},
+        state=state,
+        config=ChannelConfig(
+            default_project="demo",
+            projects={"demo": ProjectBinding(alias="demo", path=project)},
+        ),
+        runtime_factory=lambda binding, session_id: runner,
+        queue_path=tmp_path / "queue.sqlite3",
+    )
+    state.create_pair_code(ChannelKind.WEIXIN, "demo", code="PAIR12")
+    asyncio.run(
+        gateway.accept(
+            message(channel=ChannelKind.WEIXIN, message_id="pair", text="/pair PAIR12")
+        )
+    )
+    asyncio.run(gateway.accept(message(channel=ChannelKind.WEIXIN, message_id="task")))
+    asyncio.run(gateway.run_pending_once())
+    code = adapter.sent[-1][1].split("/approve ", 1)[1].split("`", 1)[0]
+    runner.last_pending_input.payload["permission_request"]["target"] = "tampered.txt"
+
+    asyncio.run(
+        gateway.accept(
+            message(
+                channel=ChannelKind.WEIXIN,
+                message_id="approve",
+                text=f"/approve {code}",
+            )
+        )
+    )
+    asyncio.run(gateway.run_pending_once())
+
+    assert runner.resumed == [("permission-1", "deny")]
 
 
 def test_approval_locks_after_five_wrong_codes_and_expires(tmp_path: Path) -> None:

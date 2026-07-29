@@ -6,7 +6,11 @@ import json
 
 import pytest
 
-from rook_agent.channels.feishu import FeishuAdapter, normalize_feishu_event
+from rook_agent.channels.feishu import (
+    FeishuAdapter,
+    _dispatch_callback,
+    normalize_feishu_event,
+)
 from rook_agent.channels.models import ChannelKind
 from rook_agent.channels.weixin import (
     WeixinAdapter,
@@ -136,6 +140,28 @@ def test_weixin_send_and_typing_follow_official_shapes() -> None:
     assert http.requests[2][3]["status"] == 1
 
 
+def test_weixin_long_reply_is_split_without_losing_content() -> None:
+    http = FakeWeixinHttp(
+        [
+            {"ret": 0, "errcode": 0},
+            {"ret": 0, "errcode": 0},
+        ]
+    )
+    adapter = WeixinAdapter(
+        credentials=WeixinCredentials("token", "bot", "owner", "https://example.test"),
+        http=http,
+    )
+    text = "a" * 7_999 + "\n" + "b" * 20
+
+    asyncio.run(adapter.send("user", text, context_token="ctx"))
+
+    parts = [
+        request[3]["msg"]["item_list"][0]["text_item"]["text"]
+        for request in http.requests
+    ]
+    assert parts == ["a" * 7_999 + "\n", "b" * 20]
+
+
 def test_weixin_qr_login_uses_official_iLink_endpoints() -> None:
     http = FakeWeixinHttp(
         [
@@ -214,6 +240,7 @@ def test_feishu_card_action_becomes_bound_approval_command() -> None:
 class FakeFeishuSdk:
     def __init__(self) -> None:
         self.sent: list[tuple[str, str, str | None]] = []
+        self.progress: list[tuple[str, bool]] = []
         self.handler = None
 
     async def run(self, handler):
@@ -221,6 +248,9 @@ class FakeFeishuSdk:
 
     async def send_text(self, conversation_id, text, *, reply_to=None):
         self.sent.append((conversation_id, text, reply_to))
+
+    async def set_progress(self, conversation_id, active):
+        self.progress.append((conversation_id, active))
 
     async def close(self):
         return None
@@ -233,3 +263,67 @@ def test_feishu_adapter_uses_injected_official_sdk_facade() -> None:
     asyncio.run(adapter.send("chat", "hello", reply_to="message"))
 
     assert sdk.sent == [("chat", "hello", "message")]
+
+
+def test_feishu_typing_state_uses_progress_card_facade() -> None:
+    sdk = FakeFeishuSdk()
+    adapter = FeishuAdapter(app_id="cli_a", app_secret="secret", sdk=sdk)
+
+    asyncio.run(adapter.set_typing("chat", True))
+    asyncio.run(adapter.set_typing("chat", False))
+
+    assert sdk.progress == [("chat", True), ("chat", False)]
+
+
+def test_feishu_long_reply_is_split_without_losing_content() -> None:
+    sdk = FakeFeishuSdk()
+    adapter = FeishuAdapter(app_id="cli_a", app_secret="secret", sdk=sdk)
+    text = "a" * 7_999 + "\n" + "b" * 20
+
+    asyncio.run(adapter.send("chat", text, reply_to="message"))
+
+    assert sdk.sent == [
+        ("chat", "a" * 7_999 + "\n", "message"),
+        ("chat", "b" * 20, None),
+    ]
+
+
+def test_feishu_callback_waits_for_durable_handoff() -> None:
+    async def scenario() -> list[str]:
+        received: list[str] = []
+
+        async def handler(data: object) -> None:
+            await asyncio.sleep(0)
+            received.append(str(data))
+
+        await asyncio.to_thread(
+            _dispatch_callback,
+            handler,
+            "event",
+            loop=asyncio.get_running_loop(),
+            timeout_seconds=0.5,
+        )
+        return received
+
+    assert asyncio.run(scenario()) == ["event"]
+
+
+def test_feishu_callback_fails_when_handoff_exceeds_boundary() -> None:
+    async def scenario() -> None:
+        completed = asyncio.Event()
+
+        async def handler(data: object) -> None:
+            await asyncio.sleep(0.05)
+            completed.set()
+
+        with pytest.raises(RuntimeError, match="持久交接"):
+            await asyncio.to_thread(
+                _dispatch_callback,
+                handler,
+                "event",
+                loop=asyncio.get_running_loop(),
+                timeout_seconds=0.01,
+            )
+        await asyncio.wait_for(completed.wait(), timeout=0.5)
+
+    asyncio.run(scenario())

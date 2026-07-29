@@ -23,6 +23,10 @@ class WindowsAutostart:
         self.runner = runner or _run
 
     def install(self, channels: tuple[str, ...]) -> None:
+        if self.status():
+            raise RuntimeError(
+                f"Windows startup task already exists: {TASK_NAME}; refusing to overwrite"
+            )
         selected = ",".join(channels)
         task_command = (
             f'"{self.executable}" -m rook_agent channel serve --channels {selected}'
@@ -36,7 +40,6 @@ class WindowsAutostart:
             TASK_NAME,
             "/TR",
             task_command,
-            "/F",
             "/RL",
             "LIMITED",
         ]

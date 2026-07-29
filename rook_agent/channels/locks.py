@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 import hashlib
-import os
 from pathlib import Path
+import sys
 import threading
 from typing import BinaryIO
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 
 class ProjectExecutionLock(AbstractContextManager["ProjectExecutionLock"]):
@@ -32,9 +37,7 @@ class ProjectExecutionLock(AbstractContextManager["ProjectExecutionLock"]):
         try:
             self._stream = self.path.open("a+b")
             stream = self._stream
-            if os.name == "nt":
-                import msvcrt
-
+            if sys.platform == "win32":
                 stream.seek(0)
                 if stream.tell() == 0:
                     stream.write(b"\0")
@@ -42,9 +45,7 @@ class ProjectExecutionLock(AbstractContextManager["ProjectExecutionLock"]):
                 stream.seek(0)
                 msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
             else:
-                import fcntl
-
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX)  # type: ignore[attr-defined]
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
             return self
         except BaseException:
             if self._stream is not None:
@@ -61,16 +62,12 @@ class ProjectExecutionLock(AbstractContextManager["ProjectExecutionLock"]):
     ) -> None:
         try:
             if self._stream is not None:
-                if os.name == "nt":
-                    import msvcrt
-
+                if sys.platform == "win32":
                     self._stream.seek(0)
                     msvcrt.locking(self._stream.fileno(), msvcrt.LK_UNLCK, 1)
                 else:
-                    import fcntl
-
-                    unlock_flag = fcntl.LOCK_UN  # type: ignore[attr-defined]
-                    fcntl.flock(  # type: ignore[attr-defined]
+                    unlock_flag = fcntl.LOCK_UN
+                    fcntl.flock(
                         self._stream.fileno(),
                         unlock_flag,
                     )

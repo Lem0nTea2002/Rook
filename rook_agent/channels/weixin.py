@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 import inspect
 import json
+import logging
 import random
 import ssl
 import time
@@ -19,12 +20,13 @@ from typing import Any, Protocol
 from urllib import request as urllib_request
 import uuid
 
-from rook_agent.channels.base import ChannelAdapter, InboundHandler
+from rook_agent.channels.base import ChannelAdapter, InboundHandler, split_channel_text
 from rook_agent.channels.models import ChannelKind, InboundMessage
 
 
 BOT_AGENT = "Rook/0.4.0"
 DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com"
+logger = logging.getLogger(__name__)
 
 
 class WeixinReloginRequired(RuntimeError):
@@ -115,14 +117,28 @@ class WeixinAdapter(ChannelAdapter):
         while not self._closed:
             try:
                 await self.poll_once(handler)
+                if failures:
+                    logger.info(
+                        "weixin channel reconnected",
+                        extra={"event": "channel_reconnected", "failures": failures},
+                    )
                 failures = 0
             except WeixinReloginRequired:
                 raise
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as exc:
                 failures += 1
                 delay = 2.0 if failures <= 3 else min(30.0, 2.0 ** min(failures - 2, 5))
+                logger.warning(
+                    "weixin channel poll failed",
+                    extra={
+                        "event": "channel_reconnect_scheduled",
+                        "failure_type": type(exc).__name__,
+                        "failures": failures,
+                        "delay_seconds": delay,
+                    },
+                )
                 await asyncio.sleep(delay)
 
     async def poll_once(
@@ -169,20 +185,26 @@ class WeixinAdapter(ChannelAdapter):
         token = context_token or self._context_tokens.get(conversation_id)
         if not token:
             raise ValueError("WeChat reply requires the inbound context_token")
-        payload = {
-            "msg": {
-                "from_user_id": "",
-                "to_user_id": conversation_id,
-                "client_id": uuid.uuid4().hex,
-                "message_type": 2,
-                "message_state": 2,
-                "item_list": [{"type": 1, "text_item": {"text": text[:8_000]}}],
-                "context_token": token or "",
-            },
-            "base_info": _base_info(),
-        }
-        response = await self._request("POST", "ilink/bot/sendmessage", payload, timeout=15)
-        _require_success(response, operation="sendmessage")
+        for part in split_channel_text(text):
+            payload = {
+                "msg": {
+                    "from_user_id": "",
+                    "to_user_id": conversation_id,
+                    "client_id": uuid.uuid4().hex,
+                    "message_type": 2,
+                    "message_state": 2,
+                    "item_list": [{"type": 1, "text_item": {"text": part}}],
+                    "context_token": token,
+                },
+                "base_info": _base_info(),
+            }
+            response = await self._request(
+                "POST",
+                "ilink/bot/sendmessage",
+                payload,
+                timeout=15,
+            )
+            _require_success(response, operation="sendmessage")
 
     async def set_typing(
         self,

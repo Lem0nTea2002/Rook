@@ -63,6 +63,13 @@ class ChannelGateway:
     async def accept(self, message: InboundMessage) -> None:
         adapter = self._adapter(message.channel)
         if not self.state.claim_message(message):
+            logger.info(
+                "channel message deduplicated",
+                extra={
+                    "event": "channel_message_deduplicated",
+                    "channel": message.channel.value,
+                },
+            )
             return
         if message.text.strip().lower().startswith("/pair"):
             await self._pair(message, adapter)
@@ -85,8 +92,8 @@ class ChannelGateway:
                 context_token=message.context_token,
             )
             return
-        command_handled = await self._handle_command(message, binding, adapter)
-        if command_handled:
+        if message.text.strip().lower() == "/cancel":
+            await self._handle_command(message, binding, adapter)
             return
         session_id = self._session_id(message, binding.alias)
         job = self.queue.enqueue(
@@ -106,9 +113,22 @@ class ChannelGateway:
                 "session_id": session_id,
             },
         )
+        logger.info(
+            "channel task queued",
+            extra={
+                "event": "channel_task_queued",
+                "channel": message.channel.value,
+                "project_alias": binding.alias,
+                "job_id": job.job_id,
+            },
+        )
         await adapter.send(
             message.conversation_id,
-            f"任务已进入队列：{job.job_id}",
+            (
+                f"命令已进入队列：{job.job_id}"
+                if message.text.strip().startswith("/")
+                else f"任务已进入队列：{job.job_id}"
+            ),
             reply_to=message.message_id,
             context_token=message.context_token,
         )
@@ -124,27 +144,40 @@ class ChannelGateway:
             adapter = self._adapter(channel)
             binding = self.config.projects[str(payload["project_alias"])]
             session_id = str(payload["session_id"])
-            async with self._global_slots:
-                lock = self._session_locks.setdefault(session_id, asyncio.Lock())
-                async with lock:
-                    project_lock = self._project_locks.setdefault(
-                        binding.alias,
-                        asyncio.Lock(),
+            await adapter.set_typing(
+                str(payload["conversation_id"]),
+                True,
+                context_token=_optional_str(payload.get("context_token")),
+            )
+            try:
+                if str(payload["text"]).strip().startswith("/"):
+                    response = await self._run_queued(
+                        payload,
+                        binding,
+                        session_id,
+                        adapter,
                     )
-                    async with project_lock:
-                        await adapter.set_typing(
-                            str(payload["conversation_id"]),
-                            True,
-                            context_token=_optional_str(payload.get("context_token")),
-                        )
-                        try:
-                            response = await self._run_task(payload, binding, session_id)
-                        finally:
-                            await adapter.set_typing(
-                                str(payload["conversation_id"]),
-                                False,
-                                context_token=_optional_str(payload.get("context_token")),
+                else:
+                    async with self._global_slots:
+                        lock = self._session_locks.setdefault(session_id, asyncio.Lock())
+                        async with lock:
+                            project_lock = self._project_locks.setdefault(
+                                binding.alias,
+                                asyncio.Lock(),
                             )
+                            async with project_lock:
+                                response = await self._run_queued(
+                                    payload,
+                                    binding,
+                                    session_id,
+                                    adapter,
+                                )
+            finally:
+                await adapter.set_typing(
+                    str(payload["conversation_id"]),
+                    False,
+                    context_token=_optional_str(payload.get("context_token")),
+                )
             failure_reason_code = "channel_delivery_failed"
             if response is not None:
                 await adapter.send(
@@ -158,6 +191,15 @@ class ChannelGateway:
                 job.job_id,
                 owner=owner,
                 result={"status": "sent"},
+            )
+            logger.info(
+                "channel task delivered",
+                extra={
+                    "event": "channel_task_delivered",
+                    "channel": str(payload["channel"]),
+                    "project_alias": str(payload["project_alias"]),
+                    "job_id": job.job_id,
+                },
             )
         except Exception:
             await asyncio.to_thread(
@@ -186,6 +228,24 @@ class ChannelGateway:
                     extra={"job_id": job.job_id},
                 )
         return True
+
+    async def _run_queued(
+        self,
+        payload: dict[str, Any],
+        binding: ProjectBinding,
+        session_id: str,
+        adapter: ChannelAdapter,
+    ) -> str | None:
+        text = str(payload["text"])
+        if text.strip().startswith("/"):
+            handled = await self._handle_command(
+                _message_from_payload(payload, clock=self.state.clock),
+                binding,
+                adapter,
+            )
+            if handled:
+                return None
+        return await self._run_task(payload, binding, session_id)
 
     async def run_workers(self, *, poll_seconds: float = 0.25) -> None:
         async def worker(index: int) -> None:
@@ -371,17 +431,8 @@ class ChannelGateway:
         response = await runtime.arun_user_turn(str(payload["text"]))
         pending = runtime.last_pending_input
         if pending is not None and getattr(pending, "kind", "") == "permission_confirmation":
-            inbound = InboundMessage(
-                channel=ChannelKind(payload["channel"]),
-                account_id=str(payload["account_id"]),
-                user_id=str(payload["user_id"]),
-                conversation_id=str(payload["conversation_id"]),
-                message_id=str(payload["message_id"]),
-                text=str(payload["text"]),
-                received_at=self.state.clock(),
-                context_token=_optional_str(payload.get("context_token")),
-            )
-            details = _pending_details(pending)
+            inbound = _message_from_payload(payload, clock=self.state.clock)
+            details = _pending_details(pending, project_root=binding.path)
             _, code = self.state.create_approval(
                 message=inbound,
                 project_alias=binding.alias,
@@ -391,6 +442,14 @@ class ChannelGateway:
                 action=details["action"],
                 target=details["target"],
                 action_hash=details["action_hash"],
+            )
+            logger.info(
+                "channel approval requested",
+                extra={
+                    "event": "channel_approval_requested",
+                    "channel": str(payload["channel"]),
+                    "project_alias": binding.alias,
+                },
             )
             adapter = self._adapter(ChannelKind(payload["channel"]))
             approval_sender = getattr(adapter, "send_approval", None)
@@ -447,7 +506,7 @@ class ChannelGateway:
                     self._runtimes[candidate.session_id] = runtime
                 pending = runtime.last_pending_input
                 if pending is not None:
-                    current = _pending_details(pending)
+                    current = _pending_details(pending, project_root=binding.path)
                     matches = (
                         str(getattr(pending, "id", "")) == candidate.request_id
                         and current["action_hash"] == candidate.action_hash
@@ -465,6 +524,15 @@ class ChannelGateway:
                 if approval is None:
                     response = "审批码无效、已过期或尝试次数过多。"
                 else:
+                    logger.info(
+                        "channel approval resolved",
+                        extra={
+                            "event": "channel_approval_resolved",
+                            "channel": message.channel.value,
+                            "project_alias": binding.alias,
+                            "allowed": allow and matches,
+                        },
+                    )
                     answer = "allow_once" if allow and matches else "deny"
                     async with self._global_slots:
                         session_lock = self._session_locks.setdefault(
@@ -508,7 +576,7 @@ class ChannelGateway:
             raise ValueError(f"channel adapter is not configured: {channel}") from exc
 
 
-def _pending_details(pending: object) -> dict[str, str]:
+def _pending_details(pending: object, *, project_root: Path) -> dict[str, str]:
     payload = getattr(pending, "payload", {})
     if not isinstance(payload, dict):
         payload = {}
@@ -532,9 +600,20 @@ def _pending_details(pending: object) -> dict[str, str]:
     return {
         "tool_name": tool_name,
         "action": action,
-        "target": _bounded_redacted(target, max_chars=500),
+        "target": _safe_target_for_channel(target, project_root=project_root),
         "action_hash": hashlib.sha256(stable.encode("utf-8")).hexdigest(),
     }
+
+
+def _safe_target_for_channel(target: str, *, project_root: Path) -> str:
+    candidate = Path(target).expanduser()
+    if not candidate.is_absolute():
+        return _bounded_redacted(target, max_chars=500)
+    try:
+        relative = candidate.resolve(strict=False).relative_to(project_root.resolve())
+    except ValueError:
+        return "[项目外路径已隐藏]"
+    return _bounded_redacted(str(relative) or ".", max_chars=500)
 
 
 def _safe_git_diff(project_root: Path) -> str:
@@ -570,6 +649,23 @@ def _bounded_redacted(text: str, *, max_chars: int = 8_000) -> str:
 
 def _optional_str(value: object) -> str | None:
     return str(value) if value is not None else None
+
+
+def _message_from_payload(
+    payload: Mapping[str, Any],
+    *,
+    clock: Callable[[], float],
+) -> InboundMessage:
+    return InboundMessage(
+        channel=ChannelKind(payload["channel"]),
+        account_id=str(payload["account_id"]),
+        user_id=str(payload["user_id"]),
+        conversation_id=str(payload["conversation_id"]),
+        message_id=str(payload["message_id"]),
+        text=str(payload["text"]),
+        received_at=clock(),
+        context_token=_optional_str(payload.get("context_token")),
+    )
 
 
 __all__ = ["ChannelGateway", "ChannelRunner", "RuntimeFactory"]

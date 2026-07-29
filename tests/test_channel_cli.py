@@ -108,17 +108,36 @@ def test_channel_status_json_never_contains_secrets(tmp_path: Path, capsys) -> N
 
 def test_windows_autostart_builds_user_task_without_secrets(tmp_path: Path) -> None:
     calls = []
+
+    def run(command):
+        calls.append(command)
+        return 1 if "/Query" in command else 0
+
     autostart = WindowsAutostart(
         executable=Path("C:/Python/python.exe"),
-        runner=lambda command: calls.append(command) or 0,
+        runner=run,
     )
 
     autostart.install(("feishu", "weixin"))
 
-    command = calls[0]
+    command = calls[1]
     rendered = " ".join(command)
     assert command[0].lower().endswith("schtasks.exe")
     assert "/RL" in command and "LIMITED" in command
     assert "channel serve --channels feishu,weixin" in rendered
     assert "token" not in rendered.lower()
     assert "secret" not in rendered.lower()
+
+
+def test_windows_autostart_refuses_to_overwrite_existing_task() -> None:
+    calls = []
+    autostart = WindowsAutostart(
+        executable=Path("C:/Python/python.exe"),
+        runner=lambda command: calls.append(command) or 0,
+    )
+
+    with pytest.raises(RuntimeError, match="refusing to overwrite"):
+        autostart.install(("feishu",))
+
+    assert len(calls) == 1
+    assert "/Query" in calls[0]

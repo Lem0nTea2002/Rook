@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from concurrent.futures import TimeoutError as FutureTimeoutError
 import inspect
 import json
 import threading
@@ -11,7 +12,7 @@ import time
 from typing import Any, Protocol
 import uuid
 
-from rook_agent.channels.base import ChannelAdapter, InboundHandler
+from rook_agent.channels.base import ChannelAdapter, InboundHandler, split_channel_text
 from rook_agent.channels.models import ChannelKind, InboundMessage
 
 
@@ -61,11 +62,12 @@ class FeishuAdapter(ChannelAdapter):
         reply_to: str | None = None,
         context_token: str | None = None,
     ) -> None:
-        await self._sdk.send_text(
-            conversation_id,
-            text[:8_000],
-            reply_to=reply_to,
-        )
+        for index, part in enumerate(split_channel_text(text)):
+            await self._sdk.send_text(
+                conversation_id,
+                part,
+                reply_to=reply_to if index == 0 else None,
+            )
 
     async def set_typing(
         self,
@@ -74,9 +76,9 @@ class FeishuAdapter(ChannelAdapter):
         *,
         context_token: str | None = None,
     ) -> None:
-        # Feishu has no portable typing API in the minimal bot scope. The
-        # immediate queue acknowledgement is the progress signal.
-        return None
+        progress = getattr(self._sdk, "set_progress", None)
+        if callable(progress):
+            await progress(conversation_id, active)
 
     async def send_approval(
         self,
@@ -200,17 +202,13 @@ class _LarkOapiFacade:
         )
         self.ws_client: Any = None
         self._stopped: asyncio.Event | None = None
+        self._progress_messages: dict[str, str] = {}
 
     async def run(self, handler: Callable[[object], Awaitable[None] | None]) -> None:
         loop = asyncio.get_running_loop()
 
         def dispatch(data: object) -> None:
-            result = handler(data)
-            if inspect.isawaitable(result):
-                async def await_result() -> None:
-                    await result
-
-                asyncio.run_coroutine_threadsafe(await_result(), loop)
+            _dispatch_callback(handler, data, loop=loop)
 
         def card_callback(data: object) -> Any:
             dispatch(data)
@@ -264,11 +262,32 @@ class _LarkOapiFacade:
         reply_to: str | None = None,
     ) -> None:
         lark = self.lark
+        content = json.dumps({"text": text}, ensure_ascii=False)
+        if reply_to:
+            body = (
+                lark.im.v1.ReplyMessageRequestBody.builder()
+                .content(content)
+                .msg_type("text")
+                .uuid(uuid.uuid4().hex)
+                .build()
+            )
+            request = (
+                lark.im.v1.ReplyMessageRequest.builder()
+                .message_id(reply_to)
+                .request_body(body)
+                .build()
+            )
+            response = await asyncio.to_thread(self.client.im.v1.message.reply, request)
+            if not response.success():
+                raise RuntimeError(
+                    f"Feishu message reply failed: code={response.code} msg={response.msg}"
+                )
+            return
         body = (
             lark.im.v1.CreateMessageRequestBody.builder()
             .receive_id(conversation_id)
             .msg_type("text")
-            .content(json.dumps({"text": text}, ensure_ascii=False))
+            .content(content)
             .uuid(uuid.uuid4().hex)
             .build()
         )
@@ -284,7 +303,7 @@ class _LarkOapiFacade:
                 f"Feishu message send failed: code={response.code} msg={response.msg}"
             )
 
-    async def send_card(self, conversation_id: str, card: dict[str, Any]) -> None:
+    async def send_card(self, conversation_id: str, card: dict[str, Any]) -> str:
         lark = self.lark
         body = (
             lark.im.v1.CreateMessageRequestBody.builder()
@@ -305,6 +324,45 @@ class _LarkOapiFacade:
             raise RuntimeError(
                 f"Feishu approval card send failed: code={response.code} msg={response.msg}"
             )
+        message_id = str(getattr(response.data, "message_id", "") or "")
+        if not message_id:
+            raise RuntimeError("Feishu card send succeeded without a message_id")
+        return message_id
+
+    async def set_progress(self, conversation_id: str, active: bool) -> None:
+        if active:
+            if conversation_id in self._progress_messages:
+                return
+            message_id = await self.send_card(
+                conversation_id,
+                _progress_card(active=True),
+            )
+            self._progress_messages[conversation_id] = message_id
+            return
+        progress_message_id = self._progress_messages.get(conversation_id)
+        if progress_message_id is None:
+            return
+        del self._progress_messages[conversation_id]
+        await self._patch_card(progress_message_id, _progress_card(active=False))
+
+    async def _patch_card(self, message_id: str, card: dict[str, Any]) -> None:
+        lark = self.lark
+        body = (
+            lark.im.v1.PatchMessageRequestBody.builder()
+            .content(json.dumps(card, ensure_ascii=False))
+            .build()
+        )
+        request = (
+            lark.im.v1.PatchMessageRequest.builder()
+            .message_id(message_id)
+            .request_body(body)
+            .build()
+        )
+        response = await asyncio.to_thread(self.client.im.v1.message.patch, request)
+        if not response.success():
+            raise RuntimeError(
+                f"Feishu progress card update failed: code={response.code} msg={response.msg}"
+            )
 
     async def close(self) -> None:
         client = self.ws_client
@@ -320,6 +378,53 @@ class _LarkOapiFacade:
                     pass
         if self._stopped is not None:
             self._stopped.set()
+
+
+def _dispatch_callback(
+    handler: Callable[[object], Awaitable[None] | None],
+    data: object,
+    *,
+    loop: asyncio.AbstractEventLoop,
+    timeout_seconds: float = 2.5,
+) -> None:
+    """在飞书回调返回前确认事件已交给持久化网关。"""
+    result = handler(data)
+    if not inspect.isawaitable(result):
+        return
+
+    async def await_result() -> None:
+        await result
+
+    future = asyncio.run_coroutine_threadsafe(await_result(), loop)
+    try:
+        future.result(timeout=timeout_seconds)
+    except FutureTimeoutError as exc:
+        raise RuntimeError("飞书事件未在 2.5 秒内完成持久交接") from exc
+
+
+def _progress_card(*, active: bool) -> dict[str, Any]:
+    return {
+        "schema": "2.0",
+        "header": {
+            "title": {
+                "tag": "plain_text",
+                "content": "Rook 正在处理" if active else "Rook 处理完成",
+            },
+            "template": "blue" if active else "green",
+        },
+        "body": {
+            "elements": [
+                {
+                    "tag": "markdown",
+                    "content": (
+                        "任务已进入本地执行队列，请稍候。"
+                        if active
+                        else "执行已结束，结果消息即将送达。"
+                    ),
+                }
+            ]
+        },
+    }
 
 
 def _event_object_to_dict(raw: object) -> dict[str, Any]:
