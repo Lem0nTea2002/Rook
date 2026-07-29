@@ -76,6 +76,8 @@ rook channel serve --channels feishu,weixin
 审批卡片，微信显示 6 位码；只能允许一次或拒绝，5 分钟超时自动拒绝。TUI 与
 手机入口复用同一权限管理器、Session Store 和项目执行锁。
 
+![Rook 手机渠道演示](docs/images/rook-mobile-demo.gif)
+
 [完整配置与安全边界](docs/MOBILE_CHANNELS.zh-CN.md)
 
 ## Rook Forge 如何工作

@@ -77,11 +77,15 @@ def test_readmes_use_current_rook_tui_assets() -> None:
     for readme_name in ("README.md", "README.zh-CN.md"):
         text = (ROOT / readme_name).read_text(encoding="utf-8")
         assert "docs/images/rook-demo.gif" in text
+        assert "docs/images/rook-mobile-demo.gif" in text
         assert "docs/images/rook-tui-welcome.png" in text
         assert "docs/images/rook-tui-welcome.svg" not in text
         assert "docs/video/rook-forge-demo.mp4" not in text
         assert not any(asset in text for asset in legacy_tui_assets)
     assert (ROOT / "docs" / "images" / "rook-demo.gif").is_file()
+    mobile_demo = ROOT / "docs" / "images" / "rook-mobile-demo.gif"
+    assert mobile_demo.stat().st_size > 100_000
+    assert mobile_demo.read_bytes()[:6] in {b"GIF87a", b"GIF89a"}
     assert (ROOT / "docs" / "images" / "rook-tui-welcome.png").is_file()
 
 

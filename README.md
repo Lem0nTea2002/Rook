@@ -80,6 +80,8 @@ approval is allow-once or deny only and expires as denial after five minutes.
 The TUI and mobile gateway share the same permission manager, session store,
 and project execution lock.
 
+![Rook 手机渠道演示](docs/images/rook-mobile-demo.gif)
+
 [Full mobile-channel setup and security model](docs/MOBILE_CHANNELS.md)
 
 ## How Rook Forge works
