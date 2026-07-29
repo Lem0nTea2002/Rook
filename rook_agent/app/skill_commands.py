@@ -5,15 +5,29 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from rook_agent.app.command_actions import InsertTextAction, OpenPickerAction, SubmitPromptAction
+from rook_agent.app.command_registry import CommandSource, CommandSpec
 from rook_agent.app.commands import CommandResult
 from rook_agent.skills.models import SkillCatalog, SkillDefinition
 
 
 @dataclass(slots=True)
 class SkillCommandHandler:
-    """Handle `/skills`, `/skill <name>`, and exact `/<skill-name> <instruction>`."""
+    """Handle Skill discovery, `/use`, and exact `/<skill-name>` shortcuts."""
 
     catalog_provider: Callable[[], SkillCatalog]
+
+    def suggest_arguments(
+        self,
+        command_name: str,
+        query: str,
+    ) -> tuple[tuple[str, str], ...]:
+        if command_name not in {"/use", "/skill"}:
+            return ()
+        return tuple(
+            (skill.name, skill.description or skill.path)
+            for skill in self.catalog_provider().skills
+        )
 
     def handle(self, text: str) -> CommandResult:
         command = text.strip()
@@ -27,12 +41,34 @@ class SkillCommandHandler:
             return self._list_skills()
         if name == "/skill":
             return CommandResult(handled=True, output=self._show_skill(args))
+        if name == "/use":
+            return self._use_skill(args)
         if name == "/skill-use":
             return self._reference_skill(args)
         launched = self._launch_exact_skill(name, command)
         if launched is not None:
             return launched
         return CommandResult(handled=False)
+
+    def _use_skill(self, args: list[str]) -> CommandResult:
+        if not args:
+            return CommandResult(handled=True, output="用法：/use <skill> [instruction]")
+        catalog = self.catalog_provider()
+        skill = _find_skill(catalog.skills, args[0].lower())
+        if skill is None:
+            return CommandResult(handled=True, output=f"Skill not found: {args[0]}")
+        instruction = " ".join(args[1:]).strip()
+        if not instruction:
+            return CommandResult(
+                handled=True,
+                output=f"Referenced skill: {skill.name} {skill.path}",
+                action=InsertTextAction(text=f"请使用 {skill.path} "),
+            )
+        return CommandResult(
+            handled=True,
+            output=f"Using skill: {skill.name}",
+            action=SubmitPromptAction(text=f"请使用 {skill.path} {instruction}"),
+        )
 
     def _list_skills(self) -> CommandResult:
         catalog = self.catalog_provider()
@@ -45,11 +81,11 @@ class SkillCommandHandler:
         return CommandResult(
             handled=True,
             output="\n".join(lines),
-            action={
-                "type": "skill_picker",
-                "skills": [_skill_action_item(skill) for skill in catalog.skills],
-                "selected_index": 0,
-            },
+            action=OpenPickerAction(
+                kind="skill",
+                items=tuple(_skill_action_item(skill) for skill in catalog.skills),
+                selected_index=0,
+            ),
         )
 
     def _show_skill(self, args: list[str]) -> str:
@@ -83,12 +119,7 @@ class SkillCommandHandler:
         return CommandResult(
             handled=True,
             output=f"Referenced skill: {skill.name} {skill.path}",
-            action={
-                "type": "skill_referenced",
-                "name": skill.name,
-                "path": skill.path,
-                "reference": f"请使用 {skill.path} ",
-            },
+            action=InsertTextAction(text=f"请使用 {skill.path} "),
         )
 
     def _launch_exact_skill(self, slash_name: str, command: str) -> CommandResult | None:
@@ -105,10 +136,7 @@ class SkillCommandHandler:
         return CommandResult(
             handled=True,
             output=f"Using skill: {skill.name}",
-            action={
-                "type": "submit_chat",
-                "text": f"请使用 {skill.path} {instruction}",
-            },
+            action=SubmitPromptAction(text=f"请使用 {skill.path} {instruction}"),
         )
 
 
@@ -146,3 +174,21 @@ def _skill_action_item(skill: SkillDefinition) -> dict[str, str]:
         "scope": skill.scope,
         "description": skill.description,
     }
+
+
+def skill_command_specs(catalog: SkillCatalog) -> tuple[CommandSpec, ...]:
+    specs: list[CommandSpec] = []
+    for skill in catalog.skills:
+        alias = _path_alias(skill.path) or skill.name.lower()
+        try:
+            spec = CommandSpec(
+                name=f"/{alias}",
+                description=skill.description or f"使用 Skill：{skill.name}",
+                category="Skill",
+                argument_hint="[instruction]",
+                source=CommandSource.SKILL,
+            )
+        except ValueError:
+            continue
+        specs.append(spec)
+    return tuple(specs)

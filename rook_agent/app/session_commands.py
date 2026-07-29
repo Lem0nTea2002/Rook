@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
 
+from rook_agent.app.command_actions import NewSessionAction, OpenPickerAction, ReplaySessionAction
 from rook_agent.app.commands import CommandResult
 from rook_agent.context.store import JsonlSessionStore
 from rook_agent.context.writer import SessionEventWriter
@@ -42,6 +43,18 @@ class SessionCommandHandler:
     store: JsonlSessionStore | None = None
     on_resume: Callable[[SessionRuntimeLike], None] | None = None
 
+    def suggest_arguments(
+        self,
+        command_name: str,
+        query: str,
+    ) -> tuple[tuple[str, str], ...]:
+        if command_name not in {"/resume", "/session"}:
+            return ()
+        return tuple(
+            (record.session_id, f"{record.title} · {record.message_count} messages")
+            for record in self.catalog.list_sessions()
+        )
+
     def handle(self, text: str) -> CommandResult:
         command = text.strip()
         if not command.startswith("/"):
@@ -54,7 +67,7 @@ class SessionCommandHandler:
         try:
             if name == "/new":
                 output = self._new(args)
-                return CommandResult(handled=True, output=output, action={"type": "new_session"})
+                return CommandResult(handled=True, output=output, action=NewSessionAction())
             if name == "/fork":
                 return CommandResult(handled=True, output=self._fork(args))
             if name == "/sessions":
@@ -132,7 +145,7 @@ class SessionCommandHandler:
         return CommandResult(
             handled=True,
             output=f"Resumed session: {result.record.session_id} {result.record.title}",
-            action={"type": "replay_session", "session_id": result.record.session_id},
+            action=ReplaySessionAction(session_id=result.record.session_id),
         )
 
     def _resume_picker(self) -> CommandResult:
@@ -142,10 +155,10 @@ class SessionCommandHandler:
         return CommandResult(
             handled=True,
             output=_render_resume_picker(records, selected_index=0),
-            action={
-                "type": "resume_picker",
-                "selected_index": 0,
-                "sessions": [
+            action=OpenPickerAction(
+                kind="resume",
+                selected_index=0,
+                items=tuple(
                     {
                         "session_id": record.session_id,
                         "title": record.title,
@@ -153,8 +166,8 @@ class SessionCommandHandler:
                         "status": record.status,
                     }
                     for record in records
-                ],
-            },
+                ),
+            ),
         )
 
     def _share(self, args: list[str]) -> str:

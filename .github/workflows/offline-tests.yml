@@ -54,6 +54,31 @@ jobs:
       - name: Run offline test suite
         run: python -m pytest -q --ignore=tests/test_evalplus_benchmark.py
 
+      - name: Build release artifacts
+        run: python -m build
+
+      - name: Verify a clean Windows wheel install
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m venv .venv-package-smoke
+          $python = ".\.venv-package-smoke\Scripts\python.exe"
+          $rook = ".\.venv-package-smoke\Scripts\rook.exe"
+          $wheel = Get-ChildItem -LiteralPath dist -Filter "rook_agent-*.whl" | Select-Object -First 1
+          & $python -m pip install $wheel.FullName
+          & $python -c "import importlib.metadata as m, pathlib, tomllib; expected=tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version']; assert m.version('rook-agent') == expected"
+          & $rook --help
+
+      - name: Verify a clean Linux wheel install
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python -m venv .venv-package-smoke
+          wheel="$(find dist -maxdepth 1 -name 'rook_agent-*.whl' -print -quit)"
+          .venv-package-smoke/bin/python -m pip install "$wheel"
+          .venv-package-smoke/bin/python -c "import importlib.metadata as m, pathlib, tomllib; expected=tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version']; assert m.version('rook-agent') == expected"
+          .venv-package-smoke/bin/rook --help
+
   quality:
     name: EvalOps quality and supply chain
     runs-on: ubuntu-latest

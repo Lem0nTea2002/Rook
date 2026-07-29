@@ -172,6 +172,7 @@ class AgentLoop:
         self._skills_prepared_for_turn: int | None = None
         self._last_todo_stale_reminder_count = 0
         self._missing_todo_plan_reminded = False
+        self._turn_start_message_count = len(self.session.rebuild_view().messages)
         # session 创建时通常已经注册了 session-scoped 工具。这里允许调用方再传入一批
         # 测试或临时工具，但避免重复注册同名工具导致模型 schema 不稳定。
         if tools:
@@ -888,6 +889,8 @@ class AgentLoop:
             return None
         if "todo" not in self.session.tool_registry.names():
             return None
+        if self._latest_unfinished_todos():
+            return None
         if self._has_todo_result():
             return None
         non_todo_count = self._non_todo_tool_results_since_latest_todo()
@@ -919,7 +922,8 @@ class AgentLoop:
         return [item for item in latest if item.get("status") not in {"completed", "done"}]
 
     def _has_todo_result(self) -> bool:
-        for message in self.session.rebuild_view().messages:
+        messages = self.session.rebuild_view().messages[self._turn_start_message_count :]
+        for message in messages:
             if message.role != "tool":
                 continue
             for part in message.parts:
@@ -929,7 +933,8 @@ class AgentLoop:
 
     def _non_todo_tool_results_since_latest_todo(self) -> int:
         count = 0
-        for message in self.session.rebuild_view().messages:
+        messages = self.session.rebuild_view().messages[self._turn_start_message_count :]
+        for message in messages:
             if message.role != "tool":
                 continue
             for part in message.parts:
@@ -1268,6 +1273,7 @@ class AgentLoop:
     def _begin_turn(self) -> None:
         self.provider_call_count = 0
         self.turn_started_at = self.clock()
+        self._turn_start_message_count = len(self.session.rebuild_view().messages)
 
     def _append_pending_guidance(self) -> None:
         if self.guidance_provider is None:

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.7"><img alt="Release v0.2.7" src="https://img.shields.io/badge/release-v0.2.7-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.md">English</a>
@@ -27,7 +27,7 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.7"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
 rook
 ```
 
@@ -51,10 +51,40 @@ rook eval demo
 | 能力 | 说明 |
 | --- | --- |
 | Coding Agent | 读取、搜索、修改代码，运行命令和测试 |
-| 可见的 Agent Loop | 在 TUI 中展示流式输出、工具调用、结果和待办 |
+| Coding Workbench | 可复制输出、Slash Palette、`@` 文件、受控 Shell、Diff 和 Transcript |
+| 可见的 Agent Loop | 在 TUI 中展示流式输出、工具调用、结果、权限请求和待办 |
 | 权限与会话 | 高风险操作先确认；会话可持久化、恢复和压缩 |
+| 手机渠道 | 已配对的飞书/微信私聊可远程提交任务，并在 IM 中单次审批 |
 | Skill 考试 | 隔离运行 Baseline、Forced 和 Routed 配对实验 |
 | Skill 发布 | 自动门禁后仍需人工审批，支持 Rook/Codex 独立部署与回滚 |
+
+## 手机飞书 / 微信控制本地 Rook
+
+Rook v0.4.0 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
+审批；项目文件、模型凭据、Agent Loop、Skill 和工具执行仍留在电脑。
+
+```powershell
+pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
+rook channel project add rook --path "D:\absolute\path\to\Rook"
+rook channel setup feishu
+rook channel login weixin
+rook channel pair create --channel feishu --project rook
+rook channel serve --channels feishu,weixin
+```
+
+`channel setup feishu` 默认通过飞书官方二维码创建独立应用，并把 Secret 直接
+写入操作系统凭据库。复用已有应用时使用 `--app-id cli_xxx`，Secret 只在本机
+隐藏输入；不要把它发送到聊天或命令行参数。
+
+入口只接受已配对用户的私聊文本和本机白名单项目。敏感工具会暂停：飞书显示
+审批卡片，微信显示 6 位码；只能允许一次或拒绝，5 分钟超时自动拒绝。TUI 与
+手机入口复用同一权限管理器、Session Store 和项目执行锁。
+
+![Rook 手机渠道演示](docs/images/rook-mobile-demo.gif)
+
+[完整配置与安全边界](docs/MOBILE_CHANNELS.zh-CN.md)
+
+[脱敏的微信 iLink + DeepSeek 真实验收证据](docs/evidence/rook-weixin-live-acceptance-2026-07-29.json)
 
 ## Rook Forge 如何工作
 
@@ -73,14 +103,34 @@ stale / drift 检测 → 原子回滚
 自动门禁只决定“是否具备上线资格”，不会自动激活 Skill。安全失败、秘密泄漏、
 新增回归、stale 或内容哈希不一致不能被人工绕过。
 
-## TUI
+## TUI · Coding Workbench
 
-每次启动 TUI 时，Rookie 都会出现在欢迎区；发送第一条消息后自动让出工作空间。
+输入 `/` 会立即打开命令面板，可按名称、分类或中文说明搜索，使用上下键选择、
+Tab 补全、Enter 执行。`/model`、`/resume`、`/use`、`/mode` 等命令支持二级参数补全。
+
+![Rook Coding Workbench：Slash Command 面板与工具卡](docs/images/rook-tui-workbench.png)
+
+常用输入与快捷键：
+
+| 输入 / 快捷键 | 作用 |
+| --- | --- |
+| `/status`、`/usage`、`/diff` | 查看项目状态、真实可观测用量和独立 Diff Viewer |
+| `/copy last\|code\|selection\|transcript` | 复制回复、代码块、所选文本或完整会话 |
+| `@src/app.py` | 安全引用项目文件；拒绝越界，限制单文件与总快照大小 |
+| `!git status` / 单独 `!` | 单次运行 / 切换受控 Shell，复用权限、沙箱、审计和取消 |
+| `Ctrl+Shift+C` | 优先复制当前选择；没有选择时复制最后一条 Rook 回复 |
+| `Ctrl+R` | 搜索当前项目 Prompt 历史 |
+| `Ctrl+X Ctrl+E` | 用 `$VISUAL` 或 `$EDITOR` 编辑当前 Prompt |
+| `Shift+Tab` | 在安全的权限模式间切换，不会进入 bypass |
+
+输出、Markdown、代码块和 Tool Card 均可鼠标选择。长工具输出可点击展开；完整
+Transcript 保留在状态层，界面只挂载最近 200 条，避免长会话持续变慢。每次启动时
+Rookie 会出现在欢迎区，发送第一条消息后自动让出工作空间。
 
 ![带有 Rookie 的 Rook 启动界面](docs/images/rook-tui-welcome.png)
 
-角色使用终端原生彩色字符绘制，不依赖 Kitty/Sixel 图片协议，在 Windows Terminal
-和普通终端中都能稳定显示。截图由 Rook 的真实 Textual 组件离线渲染。
+角色使用终端原生彩色字符绘制，不依赖 Kitty/Sixel 图片协议。两张截图均由 Rook
+真实 Textual 组件和固定演示数据离线渲染，不调用模型。
 
 ## 可信结果
 
@@ -132,6 +182,27 @@ export OPENAI_MODEL="gpt-4.1-mini"
 项目：./rook.toml
 ```
 
+项目可在 `rook.toml` 中定义命令、界面和快捷键：
+
+```toml
+[commands.review]
+description = "审查当前修改"
+argument_hint = "[path]"
+prompt = "请审查以下范围，并重点检查安全和回归：$ARGUMENTS"
+
+[ui]
+language = "zh-CN"
+theme = "rook" # 或 high-contrast
+
+[keybindings]
+search_history = "ctrl+r"
+open_model_picker = "alt+p"
+```
+
+项目命令覆盖同名全局命令，但不能覆盖内置命令。命令模板只支持
+`$ARGUMENTS` 与 `@文件`；不允许直接嵌入 Shell。无效配置由 `/doctor` 报告，
+不会阻止 Rook 启动。
+
 当前主线使用 OpenAI Chat Completions-compatible 接口和 OpenAI-compatible
 流式实现，并规范化 `PROMPT_TOO_LONG` 等错误。Rook 尚未使用 OpenAI Responses
 API，因此原生 reasoning 与多模态仍属于后续能力。Anthropic Provider 仍为
@@ -146,12 +217,14 @@ rook_agent/
 ├── permissions/    # 权限策略与人工确认
 ├── context/        # 会话、上下文投影与压缩
 ├── providers/      # 模型 Provider
+├── channels/       # 飞书 / 微信 Adapter、配对、队列与 IM 审批
 └── evalops/        # Rook Forge 考试与发布控制面
 ```
 
 ## 文档
 
 - [技术文档入口](docs/README.zh-CN.md)
+- [手机飞书 / 微信接入](docs/MOBILE_CHANNELS.zh-CN.md)
 - [代码阅读指南](docs/CODEBASE_READING_GUIDE.zh-CN.md)
 - [Rook Forge 离线演示](docs/DEMO.md)
 - [Issue → PR 演示](docs/ISSUE_TO_PR_DEMO.md)

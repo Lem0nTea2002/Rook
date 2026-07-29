@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from rook_agent.app.command_actions import ModelChangedAction, OpenPickerAction
 from rook_agent.app.commands import CommandResult
 
 
@@ -31,6 +32,21 @@ class ModelCommandHandler:
 
     switcher: ModelSwitcherLike
 
+    def suggest_arguments(
+        self,
+        command_name: str,
+        query: str,
+    ) -> tuple[tuple[str, str], ...]:
+        if command_name != "/model":
+            return ()
+        return tuple(
+            (
+                f"{choice.provider}/{choice.model}",
+                "当前模型" if choice == self.switcher.current_model() else "可用模型",
+            )
+            for choice in self.switcher.model_choices()
+        )
+
     def handle(self, text: str) -> CommandResult:
         command = " ".join(text.strip().split())
         if not command.startswith("/"):
@@ -41,11 +57,11 @@ class ModelCommandHandler:
             return CommandResult(
                 handled=True,
                 output=_render_model_picker(current, choices),
-                action={
-                    "type": "model_picker",
-                    "models": [_model_state_dict(choice) for choice in choices],
-                    "selected_index": _current_model_index(current, choices),
-                },
+                action=OpenPickerAction(
+                    kind="model",
+                    items=tuple(_model_state_dict(choice) for choice in choices),
+                    selected_index=_current_model_index(current, choices),
+                ),
             )
         if not command.startswith("/model "):
             return CommandResult(handled=False)
@@ -61,11 +77,10 @@ class ModelCommandHandler:
         return CommandResult(
             handled=True,
             output=f"Model switched: {switched.provider}/{switched.model}",
-            action={
-                "type": "model_changed",
-                "provider": switched.provider,
-                "model": switched.model,
-            },
+            action=ModelChangedAction(
+                provider=switched.provider,
+                model=switched.model,
+            ),
         )
 
 

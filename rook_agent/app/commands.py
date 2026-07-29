@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
+
+from rook_agent.app.command_actions import CommandActionType
 
 from rook_agent.context.inspector import ContextInspectionReport, ContextInspector
 from rook_agent.context.manager import ContextCompactRequest, ContextCompactResult, ContextWindowTrigger
@@ -34,7 +36,7 @@ class ContextManagerLike(Protocol):
 class CommandResult:
     handled: bool
     output: str = ""
-    action: dict[str, Any] | None = None
+    action: CommandActionType | None = None
 
 
 @dataclass(slots=True)

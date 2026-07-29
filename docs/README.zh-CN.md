@@ -10,13 +10,14 @@
 
 1. [代码阅读指南](CODEBASE_READING_GUIDE.zh-CN.md)：先得到目录地图和一条完整执行链。
 2. [CLI / TUI 设计](CLI_TUI_DESIGN.zh-CN.md)：理解启动、装配、命令、流式输出和界面状态。
-3. [Agent 主循环护栏](AGENT_LOOP_GUARDRAILS.zh-CN.md)：理解一条用户消息如何变成模型调用与工具结果。
-4. [工具设计](TOOLS_DESIGN.zh-CN.md) 与 [权限设计](PERMISSIONS_DESIGN.zh-CN.md)：理解模型的请求怎样变成受控的本地操作。
-5. [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md)：理解会话事实、投影、压缩与任务边界。
-6. [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) 与 [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md)：理解两个主要扩展点。
-7. [Rook Forge Skill 治理](EVALOPS.md)：理解隔离配对考试、自动门禁、人工审批、双目标部署与回滚。
-8. [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md)：查看可复现控制案例、Calibration 观测、贡献边界和仍需 Formal 测量的指标。
-9. [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)：查看两个公开仓库、四个隐藏 Validator 案例及其隔离边界。
+3. [手机渠道](MOBILE_CHANNELS.zh-CN.md)：理解飞书/微信配对、项目白名单、持久队列和 IM 权限审批。
+4. [Agent 主循环护栏](AGENT_LOOP_GUARDRAILS.zh-CN.md)：理解一条用户消息如何变成模型调用与工具结果。
+5. [工具设计](TOOLS_DESIGN.zh-CN.md) 与 [权限设计](PERMISSIONS_DESIGN.zh-CN.md)：理解模型的请求怎样变成受控的本地操作。
+6. [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md)：理解会话事实、投影、压缩与任务边界。
+7. [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) 与 [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md)：理解两个主要扩展点。
+8. [Rook Forge Skill 治理](EVALOPS.md)：理解隔离配对考试、自动门禁、人工审批、双目标部署与回滚。
+9. [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md)：查看可复现控制案例、Calibration 观测、贡献边界和仍需 Formal 测量的指标。
+10. [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)：查看两个公开仓库、四个隐藏 Validator 案例及其隔离边界。
 
 如果想先用一条命令、零模型费用体验完整链路，请运行 `rook eval demo`，并查看 [Rook Forge 离线演示](DEMO.md)。
 如果想演示面向应用的交付链路，请运行
@@ -30,6 +31,7 @@
 | 想回答的问题 | 文档 |
 | --- | --- |
 | 终端应用怎样被装配和刷新？ | [CLI / TUI 设计](CLI_TUI_DESIGN.zh-CN.md) / [English](CLI_TUI_DESIGN.md) |
+| 手机怎样安全控制本地 Rook？ | [手机渠道](MOBILE_CHANNELS.zh-CN.md) / [English](MOBILE_CHANNELS.md) |
 | 一轮任务何时停止、暂停、继续？ | [Agent 主循环护栏](AGENT_LOOP_GUARDRAILS.zh-CN.md) / [English](AGENT_LOOP_GUARDRAILS.md) |
 | 长对话怎样放进模型上下文窗口？ | [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md) / [English](CONTEXT_MANAGEMENT_DESIGN.md) |
 | 为什么写文件、执行 shell 要确认？ | [权限设计](PERMISSIONS_DESIGN.zh-CN.md) / [English](PERMISSIONS_DESIGN.md) |

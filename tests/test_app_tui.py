@@ -2,12 +2,25 @@ import asyncio
 
 import pytest
 from rich.text import Text
-from textual.widgets import Markdown
+from textual.widgets import Markdown, Static
 from textual.widgets import TextArea
 
 from rook_agent.agent.loop import ToolExecutionEvent
+from rook_agent.app.command_actions import (
+    InsertTextAction,
+    ModelChangedAction,
+    OpenPickerAction,
+    SubmitPromptAction,
+    SwitchPageAction,
+)
 from rook_agent.app.commands import CommandResult
 from rook_agent.app.commands import ContextCommandHandler
+from rook_agent.app.clipboard import ClipboardResult
+from rook_agent.app.command_registry import CommandRegistry, CommandSpec
+from rook_agent.app.file_references import ProjectFileReferenceService
+from rook_agent.app.external_editor import EditorResult
+from rook_agent.app.prompt_history import PromptHistoryStore
+from rook_agent.app.direct_shell import ShellExecutionOutcome, ShellExecutionStatus
 from rook_agent.agent.user_input import UserInputOption, UserInputRequest
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import CurrentSessionState
@@ -26,6 +39,7 @@ from rook_agent.app.welcome import WELCOME_LOGO_PIXELS, welcome_renderable
 from rook_agent.app.transcript_view import entry_classes, tool_event_entry_kind
 from rook_agent.app.tui_state import TuiEntryKind, TuiTodoItem, TuiTranscript
 from rook_agent.app.tui_state import TuiTranscriptEntry
+from rook_agent.app.viewer import ContentViewerScreen
 from rook_agent.context.models import SessionView
 from rook_agent.context.runtime_state import SessionRuntimeState
 from rook_agent.context.store import JsonlSessionStore
@@ -57,7 +71,7 @@ class FakeOutput:
 
     def mount(self, widget: object) -> None:
         self.mounted.append(widget)
-        if type(widget).__name__ == "Static":
+        if isinstance(widget, Static):
             self.lines.append(str(getattr(widget, "content", getattr(widget, "renderable", ""))))
         if isinstance(widget, Markdown):
             widget.updates = []  # type: ignore[attr-defined]
@@ -70,6 +84,55 @@ class FakeOutput:
     def scroll_end(self, animate: bool = False) -> None:
         self.scroll_end_calls += 1
         return None
+
+
+class FakeClipboard:
+    def __init__(self, result: ClipboardResult | None = None) -> None:
+        self.result = result or ClipboardResult(ok=True, backend="fake")
+        self.values: list[str] = []
+        self.terminal_callbacks = []
+
+    def copy(self, text: str, *, terminal_copy=None) -> ClipboardResult:
+        self.values.append(text)
+        self.terminal_callbacks.append(terminal_copy)
+        return self.result
+
+
+class FakeDirectShell:
+    def __init__(self, outcome: ShellExecutionOutcome | None = None) -> None:
+        self.outcome = outcome or ShellExecutionOutcome(
+            ShellExecutionStatus.SUCCEEDED,
+            "working tree clean",
+            exit_code=0,
+        )
+        self.commands: list[str] = []
+        self.resumes: list[tuple[str, str]] = []
+        self.cancelled = False
+
+    def execute(self, command: str) -> ShellExecutionOutcome:
+        self.commands.append(command)
+        return self.outcome
+
+    def resume(self, request_id: str, choice: str) -> ShellExecutionOutcome:
+        self.resumes.append((request_id, choice))
+        return ShellExecutionOutcome(
+            ShellExecutionStatus.SUCCEEDED,
+            "resumed output",
+            exit_code=0,
+        )
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+
+class FakeExternalEditor:
+    def __init__(self, result: EditorResult) -> None:
+        self.result = result
+        self.inputs: list[str] = []
+
+    def edit(self, text: str) -> EditorResult:
+        self.inputs.append(text)
+        return self.result
 
 
 def _static_output_text(app: RookApp) -> str:
@@ -236,28 +299,28 @@ class RecordingCommandHandler:
             return CommandResult(
                 handled=True,
                 output="Select a model:",
-                action={
-                    "type": "model_picker",
-                    "models": [
+                action=OpenPickerAction(
+                    kind="model",
+                    items=(
                         {"provider": "fake", "model": "old"},
                         {"provider": "fake", "model": "new"},
-                    ],
-                    "selected_index": 0,
-                },
+                    ),
+                    selected_index=0,
+                ),
             )
         if text == "/model fake/new":
             return CommandResult(
                 handled=True,
                 output="Model switched: fake/new",
-                action={"type": "model_changed", "provider": "fake", "model": "new"},
+                action=ModelChangedAction(provider="fake", model="new"),
             )
         if text == "/skills":
             return CommandResult(
                 handled=True,
                 output="Skills:",
-                action={
-                    "type": "skill_picker",
-                    "skills": [
+                action=OpenPickerAction(
+                    kind="skill",
+                    items=(
                         {
                             "name": "brief",
                             "path": "skills/brief.md",
@@ -270,20 +333,15 @@ class RecordingCommandHandler:
                             "scope": "project",
                             "description": "Review work.",
                         },
-                    ],
-                    "selected_index": 0,
-                },
+                    ),
+                    selected_index=0,
+                ),
             )
         if text == "/skill-use skills/review.md":
             return CommandResult(
                 handled=True,
                 output="Referenced skill: review skills/review.md",
-                action={
-                    "type": "skill_referenced",
-                    "name": "review",
-                    "path": "skills/review.md",
-                    "reference": "请使用 skills/review.md ",
-                },
+                action=InsertTextAction(text="请使用 skills/review.md "),
             )
         return CommandResult(handled=False)
 
@@ -337,6 +395,326 @@ async def test_rook_app_uses_custom_chrome_instead_of_textual_header_footer() ->
     assert "main" in widget_ids
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_opens_and_filters_live_slash_command_palette() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(CommandSpec("/status", "显示项目状态", "项目"), handler)
+    registry.register(CommandSpec("/sessions", "恢复历史会话", "会话"), handler)
+    registry.register(CommandSpec("/diff", "查看代码修改", "项目"), handler)
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("/")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        initial = str(palette.render())
+        assert palette.has_class("hidden") is False
+        assert "/status" in initial
+        assert "/sessions" in initial
+        assert "/diff" in initial
+        assert "内置" in initial
+
+        await pilot.press(*"代码")
+        await pilot.pause()
+        filtered = str(palette.render())
+        assert "/diff" in filtered
+        assert "/status" not in filtered
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_tab_completes_selected_slash_command() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(CommandSpec("/status", "显示项目状态", "项目"), handler)
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/st")
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "/status"
+        assert handler.commands == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_required_command_argument_is_prompted_before_execution() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(
+        CommandSpec("/session", "查看会话", "会话", argument_hint="<session_id>"),
+        handler,
+    )
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/ses")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "/session "
+        assert handler.commands == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_completes_and_executes_second_level_command_argument() -> None:
+    class ModelHandler(RecordingCommandHandler):
+        def suggest_arguments(self, command_name: str, query: str):
+            assert command_name == "/model"
+            return (
+                ("openai/gpt-5.4-mini", "快速"),
+                ("openai/gpt-5.6", "强"),
+            )
+
+    handler = ModelHandler()
+    registry = CommandRegistry()
+    registry.register(
+        CommandSpec(
+            "/model",
+            "切换模型",
+            "模型",
+            argument_hint="[model|provider/model]",
+        ),
+        handler,
+    )
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/model 5.4")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        assert "openai/gpt-5.4-mini" in str(palette.render())
+
+        await pilot.press("tab")
+        assert app.query_one("#input", TextArea).text == "/model openai/gpt-5.4-mini"
+        assert handler.commands == []
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert handler.commands == ["/model openai/gpt-5.4-mini"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_opens_diff_in_separate_selectable_viewer() -> None:
+    class DiffHandler:
+        def handle(self, text: str) -> CommandResult:
+            if text.strip() != "/diff":
+                return CommandResult(handled=False)
+            content = "diff --git a/a.py b/a.py\n-old\n+new"
+            return CommandResult(
+                handled=True,
+                output=content,
+                action=SwitchPageAction(page="diff", content=content),
+            )
+
+    app = RookApp(command_handler=DiffHandler())
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/diff")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ContentViewerScreen)
+        viewer = app.screen.query_one("#viewer-content", TextArea)
+        assert viewer.read_only is True
+        assert "diff --git a/a.py b/a.py" in viewer.text
+        assert all("diff --git" not in entry.body for entry in app.transcript.entries)
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, ContentViewerScreen)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_at_reference_palette_completes_project_file(tmp_path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("print('ok')", encoding="utf-8")
+    service = ProjectFileReferenceService(
+        tmp_path,
+        file_lister=lambda root: ("src/app.py",),
+    )
+    app = RookApp(file_references=service)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"检查 @app")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        assert "src/app.py" in str(palette.render())
+
+        await pilot.press("tab")
+        await pilot.pause()
+        assert app.query_one("#input", TextArea).text == "检查 @src/app.py "
+        assert palette.has_class("hidden") is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_submits_bounded_at_reference_content_to_agent(tmp_path) -> None:
+    (tmp_path / "app.py").write_text("VALUE = 42\n", encoding="utf-8")
+    service = ProjectFileReferenceService(
+        tmp_path,
+        file_lister=lambda root: ("app.py",),
+    )
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner, file_references=service)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"解释 @app.py")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert len(runner.inputs) == 1
+    assert runner.inputs[0].startswith("解释 @app.py\n\n<rook-file-references>")
+    assert 'path="app.py"' in runner.inputs[0]
+    assert "VALUE = 42" in runner.inputs[0]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_bang_executes_direct_shell_without_model_call() -> None:
+    shell = FakeDirectShell()
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner, direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"!git status")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert shell.commands == ["git status"]
+        assert runner.inputs == []
+        assert "working tree clean" in _static_output_text(app)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_bang_toggles_persistent_shell_mode() -> None:
+    shell = FakeDirectShell()
+    app = RookApp(direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("!")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._shell_mode is True
+        assert app.query_one("#composer").has_class("shell-mode") is True
+
+        await pilot.press(*"git status")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert shell.commands == ["git status"]
+
+        await pilot.press("!")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._shell_mode is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_direct_shell_resumes_permission_confirmation() -> None:
+    pending = UserInputRequest(
+        id="perm_shell",
+        kind="permission_confirmation",
+        question="允许执行 Shell 吗？",
+        options=[
+            UserInputOption(id="deny", label="Deny"),
+            UserInputOption(id="allow_once", label="Allow once"),
+        ],
+        payload={
+            "action": "execute_shell",
+            "target": "git status",
+            "allow_always": False,
+        },
+    )
+    shell = FakeDirectShell(
+        ShellExecutionOutcome(
+            ShellExecutionStatus.WAITING_PERMISSION,
+            pending.question,
+            pending_input=pending,
+        )
+    )
+    app = RookApp(direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"!git status")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._pending_shell_input is pending
+
+        await pilot.press(*"allow once")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert shell.resumes == [("perm_shell", "allow_once")]
+    assert app._pending_shell_input is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_c_clears_input_without_exiting() -> None:
+    app = RookApp()
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"draft prompt")
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == ""
+        assert app.is_running is True
+
+
+def test_rook_app_ctrl_shift_c_copies_selection(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    monkeypatch.setattr(app, "_selected_text", lambda: "selected")
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    app.action_copy_selection()
+
+    assert clipboard.values == ["selected"]
+
+
+def test_rook_app_shift_tab_cycles_safe_permission_modes(monkeypatch) -> None:
+    class ModeSession(FakeSession):
+        mode = "standard"
+
+        def set_permission_mode(self, mode):
+            self.mode = str(getattr(mode, "value", mode))
+            return mode
+
+    session = ModeSession()
+    app = RookApp(current_session=session)
+    monkeypatch.setattr(app, "_set_activity", lambda *args, **kwargs: None)
+
+    app.action_cycle_permission_mode()
+    assert session.mode == "aggressive"
+    app.action_cycle_permission_mode()
+    assert session.mode == "conservative"
+    app.action_cycle_permission_mode()
+    assert session.mode == "standard"
+    assert session.mode != "bypass"
+
+
 @pytest.mark.parametrize(
     ("mode", "color"),
     [
@@ -373,8 +751,9 @@ def test_rook_app_topbar_shows_a_green_provider_and_hides_session_id() -> None:
 
     assert app._topbar_text() == (
         "[#7bba55]Rook[/]   [#303238]·[/]   [#7bba55]idle · ready[/]   "
-        "[#303238]·[/]   [#7bba55]yurenapi[/][#6e6d72]/gpt-5.5[/]   "
-        "[#303238]·[/]   [#cfd1d6]standard[/]   [#303238]·[/]   [#6e6d72]cwd Rook[/]"
+        "[#303238]·[/]   [#6e6d72]cwd Rook[/]   [#303238]·[/]   "
+        "[#7bba55]yurenapi[/][#6e6d72]/gpt-5.5[/]   [#303238]·[/]   "
+        "[#cfd1d6]standard[/]"
     )
 
 
@@ -431,12 +810,12 @@ def test_observe_markdown_update_does_not_consume_unexpected_update_errors() -> 
 def test_rook_markdown_does_not_enter_textual_selection_path() -> None:
     markdown = RookMarkdown()
 
-    assert markdown.allow_select is False
+    assert markdown.allow_select is True
 
 
 def test_rook_markdown_blocks_do_not_enter_textual_selection_path() -> None:
     assert RookMarkdown.BLOCKS
-    assert all(block.ALLOW_SELECT is False for block in RookMarkdown.BLOCKS.values())
+    assert all(block.ALLOW_SELECT is True for block in RookMarkdown.BLOCKS.values())
 
 
 def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
@@ -540,6 +919,25 @@ async def test_rook_app_uses_compact_welcome_in_an_80_by_24_terminal() -> None:
         )
         assert "██" in full_plain
         assert app._welcome_particle_timer is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+@pytest.mark.parametrize("width", [80, 120, 160])
+async def test_rook_app_layout_remains_usable_at_supported_widths(width: int) -> None:
+    app = RookApp(
+        config=RookTuiConfig(
+            provider_name="fake",
+            provider_model="model",
+            project_name="Rook",
+        )
+    )
+
+    async with app.run_test(size=(width, 30)):
+        assert app.query_one("#input").region.width > 20
+        topbar = Text.from_markup(app._topbar_text(width=width - 4)).plain
+        assert "Rook" in topbar
+        assert "fake/model" in topbar
 
 
 def test_rook_app_topbar_uses_spacious_two_sided_layout_when_width_is_known() -> None:
@@ -909,7 +1307,7 @@ class SubmitChatCommandHandler:
         return CommandResult(
             handled=True,
             output="Using skill: brief",
-            action={"type": "submit_chat", "text": "请使用 skills/brief.md 写日报"},
+            action=SubmitPromptAction(text="请使用 skills/brief.md 写日报"),
         )
 
 
@@ -1081,7 +1479,7 @@ async def test_rook_app_resume_picker_replays_selected_session_history(tmp_path)
         await pilot.press("enter")
         await pilot.pause()
         output_text = _static_output_text(app)
-        assert "Select a session" in output_text
+        assert "选择会话" in output_text
         assert "第二个" in output_text
         await pilot.press("down")
         await pilot.press("enter")
@@ -1154,7 +1552,7 @@ async def test_rook_app_model_picker_switches_selected_model() -> None:
         await pilot.press("enter")
         await pilot.pause()
         output_text = _static_output_text(app)
-        assert "Select a model:" in output_text
+        assert "选择模型：" in output_text
         assert "> 1. fake/old" in output_text
 
         await pilot.press("down")
@@ -1178,7 +1576,7 @@ async def test_rook_app_skill_picker_references_selected_skill_in_input() -> Non
         await pilot.press("enter")
         await pilot.pause()
         output_text = _static_output_text(app)
-        assert "Select a skill:" in output_text
+        assert "选择 Skill：" in output_text
         assert "> 1. brief\n    project · skills/brief.md" in output_text
         assert "Selected: Write a brief." in output_text
 
@@ -1280,7 +1678,7 @@ async def test_rook_app_right_clicking_markdown_output_does_not_crash_selection_
         await pilot.press("enter")
         await pilot.pause()
         markdown = app.query_one("RookMarkdown")
-        assert markdown.allow_select is False
+        assert markdown.allow_select is True
         await pilot.click(markdown, button=3)
         await pilot.pause()
 
@@ -1294,7 +1692,7 @@ async def test_rook_app_right_clicking_markdown_code_block_does_not_crash_select
 
     async with app.run_test() as pilot:
         app._write_markdown_message("```text\nIt was the best of times\n```")
-        assert app.ALLOW_SELECT is False
+        assert app.ALLOW_SELECT is True
         await pilot.click("RookMarkdown", button=3)
         await pilot.pause()
 
@@ -1326,7 +1724,7 @@ def test_rook_app_streams_text_delta_without_repeating_final_text(monkeypatch) -
     app._restore_stream_event_handler(previous_handler)
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
-    assert output.mounted[0].allow_select is False
+    assert output.mounted[0].allow_select is True
     assert output.mounted[0].updates[-1] == "Rook:\n\nhello"
     assert app._stream_text_buffer == "hello"
     assert runner.seen == [
@@ -1349,7 +1747,7 @@ def test_rook_app_streaming_skips_normalized_duplicate_assistant_line(monkeypatc
     app._restore_stream_event_handler(previous_handler)
 
     assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
-    assert output.mounted[0].allow_select is False
+    assert output.mounted[0].allow_select is True
     assert output.mounted[0].updates[-1] == "Rook:\n\nhello"
 
 
@@ -1391,7 +1789,7 @@ def test_rook_app_paces_stream_markdown_updates(monkeypatch) -> None:
 
     markdown = output.mounted[0]
     assert type(markdown).__name__ == "RookMarkdown"
-    assert markdown.allow_select is False
+    assert markdown.allow_select is True
     assert markdown.updates == ["Rook:\n\n我"]
     assert app._stream_text_buffer == "我在这里"
 
@@ -1441,6 +1839,71 @@ def test_rook_app_records_streaming_assistant_text_in_transcript(monkeypatch) ->
     assistant_entries = [entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.ASSISTANT]
     assert len(assistant_entries) == 1
     assert assistant_entries[0].body == "你好"
+
+
+def test_rook_app_copies_selected_text_before_last_response(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "last response")
+    monkeypatch.setattr(app, "_selected_text", lambda: "selected text")
+    messages: list[tuple[str, TuiEntryKind]] = []
+    monkeypatch.setattr(
+        app,
+        "_write_line",
+        lambda text, **kwargs: messages.append((text, kwargs.get("kind", TuiEntryKind.SYSTEM))),
+    )
+
+    result = app._copy_target("selection")
+
+    assert result.ok is True
+    assert clipboard.values == ["selected text"]
+    assert messages == [("已复制所选文本（fake）。", TuiEntryKind.COMMAND)]
+
+
+def test_rook_app_copy_code_uses_latest_fenced_code_block(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "```python\nprint('old')\n```")
+    app.transcript.add(
+        TuiEntryKind.ASSISTANT,
+        "结果：\n\n```powershell\nGet-ChildItem\n```\n",
+    )
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    result = app._copy_target("code")
+
+    assert result.ok is True
+    assert clipboard.values == ["Get-ChildItem"]
+
+
+def test_rook_app_copy_transcript_exports_structured_markdown(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.USER, "> 修复测试")
+    app.transcript.add(TuiEntryKind.ASSISTANT, "已经修复。")
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    result = app._copy_target("transcript")
+
+    assert result.ok is True
+    assert clipboard.values == ["you\n\n> 修复测试\n\nRook\n\n已经修复。"]
+
+
+def test_rook_app_copy_failure_is_reported_truthfully(monkeypatch) -> None:
+    clipboard = FakeClipboard(ClipboardResult(ok=False, error="clipboard unavailable"))
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "answer")
+    messages: list[tuple[str, TuiEntryKind]] = []
+    monkeypatch.setattr(
+        app,
+        "_write_line",
+        lambda text, **kwargs: messages.append((text, kwargs.get("kind", TuiEntryKind.SYSTEM))),
+    )
+
+    result = app._copy_target("last")
+
+    assert result.ok is False
+    assert messages == [("复制失败：clipboard unavailable", TuiEntryKind.ERROR)]
 
 
 def test_rook_app_shows_reasoning_delta_in_activity_line(monkeypatch) -> None:
@@ -1537,8 +2000,8 @@ def test_rook_app_streaming_final_response_skips_assistant_display_line(monkeypa
     app._restore_stream_event_handler(previous_handler)
 
     assert sum(isinstance(widget, Markdown) for widget in output.mounted) == 1
-    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown", "Static"]
-    assert output.mounted[0].allow_select is False
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown", "ToolCard"]
+    assert output.mounted[0].allow_select is True
 
 
 def test_rook_app_replaces_partial_stream_when_final_response_differs(monkeypatch) -> None:
@@ -2013,8 +2476,8 @@ def test_rook_app_live_tool_events_filter_final_tool_summary(monkeypatch) -> Non
     assert "正在调用工具：echo" in rendered
     assert "Tool call:" not in rendered
     assert "Tool result:" not in rendered
-    assert [type(widget).__name__ for widget in output.mounted] == ["Static", "RookMarkdown"]
-    assert output.mounted[1].allow_select is False
+    assert [type(widget).__name__ for widget in output.mounted] == ["ToolCard", "RookMarkdown"]
+    assert output.mounted[1].allow_select is True
 
 
 def test_rook_app_starts_new_stream_block_after_tool_event(monkeypatch) -> None:
@@ -2038,10 +2501,10 @@ def test_rook_app_starts_new_stream_block_after_tool_event(monkeypatch) -> None:
     app._restore_stream_event_handler(previous_stream_handler)
 
     mounted_types = [type(widget).__name__ for widget in output.mounted]
-    assert mounted_types == ["RookMarkdown", "Static", "RookMarkdown"]
+    assert mounted_types == ["RookMarkdown", "ToolCard", "RookMarkdown"]
     first_markdown, _, second_markdown = output.mounted
-    assert first_markdown.allow_select is False
-    assert second_markdown.allow_select is False
+    assert first_markdown.allow_select is True
+    assert second_markdown.allow_select is True
     assert first_markdown.updates[-1] == "Rook:\n\n我先看看。"
     assert second_markdown.updates[-1] == "Rook:\n\n看完了。"
 
@@ -2121,6 +2584,25 @@ async def test_rook_app_displays_live_tool_status_during_turn() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_tool_card_is_visible_in_terminal_render() -> None:
+    app = RookApp()
+
+    async with app.run_test(size=(120, 38)) as pilot:
+        app._dismiss_welcome()
+        app._write_line(
+            "git status · success\n工作树 clean",
+            kind=TuiEntryKind.TOOL,
+            status="success",
+        )
+        await pilot.pause()
+        screenshot = app.export_screenshot(title="tool-card")
+
+    assert "git&#160;status" in screenshot
+    assert "工作树&#160;clean" in screenshot
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
 async def test_rook_app_recalls_input_history_with_arrow_keys() -> None:
     runner = FakeAsyncChatRunner()
     app = RookApp(chat_runner=runner)
@@ -2148,6 +2630,62 @@ async def test_rook_app_recalls_input_history_with_arrow_keys() -> None:
         assert input_widget.text == ""
 
     assert runner.inputs == ["first", "second"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_r_selects_project_prompt_history(tmp_path) -> None:
+    history = PromptHistoryStore(tmp_path)
+    history.append("review the current diff")
+    app = RookApp(prompt_history=history)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        assert app._picker is not None
+        assert app._picker.kind == "history"
+        await pilot.press("enter")
+        assert app.query_one("#input", TextArea).text == "review the current diff"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_applies_configured_keybinding_by_binding_id(tmp_path) -> None:
+    history = PromptHistoryStore(tmp_path)
+    history.append("review the current diff")
+    app = RookApp(
+        prompt_history=history,
+        config=RookTuiConfig(keybindings={"search_history": "ctrl+h"}),
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        assert app._picker is None
+
+        await pilot.press("ctrl+h")
+        await pilot.pause()
+        assert app._picker is not None
+        assert app._picker.kind == "history"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_x_ctrl_e_edits_current_prompt() -> None:
+    editor = FakeExternalEditor(EditorResult(ok=True, text="edited prompt"))
+    app = RookApp(external_editor=editor)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"initial")
+        await pilot.press("ctrl+x")
+        await pilot.press("ctrl+e")
+        await pilot.pause()
+
+        assert editor.inputs == ["initial"]
+        assert app.query_one("#input", TextArea).text == "edited prompt"
 
 
 def test_rook_app_displays_pending_permission_prompt_immediately(monkeypatch) -> None:

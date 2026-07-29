@@ -1,6 +1,6 @@
 # Rook 项目进度摘要
 
-更新时间：2026-07-27
+更新时间：2026-07-29
 
 ## 项目定位
 
@@ -14,8 +14,9 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 主分支：`main`
-- 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook`
+- 当前分支：`feature/tui-workbench`
+- 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook/.worktrees/first-run-setup`
+- v0.4.0 Mobile Channel 已完成本地实现与离线验证，尚未推送、连接真实飞书/微信或发布 Release。
 - Rook Forge v0.2.4 已发布：PR #15–#17 合并 Candidate v5 Formal/发布、跨仓库 holdout、Coding Agent 加固、GitHub PR Gate 和统一证据；Release 和 Windows/Linux CI 均可公开复核。
 - 当前状态：内容不同的 Candidate v5 已使用 Adapter v12 从零完成 72-call Formal，自动门禁 promoted，随后完成真实人工审批和仓库级 Codex v1→v5 部署。审计中发现跨 Adapter target fingerprint 替换记录丢失 `from_version`，修复后通过真实 v5→v1 rollback 和 v1→v5 redeploy 验证，最终 v5 active、stale=false。
 - 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。
@@ -74,6 +75,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 48. 修复 Todo 完成自检在 Provider 上限处逃逸的问题；同步/异步循环现在返回稳定终态，benchmark runner 逐任务原子落盘并支持精确续跑。
 49. GitHub PR Gate 已在 PR #16 的独立 workflow 中远端通过，外部评测和费用保持关闭。
 50. 修复覆盖率门禁的整数舍入缺口：固定两位小数，新增路径逃逸、Git ref 解析失败、损坏 Candidate/Suite/Provenance 和未解析 Candidate lock 的 fail-closed 测试，不再允许实际 84.57% 被显示为 85% 后通过。
+51. 新增 Rook Mobile Channel：手机飞书/微信私聊可经本地 Gateway 控制项目白名单内的 Rook；官方 Feishu 长连接与 Tencent iLink 协议、SQLite 去重/配对/审批/游标、租约队列、项目锁、一次性权限审批、重启恢复、远程命令和当前用户自启动均已实现。默认测试不连接真实 IM 或模型。
 
 ## 关键提交
 
@@ -99,6 +101,7 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
+- 2026-07-29 v0.4.0 Mobile Channel 本地离线基线：完整核心套件 `1957 passed, 12 skipped`；通道、共享 Runtime、CLI、权限恢复、回复投递终态和私聊审批绑定直接回归 `84 passed`。核心源码与测试的 Ruff、mypy、wheel 构建与 `git diff --check` 均通过；本轮未登录真实飞书/微信，也未调用模型。全仓 Ruff 仍保留 4 个既有 benchmark 启动脚本的 32 个 `E402`，这些脚本先设置源码路径再导入，未在本轮无关修改中重排。
 - 2026-07-27 新增完整仓库与执行规模阶段的本地离线基线：`1829 passed, 11 skipped`；EvalOps 覆盖率门禁为 `529 passed, 7 skipped`、总覆盖率 `85.96%`。Ruff、mypy、wheel/sdist 构建与 `git diff --check` 均通过。本机 Docker daemon 未运行，因此真实 Docker 测试在本地保持 opt-in skipped；PR #19 的 [offline run 30267855455](https://github.com/ZHUMUJUN/Rook/actions/runs/30267855455) 已在 Ubuntu 中验证 digest 固定、禁网、只读根文件系统、无 capabilities、宿主 UID:GID、资源限制和 bind mount，连同 [Forge Gate run 30267855429](https://github.com/ZHUMUJUN/Rook/actions/runs/30267855429) 共 7/7 checks 全绿。
 - 本阶段锁定 SWE-bench Lite 固定 revision 派生的 24 个完整仓库任务（pytest、scikit-learn、Sphinx 各 8 个），并对 pytest 任务完成一次真实完整 clone、精确 detached checkout 与 clean-tree 校验；尚未声称已经解决这些任务或提交新的上游 PR。
 - 单机 SQLite WAL 调度器在 10/25/50 workers、每档 300 个离线确定性任务下分别达到 38.17/80.34/106.65 jobs/s，P95 为 266/297/844ms；900/900 成功、51/51 注入故障恢复。该结果只衡量持久化队列与故障恢复控制面，不代表真实 Agent、模型或 Docker 吞吐。
@@ -168,11 +171,10 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 已完成无关全局 Skill 自动选择与上下文放大的离线根因修复：运行时控制消息不再创建用户轮次；全局 metadata route 必须命中名称/trigger；全局 catalog 不再复制进 system prompt；活动 Skill 去重、限界并在任务切换时清理。
-2. 已准备 Candidate v5 的双真实仓库 holdout：6 个 Direct/Transfer/Regression case、2 次重复、计划恰好 24 次 live 调用；Candidate 与 fixture hash、禁网和隐藏 validator 均已离线锁定，尚未执行 live。
-3. 已准备 10-task Rook Coding dogfood v2，新增 provider call、Token 和 Skill identity 遥测；尚未获得本轮独立 live 授权，因此旧的 3/5、1,028,297 Token 基线仍是唯一真实结果。
-4. 已实现 `rook eval pr-gate` 与 GitHub Actions 工作流，本地真实 Git diff 门禁通过；远端 PR check 需在 GitHub API/网络恢复并推送后才能形成可引用证据。
-5. 重新设计两个被拒绝的真实仓库 Skill，并以新的 Candidate hash 进入同一隔离考试链路。
+1. 提交并推送 v0.4.0 Mobile Channel，等待 Windows/Linux 远端离线 CI。
+2. 由用户分别完成飞书应用和微信 iLink 的真实登录；首次联调只绑定一个测试账号和一个临时项目。
+3. 在单独授权后完成真实私聊收发、一次性权限审批、断线重连、进程重启恢复和拒绝越权路径的联调记录。
+4. 根据联调结果修正文档和适配器边界，再发布 v0.4.0 Release；真实 IM 联调不得触发 Formal 或其他付费模型评测。
 
 ## 当前停点
 
@@ -181,3 +183,5 @@ Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现
 手工与自动 Candidate 共用同一条治理链路，自动生成结果保持 quarantined，当前没有旁路准入机制。历史 partial Formal 都被证据边界正确阻断；最终 Adapter v11 Formal 从零完整结束，成功率、Token 和时延指标具备可复核的简历证据。原始 measurement-only 执行保持无副作用，后续通过新增的严格证据采用命令重新验证后，才完成独立人工审批和仓库级 Codex 部署。美元成本和 Codex 路由仍保持 `not observed`。
 
 当前最有价值的新证据并非全部正向：两个真实仓库 Candidate 均因新增回归被拒绝，Rook 自身真实 Coding dogfood 也只有 3/5 通过。这些结果表明 Forge 的拒绝链路有效，同时给出了下一轮 Rook Agent 隔离和上下文效率改进的明确基线。内容不同的 Candidate v5 已独立完成真实 Formal、审批、v1→v5 部署，并通过一次真实 v5→v1→v5 事务链验证跨 Adapter rollback 与审计记录。
+
+v0.4.0 Mobile Channel 已形成离线闭环：单用户配对 → 项目白名单 → 持久队列 → 本地 Rook Runtime → 一次性 IM 权限审批 → 脱敏回复。它目前只有 Fake Adapter 和本地 SDK 构造验证，尚未声称真实飞书/微信端到端可用；真实联调需要用户单独授权并完成平台登录。

@@ -4,6 +4,52 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-29
+
+### Added
+
+- Added a selectable Textual coding workbench with a searchable Slash Command
+  palette, `@file` references, controlled shell mode, diff/transcript viewers,
+  clipboard actions, prompt history, external-editor support, and bounded
+  rendering for long sessions.
+- Added the local Rook Mobile Channel gateway for controlling whitelisted
+  projects from private Feishu or WeChat conversations.
+- Added the official Feishu `lark-oapi` long-connection transport and a native
+  Python implementation of Tencent's iLink bot protocol.
+- Added durable SQLite message deduplication, project bindings, conversation
+  cursors, expiring approval records, restart recovery, and leased job
+  execution.
+- Added `rook channel` setup, pairing, project, serve, status, login, and
+  current-user Windows autostart commands, plus bilingual operating guides.
+
+### Changed
+
+- Extracted a shared `RookRuntime` so the TUI and mobile gateway use the same
+  Agent loop, permissions, sessions, Skill discovery, and project execution
+  lock.
+- Added the optional `im` dependency extra; default installation and offline CI
+  do not require either channel SDK.
+
+### Fixed
+
+- Corrected the WeChat iLink channel-version payload and Windows QR rendering.
+- Limited IM replies to the final Agent answer instead of exposing internal tool
+  traces.
+- Bound mobile approval records to the real tool, action, target, and action
+  hash.
+- Scoped Todo reminders to the current user turn and included untracked files
+  in the channel diff.
+
+### Security
+
+- Remote access is fail-closed: one paired user, private text messages only,
+  explicit absolute-path project allowlists, single-use pairing codes, and no
+  remote arbitrary shell command.
+- Tool approvals are limited to `allow once` or `deny`, bind the exact action
+  hash, expire safely across restarts, and cannot grant permanent permission.
+- Sensitive channel and execution failures are redacted before being persisted
+  or returned to IM clients.
+
 ## [0.2.7] - 2026-07-28
 
 ### Added
@@ -243,7 +289,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.7...v0.4.0
+[0.2.7]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/ZHUMUJUN/Rook/compare/v0.2.2...v0.2.3

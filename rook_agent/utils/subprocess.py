@@ -6,6 +6,8 @@ shell、python_exec、diagnostics、grep 都有近乎相同的 subprocess.run �
 
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
@@ -13,6 +15,8 @@ from pathlib import Path
 
 from rook_agent.agent.cancellation import CancellationToken
 from rook_agent.utils.text import truncate
+
+_IS_WINDOWS = os.name == "nt"
 
 
 @dataclass(slots=True)
@@ -128,6 +132,12 @@ def _run_command_with_cancellation(
             text=True,
             encoding="utf-8",
             errors="replace",
+            start_new_session=not _IS_WINDOWS,
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                if _IS_WINDOWS
+                else 0
+            ),
         )
     except OSError as exc:
         return CommandResult(
@@ -192,6 +202,35 @@ def _run_command_with_cancellation(
 
 
 def _terminate_process(process: subprocess.Popen[str]) -> None:
+    """Terminate the complete process tree created by ``run_command``.
+
+    The cancellation path starts each command in a separate process group.  On
+    Windows, ``taskkill /T`` is the only stdlib-accessible way to terminate
+    grandchildren created through ``cmd.exe`` or PowerShell.  On POSIX, the
+    isolated session lets us signal the process group.  Parent-only terminate
+    remains the last-resort fallback so cancellation never raises into the TUI.
+    """
+
+    if _IS_WINDOWS:
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                check=False,
+                timeout=2,
+            )
+            if process.poll() is not None:
+                return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+            process.wait(timeout=1)
+            return
+        except (OSError, subprocess.SubprocessError):
+            pass
+
     process.terminate()
     try:
         process.wait(timeout=1)

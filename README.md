@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.2.7"><img alt="Release v0.2.7" src="https://img.shields.io/badge/release-v0.2.7-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.zh-CN.md">简体中文</a>
@@ -28,7 +28,7 @@ useful enough to ship.
 ## Quickstart
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.7"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
 rook
 ```
 
@@ -52,10 +52,44 @@ rook eval demo
 | Capability | What it provides |
 | --- | --- |
 | Coding agent | Read, search, edit, run commands, and verify changes |
-| Visible agent loop | Stream model output, tool calls, results, and todos in the TUI |
+| Coding workbench | Selectable output, Slash Palette, `@` files, controlled shell, diff, and transcript |
+| Visible agent loop | Stream model output, tool calls, results, permission requests, and todos |
 | Permissions and sessions | Confirm risky actions; persist, resume, and compact sessions |
+| Mobile channels | Paired Feishu/WeChat DMs submit tasks and approve one sensitive action |
 | Skill exams | Run isolated Baseline, Forced, and Routed paired experiments |
 | Skill releases | Require human approval, deploy to Rook/Codex independently, and roll back |
+
+## Control local Rook from Feishu or WeChat
+
+Rook v0.4.0 can run a local gateway. Your phone sends tasks and approves a
+single sensitive action; project files, model credentials, the Agent Loop,
+Skills, and tool execution remain on your computer.
+
+```powershell
+pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
+rook channel project add rook --path "D:\absolute\path\to\Rook"
+rook channel setup feishu
+rook channel login weixin
+rook channel pair create --channel feishu --project rook
+rook channel serve --channels feishu,weixin
+```
+
+`channel setup feishu` uses Feishu's official QR registration flow and stores
+the returned secret directly in the operating-system credential manager. To
+reuse an existing app, pass `--app-id cli_xxx`; its secret is read from a
+hidden local prompt and must never be pasted into chat or a command argument.
+
+Only a paired user's private text messages and explicitly whitelisted projects
+are accepted. Feishu uses approval cards and WeChat uses six-digit codes. Mobile
+approval is allow-once or deny only and expires as denial after five minutes.
+The TUI and mobile gateway share the same permission manager, session store,
+and project execution lock.
+
+![Rook 手机渠道演示](docs/images/rook-mobile-demo.gif)
+
+[Full mobile-channel setup and security model](docs/MOBILE_CHANNELS.md)
+
+[Redacted WeChat iLink + DeepSeek live acceptance evidence](docs/evidence/rook-weixin-live-acceptance-2026-07-29.json)
 
 ## How Rook Forge works
 
@@ -75,14 +109,35 @@ The automatic gate only decides release eligibility; it never activates a Skill.
 Human approval cannot bypass a safety failure, secret leak, new regression, stale
 evidence, or content-hash mismatch.
 
-## TUI
+## TUI · Coding workbench
 
-Rookie appears whenever the TUI starts, then steps aside after the first message.
+Typing `/` opens a searchable command palette immediately. Filter by command,
+category, or description; use arrows to navigate, Tab to complete, and Enter to
+run. Commands such as `/model`, `/resume`, `/use`, and `/mode` provide second-level
+argument completion.
+
+![Rook Coding Workbench with Slash Command palette and tool cards](docs/images/rook-tui-workbench.png)
+
+| Input / shortcut | Purpose |
+| --- | --- |
+| `/status`, `/usage`, `/diff` | Inspect project state, observed usage, and a separate diff viewer |
+| `/copy last\|code\|selection\|transcript` | Copy a reply, code block, selection, or the full session |
+| `@src/app.py` | Reference a bounded project file snapshot with escape checks |
+| `!git status` / `!` | Run once / toggle controlled shell through permissions, audit, and cancellation |
+| `Ctrl+Shift+C` | Copy the selection, falling back to Rook's last reply |
+| `Ctrl+R` | Search project-scoped prompt history |
+| `Ctrl+X Ctrl+E` | Edit the prompt with `$VISUAL` or `$EDITOR` |
+| `Shift+Tab` | Cycle safe permission modes; never enters bypass |
+
+Output, Markdown, code blocks, and tool cards are selectable. Long tool output
+expands on click. The full transcript stays in state while only the latest 200
+entries are mounted, keeping long sessions responsive. Rookie still appears at
+startup and steps aside after the first message.
 
 ![Rook startup screen with Rookie](docs/images/rook-tui-welcome.png)
 
-The mascot uses terminal-native color blocks, so it works without Kitty/Sixel image
-support. The screenshot is rendered offline with Rook's real Textual components.
+Both screenshots use Rook's real Textual components and deterministic local data.
+Rendering does not call a model.
 
 ## Verified results
 
@@ -135,6 +190,27 @@ Configuration files:
 global:  ~/.config/rook/config.toml
 project: ./rook.toml
 ```
+
+Project commands, UI, and keybindings can be configured in `rook.toml`:
+
+```toml
+[commands.review]
+description = "Review the current changes"
+argument_hint = "[path]"
+prompt = "Review this scope for security and regressions: $ARGUMENTS"
+
+[ui]
+language = "zh-CN"
+theme = "rook" # or high-contrast
+
+[keybindings]
+search_history = "ctrl+r"
+open_model_picker = "alt+p"
+```
+
+Project commands override global custom commands but cannot replace built-ins.
+Templates support `$ARGUMENTS` and `@file`; embedded shell execution is rejected.
+Invalid configuration is reported by `/doctor` without preventing startup.
 
 The main provider path is OpenAI Chat Completions-compatible and implements
 OpenAI-compatible streaming, including normalized errors such as

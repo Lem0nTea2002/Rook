@@ -22,6 +22,21 @@ class PermissionCommandHandler:
 
     session: PermissionSessionLike
 
+    def suggest_arguments(
+        self,
+        command_name: str,
+        query: str,
+    ) -> tuple[tuple[str, str], ...]:
+        if command_name != "/mode":
+            return ()
+        descriptions = {
+            "conservative": "每次高风险操作都确认",
+            "standard": "平衡安全与效率",
+            "aggressive": "减少确认但仍保留安全边界",
+            "bypass": "仅显式命令可进入，不支持快捷键",
+        }
+        return tuple(descriptions.items())
+
     def handle(self, text: str) -> CommandResult:
         command = " ".join(text.strip().split())
         if not command.startswith("/"):

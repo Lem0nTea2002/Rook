@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from rook_agent.app.command_actions import ModelChangedAction, OpenPickerAction
 from rook_agent.app.model_commands import ModelCommandHandler, ModelState
 
 
@@ -32,14 +33,14 @@ def test_model_command_shows_current_model() -> None:
     assert result.handled is True
     assert "Current model: fake/old-model" in result.output
     assert "Select a model:" in result.output
-    assert result.action == {
-        "type": "model_picker",
-        "models": [
+    assert result.action == OpenPickerAction(
+        kind="model",
+        items=(
             {"provider": "fake", "model": "old-model"},
             {"provider": "fake", "model": "new-model"},
-        ],
-        "selected_index": 0,
-    }
+        ),
+        selected_index=0,
+    )
 
 
 def test_model_command_switches_model() -> None:
@@ -50,7 +51,7 @@ def test_model_command_switches_model() -> None:
     assert result.handled is True
     assert switcher.switched_spec == "new-model"
     assert result.output == "Model switched: fake/new-model"
-    assert result.action == {"type": "model_changed", "provider": "fake", "model": "new-model"}
+    assert result.action == ModelChangedAction(provider="fake", model="new-model")
 
 
 def test_model_command_reports_switch_errors() -> None:

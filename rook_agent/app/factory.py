@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+import subprocess
 
 from rook_agent.agent.loop_limits import AgentLoopLimits
 from rook_agent.agent.session import AgentSession, create_project_permission_manager
+from rook_agent.agent.prompt_inputs import read_agents_md
+from rook_agent.agent.user_input import UserInputOption, UserInputRequest
 from rook_agent.app.commands import ContextCommandHandler
+from rook_agent.app.command_registry import CommandRegistry
+from rook_agent.app.custom_commands import load_custom_commands
+from rook_agent.app.direct_shell import DirectShellService
 from rook_agent.app.forge_commands import ForgeCommandHandler
-from rook_agent.app.help_commands import HelpCommandHandler
+from rook_agent.app.file_references import ProjectFileReferenceService
+from rook_agent.app.prompt_history import PromptHistoryStore
+from rook_agent.app.help_commands import HelpCommandHandler, command_specs
 from rook_agent.app.model_commands import ModelCommandHandler, ModelState
 from rook_agent.app.permission_commands import PermissionCommandHandler
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import AgentChatRunner, CurrentSessionState
 from rook_agent.app.session_commands import SessionCommandHandler
-from rook_agent.app.skill_commands import SkillCommandHandler
+from rook_agent.app.skill_commands import SkillCommandHandler, skill_command_specs
 from rook_agent.app.tui import RookApp, RookTuiConfig
+from rook_agent.app.workbench_commands import WorkbenchCommandHandler
 from rook_agent.config.settings import AppConfig, load_config
+from rook_agent.channels.locks import ProjectExecutionLock
 from rook_agent.context.identity import new_session_id
 from rook_agent.context.llm_compact import LlmCompactService
 from rook_agent.context.manager import ContextWindowManager
@@ -42,7 +53,34 @@ from rook_agent.tools.types import Tool
 from rook_agent.utils.sandbox_access import SandboxAccess
 
 
-def create_rook_app(
+@dataclass(slots=True)
+class RookRuntime:
+    """Shared Rook runtime used by the TUI and headless channel gateways."""
+
+    command_handler: CompositeCommandHandler
+    chat_runner: AgentChatRunner
+    current_session: CurrentSessionState
+    file_references: ProjectFileReferenceService
+    prompt_history: PromptHistoryStore
+    direct_shell: DirectShellService
+    tui_config: RookTuiConfig
+
+    def create_tui(self) -> RookApp:
+        return RookApp(
+            command_handler=self.command_handler,
+            chat_runner=self.chat_runner,
+            current_session=self.current_session,
+            file_references=self.file_references,
+            prompt_history=self.prompt_history,
+            direct_shell=self.direct_shell,
+            config=self.tui_config,
+        )
+
+    def close(self) -> None:
+        self.chat_runner.close()
+
+
+def create_rook_runtime(
     *,
     project_root: str | Path = ".",
     data_root: str | Path | None = None,
@@ -51,8 +89,9 @@ def create_rook_app(
     tools: list[Tool] | None = None,
     config: RookTuiConfig | None = None,
     app_config: AppConfig | None = None,
-) -> RookApp:
-    """组装可运行的 Rook TUI。
+    resume_existing: bool = False,
+) -> RookRuntime:
+    """组装可由 TUI 或 Channel Gateway 复用的 Rook 运行时。
 
     `data_root` 默认是 `<project_root>/.rook`，并传给 context/session 各组件作为
     统一数据根。
@@ -73,14 +112,28 @@ def create_rook_app(
     resolved_provider = provider or create_provider(project_root=project_path)
     grant_store = FilePermissionGrantStore(resolved_data_root / "permissions.json")
     permission_manager = create_project_permission_manager(project_path, grants=grant_store)
-    session = AgentSession.from_project(
-        store=store,
-        session_id=session_id or new_session_id(),
-        project_root=project_path,
-        tools=resolved_tools,
-        permission_manager=permission_manager,
-        sandbox_access=sandbox_access,
-    )
+    resolved_session_id = session_id or new_session_id()
+    session_path = resolved_data_root / "sessions" / f"{resolved_session_id}.jsonl"
+    if resume_existing and session_path.exists():
+        session = AgentSession.resume(
+            store=store,
+            session_id=resolved_session_id,
+            agents_md=read_agents_md(project_path),
+            skill_catalog=discover_all_skills(project_path),
+            tools=resolved_tools,
+            permission_manager=permission_manager,
+            sandbox_access=sandbox_access,
+        )
+        session.restore_pending_permission_execution()
+    else:
+        session = AgentSession.from_project(
+            store=store,
+            session_id=resolved_session_id,
+            project_root=project_path,
+            tools=resolved_tools,
+            permission_manager=permission_manager,
+            sandbox_access=sandbox_access,
+        )
     current = CurrentSessionState(session)
     compact_summarizer = ProviderLlmCompactSummarizer(resolved_provider)
     context_manager = ContextWindowManager(
@@ -161,34 +214,259 @@ def create_rook_app(
         limits=AgentLoopLimits.default(),
         use_streaming=_should_use_streaming(resolved_provider, resolved_app_config),
         candidate_coordinator=candidate_coordinator,
+        execution_lock_factory=lambda: ProjectExecutionLock(project_path),
     )
+    restored_permission = session.pending_permission_execution
+    if restored_permission is not None:
+        request = restored_permission.permission_request
+        chat_runner.last_pending_input = UserInputRequest(
+            id=restored_permission.request_id,
+            kind="permission_confirmation",
+            question=(
+                f"Allow {request.action.value} for {request.target}? "
+                "Mobile channels permit this action once or deny it."
+            ),
+            options=[
+                UserInputOption(id="deny", label="Deny"),
+                UserInputOption(id="allow_once", label="Allow once"),
+            ],
+            payload={
+                "tool_name": restored_permission.tool_call.name,
+                "permission_request": {
+                    "action": request.action.value,
+                    "target": request.target,
+                    "reason": request.reason,
+                },
+            },
+        )
     model_switcher = RuntimeModelSwitcher(
         app_config=resolved_app_config,
         chat_runner=chat_runner,
         compact_summarizer=compact_summarizer,
     )
-    command_handler = CompositeCommandHandler(
-        [
-            HelpCommandHandler(),
-            ModelCommandHandler(model_switcher),
-            session_handler,
-            context_handler,
-            permission_handler,
-            forge_handler,
-            skill_handler,
-        ]
+    help_handler = HelpCommandHandler()
+    model_handler = ModelCommandHandler(model_switcher)
+    workbench_handler = WorkbenchCommandHandler(
+        project_root=project_path,
+        current_session=current,
+        app_config=resolved_app_config,
     )
-    return RookApp(
+    custom_commands = load_custom_commands(resolved_app_config)
+    workbench_handler.diagnostics.extend(custom_commands.diagnostics)
+    language, theme, ui_diagnostics = _load_ui_settings(resolved_app_config)
+    workbench_handler.diagnostics.extend(ui_diagnostics)
+    keybindings, keybinding_diagnostics = _load_keybindings(resolved_app_config)
+    workbench_handler.diagnostics.extend(keybinding_diagnostics)
+    custom_handlers = [handler for _, handler in custom_commands.registrations]
+    handlers = [
+        help_handler,
+        model_handler,
+        session_handler,
+        context_handler,
+        permission_handler,
+        forge_handler,
+        skill_handler,
+        workbench_handler,
+        *custom_handlers,
+    ]
+    registry = CommandRegistry()
+    registrations = (
+        (help_handler, command_specs("/help")),
+        (model_handler, command_specs("/model")),
+        (
+            session_handler,
+            command_specs(
+                "/new",
+                "/fork",
+                "/sessions",
+                "/session",
+                "/resume",
+                "/share",
+                "/rename",
+            ),
+        ),
+        (context_handler, command_specs("/context", "/compact")),
+        (permission_handler, command_specs("/mode")),
+        (forge_handler, command_specs("/forge")),
+        (skill_handler, command_specs("/skills", "/skill", "/use")),
+        (
+            workbench_handler,
+            command_specs(
+                "/permissions",
+                "/copy",
+                "/status",
+                "/usage",
+                "/diff",
+                "/transcript",
+                "/clear",
+                "/keys",
+                "/language",
+                "/theme",
+                "/config",
+                "/doctor",
+                "/quit",
+            ),
+        ),
+    )
+    for handler, specs in registrations:
+        for spec in specs:
+            registry.register(spec, handler)
+    for spec, handler in custom_commands.registrations:
+        try:
+            registry.register(spec, handler)
+        except ValueError as error:
+            workbench_handler.diagnostics.append(str(error))
+    command_handler = CompositeCommandHandler(
+        handlers,
+        registry=registry,
+        dynamic_spec_providers=[
+            lambda: skill_command_specs(skill_catalog_provider()),
+        ],
+    )
+    return RookRuntime(
         command_handler=command_handler,
         chat_runner=chat_runner,
         current_session=current,
-        config=config
+        file_references=ProjectFileReferenceService(project_path),
+        prompt_history=PromptHistoryStore(project_path),
+        direct_shell=DirectShellService(lambda: current.session),
+        tui_config=config
         or RookTuiConfig(
             provider_name=resolved_provider.name,
             provider_model=resolved_provider.model,
             project_name=project_path.resolve().name,
+            git_branch=_git_branch(project_path),
+            language=language,
+            theme=theme,
+            keybindings=keybindings,
+            context_window_tokens=_optional_positive_int(
+                resolved_app_config.get_provider_value("context_window_tokens")
+            ),
         ),
     )
+
+
+def create_rook_app(
+    *,
+    project_root: str | Path = ".",
+    data_root: str | Path | None = None,
+    provider: ChatProvider | None = None,
+    session_id: str | None = None,
+    tools: list[Tool] | None = None,
+    config: RookTuiConfig | None = None,
+    app_config: AppConfig | None = None,
+    resume_existing: bool = False,
+) -> RookApp:
+    """Create the Textual app from the same runtime used by mobile channels."""
+
+    return create_rook_runtime(
+        project_root=project_root,
+        data_root=data_root,
+        provider=provider,
+        session_id=session_id,
+        tools=tools,
+        config=config,
+        app_config=app_config,
+        resume_existing=resume_existing,
+    ).create_tui()
+
+
+_KEYBINDING_ACTIONS = {
+    "smart_cancel",
+    "copy_selection",
+    "exit_if_empty",
+    "redraw_screen",
+    "search_history",
+    "editor_prefix",
+    "open_external_editor",
+    "open_model_picker",
+    "cycle_permission_mode",
+}
+
+
+def _load_ui_settings(config: AppConfig) -> tuple[str, str, tuple[str, ...]]:
+    diagnostics: list[str] = []
+    raw_language = config.get_section_value("ui", "language", default="zh-CN")
+    language = str(raw_language).strip()
+    if language not in {"zh-CN", "en"}:
+        diagnostics.append(f"不支持的界面语言：{language}")
+        language = "zh-CN"
+
+    raw_theme = config.get_section_value("ui", "theme", default="rook")
+    theme = str(raw_theme).strip().lower()
+    if theme not in {"rook", "high-contrast"}:
+        diagnostics.append(f"不支持的界面主题：{theme}")
+        theme = "rook"
+    return language, theme, tuple(diagnostics)
+
+
+def _load_keybindings(config: AppConfig) -> tuple[dict[str, str], tuple[str, ...]]:
+    merged: dict[str, str] = {}
+    diagnostics: list[str] = []
+    for source_name, source in (
+        ("global", config.global_config),
+        ("project", config.project_config),
+    ):
+        raw = source.get("keybindings") if source else None
+        if raw is None:
+            continue
+        if not isinstance(raw, dict):
+            diagnostics.append(f"{source_name} keybindings 必须是 TOML table")
+            continue
+        for action, key in raw.items():
+            action_name = str(action).strip()
+            if action_name not in _KEYBINDING_ACTIONS:
+                diagnostics.append(f"未知快捷键 action：{action_name}")
+                continue
+            if not isinstance(key, str) or not key.strip():
+                diagnostics.append(f"快捷键 {action_name} 必须是非空字符串")
+                continue
+            merged[action_name] = key.strip().lower()
+    owners: dict[str, str] = {}
+    for action, key in merged.items():
+        owner = owners.get(key)
+        if owner is not None:
+            diagnostics.append(f"快捷键冲突：{key} 同时分配给 {owner} 和 {action}")
+        owners[key] = action
+    if diagnostics:
+        conflicting = {
+            key
+            for key, count in (
+                (key, sum(candidate == key for candidate in merged.values()))
+                for key in set(merged.values())
+            )
+            if count > 1
+        }
+        merged = {
+            action: key
+            for action, key in merged.items()
+            if key not in conflicting
+        }
+    return merged, tuple(diagnostics)
+
+
+def _git_branch(project_root: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=project_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    branch = result.stdout.strip()
+    return branch or None
+
+
+def _optional_positive_int(value: str | None) -> int | None:
+    try:
+        parsed = int(value or "")
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
 
 
 def _should_use_streaming(provider: ChatProvider, config: AppConfig) -> bool:

@@ -92,7 +92,7 @@ def _base(index: int, title: str, subtitle: str) -> tuple[Image.Image, ImageDraw
     draw.line((64, 655, 1216, 655), fill="#29404E", width=2)
     draw.text(
         (64, 674),
-        "Rook v0.2.6 · github.com/Lem0nTea2002/Rook",
+        "Rook v0.3.1 · github.com/Lem0nTea2002/Rook",
         font=_font(17),
         fill=MUTED,
     )
@@ -148,9 +148,9 @@ def _render_hero(index: int) -> Image.Image:
 
 def _render_tui(index: int) -> Image.Image:
     image, draw = _base(
-        index, "1. 每次启动都有 Rookie", "真实 Textual 组件 · 固定演示数据 · 无模型调用"
+        index, "1. Coding Workbench", "真实 Textual 组件 · 固定演示数据 · 无模型调用"
     )
-    screenshot = Image.open(ROOT / "docs" / "images" / "rook-tui-welcome.png").convert("RGB")
+    screenshot = Image.open(ROOT / "docs" / "images" / "rook-tui-workbench.png").convert("RGB")
     shot = _fit_image(screenshot, (55, 166, 915, 620))
     sx = 55 + (860 - shot.width) // 2
     sy = 166 + (454 - shot.height) // 2
@@ -158,9 +158,9 @@ def _render_tui(index: int) -> Image.Image:
     image.paste(shot, (sx, sy))
 
     cards = (
-        ("代码工具", "读文件、搜索、编辑、测试", CYAN),
-        ("权限边界", "高风险操作先等待确认", YELLOW),
-        ("可恢复会话", "消息、工具和结果可重放", GREEN),
+        ("/ 命令面板", "搜索、补全、二级参数", CYAN),
+        ("@ 文件引用", "边界检查与有界快照", GREEN),
+        ("! 受控 Shell", "权限、审计、取消与超时", YELLOW),
     )
     y = 172
     for heading, detail, color in cards:
@@ -248,7 +248,7 @@ def _render_quickstart(index: int) -> Image.Image:
     _panel(draw, (90, 180, 1190, 555), fill="#071017", outline="#2A555D")
     code_font = _font(22, mono=True)
     commands = (
-        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.2.6"', CYAN),
+        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.3.1"', CYAN),
         ("$ rook", GREEN),
         ("$ rook eval demo", BLUE),
     )
