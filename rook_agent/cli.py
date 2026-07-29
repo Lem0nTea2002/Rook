@@ -135,6 +135,15 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Comma-separated channels: feishu,weixin.",
     )
+    channel_smoke = channel_subparsers.add_parser(
+        "smoke",
+        help="Run real channels with a local Fake Runner and no model calls.",
+    )
+    channel_smoke.add_argument(
+        "--channels",
+        required=True,
+        help="Comma-separated channels: feishu,weixin.",
+    )
     channel_status = channel_subparsers.add_parser(
         "status",
         help="Show non-secret channel configuration and health.",

@@ -102,6 +102,17 @@ v1 只接受配对用户的私聊文本。群聊、图片、语音、文件和�
 rook channel serve --channels feishu,weixin
 ```
 
+真实渠道、零模型费用联调：
+
+```powershell
+rook channel smoke --channels feishu,weixin
+```
+
+`smoke` 会连接真实渠道，但使用本地 Fake Runner，不读取 Provider 配置。手机发送
+任意任务后，Rook 会请求一次写入 `rook-mobile-smoke.txt` 的权限；只有手机
+`allow_once` 后才写入。随后用 `/diff` 查看，再用 `/cancel` 验证取消入口。请只在
+专用临时 Git 仓库执行，完成后自行删除 marker。
+
 查看非敏感状态：
 
 ```powershell

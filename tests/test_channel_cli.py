@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
 import pytest
 
 from rook_agent.channels.autostart import WindowsAutostart
-from rook_agent.channels.cli import ChannelPaths, run_channel_command
+from rook_agent.channels.cli import ChannelPaths, _LiveSmokeRunner, run_channel_command
 from rook_agent.channels.config import load_channel_config
 from rook_agent.channels.state import ChannelStateStore
 from rook_agent.cli import build_parser, main
@@ -31,6 +32,36 @@ def test_main_dispatches_channel_commands() -> None:
 
     assert result == 0
     assert called == ["status"]
+
+
+def test_channel_smoke_parser_is_explicit_and_bounded() -> None:
+    args = build_parser().parse_args(
+        ["channel", "smoke", "--channels", "feishu,weixin"]
+    )
+
+    assert args.channel_command == "smoke"
+    assert args.channels == "feishu,weixin"
+
+
+def test_live_smoke_runner_writes_marker_only_after_allow_once(
+    tmp_path: Path,
+) -> None:
+    runner = _LiveSmokeRunner(tmp_path)
+
+    asyncio.run(runner.arun_user_turn("smoke"))
+    assert not runner.marker.exists()
+    asyncio.run(
+        runner.aresume_with_user_input("channel-live-smoke-write", "deny")
+    )
+    assert not runner.marker.exists()
+
+    asyncio.run(runner.arun_user_turn("smoke"))
+    asyncio.run(
+        runner.aresume_with_user_input("channel-live-smoke-write", "allow_once")
+    )
+    assert runner.marker.read_text(encoding="utf-8") == (
+        "Rook Mobile Channel Live Smoke\n"
+    )
 
 
 def test_project_add_requires_absolute_existing_directory(tmp_path: Path) -> None:

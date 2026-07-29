@@ -11,6 +11,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import time
+from types import SimpleNamespace
 from typing import Any, Callable
 
 from rook_agent.app.factory import RookRuntime, create_rook_runtime
@@ -79,6 +80,8 @@ def run_channel_command(
         return _run_login(args, credential_writer)
     if command == "serve":
         return _run_serve(args, selected, credential_reader)
+    if command == "smoke":
+        return _run_smoke(args, selected, credential_reader)
     if command == "autostart":
         return _run_autostart(args)
     raise ValueError("a channel subcommand is required")
@@ -213,30 +216,7 @@ def _run_serve(
         raise ValueError("add at least one project before serving channels")
     state = ChannelStateStore(paths.state)
     channels = _parse_channels(args.channels)
-    adapters: dict[ChannelKind, ChannelAdapter] = {}
-    if ChannelKind.FEISHU in channels:
-        raw = _load_credential(credential_reader, FEISHU_CREDENTIAL, "Feishu")
-        adapters[ChannelKind.FEISHU] = FeishuAdapter(
-            app_id=str(raw["app_id"]),
-            app_secret=str(raw["app_secret"]),
-        )
-    if ChannelKind.WEIXIN in channels:
-        raw = _load_credential(credential_reader, WEIXIN_CREDENTIAL, "WeChat")
-        credentials = WeixinCredentials(
-            bot_token=str(raw["bot_token"]),
-            bot_id=str(raw["bot_id"]),
-            ilink_user_id=str(raw["ilink_user_id"]),
-            base_url=str(raw.get("base_url") or "https://ilinkai.weixin.qq.com"),
-        )
-        adapters[ChannelKind.WEIXIN] = WeixinAdapter(
-            credentials=credentials,
-            cursor_loader=lambda: state.load_cursor(ChannelKind.WEIXIN, credentials.bot_id),
-            cursor_saver=lambda cursor: state.save_cursor(
-                ChannelKind.WEIXIN,
-                credentials.bot_id,
-                cursor,
-            ),
-        )
+    adapters = _create_adapters(channels, state, credential_reader)
     _configure_logging(paths.log)
     runtimes: dict[str, RookRuntime] = {}
 
@@ -269,6 +249,112 @@ def _run_serve(
         for runtime in runtimes.values():
             runtime.close()
     return 0
+
+
+def _run_smoke(
+    args: argparse.Namespace,
+    paths: ChannelPaths,
+    credential_reader: Callable[[str], str | None],
+) -> int:
+    config = load_channel_config(paths.config)
+    if not config.projects:
+        raise ValueError("add a dedicated test project before running channel smoke")
+    state = ChannelStateStore(paths.state)
+    channels = _parse_channels(args.channels)
+    adapters = _create_adapters(channels, state, credential_reader)
+    _configure_logging(paths.log)
+
+    def runtime_factory(binding: ProjectBinding, session_id: str) -> _LiveSmokeRunner:
+        return _LiveSmokeRunner(binding.path)
+
+    gateway = ChannelGateway(
+        adapters=adapters,
+        state=state,
+        config=config,
+        runtime_factory=runtime_factory,
+        queue_path=paths.queue,
+        max_concurrency=2,
+    )
+    print("Rook channel Live Smoke：真实 IM + 本地 Fake Runner，不调用模型。")
+    print("请在已配对私聊发送任意任务，批准后再发送 /diff 和 /cancel。")
+    try:
+        asyncio.run(gateway.serve())
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def _create_adapters(
+    channels: tuple[ChannelKind, ...],
+    state: ChannelStateStore,
+    credential_reader: Callable[[str], str | None],
+) -> dict[ChannelKind, ChannelAdapter]:
+    adapters: dict[ChannelKind, ChannelAdapter] = {}
+    if ChannelKind.FEISHU in channels:
+        raw = _load_credential(credential_reader, FEISHU_CREDENTIAL, "Feishu")
+        adapters[ChannelKind.FEISHU] = FeishuAdapter(
+            app_id=str(raw["app_id"]),
+            app_secret=str(raw["app_secret"]),
+        )
+    if ChannelKind.WEIXIN in channels:
+        raw = _load_credential(credential_reader, WEIXIN_CREDENTIAL, "WeChat")
+        credentials = WeixinCredentials(
+            bot_token=str(raw["bot_token"]),
+            bot_id=str(raw["bot_id"]),
+            ilink_user_id=str(raw["ilink_user_id"]),
+            base_url=str(raw.get("base_url") or "https://ilinkai.weixin.qq.com"),
+        )
+        adapters[ChannelKind.WEIXIN] = WeixinAdapter(
+            credentials=credentials,
+            cursor_loader=lambda: state.load_cursor(ChannelKind.WEIXIN, credentials.bot_id),
+            cursor_saver=lambda cursor: state.save_cursor(
+                ChannelKind.WEIXIN,
+                credentials.bot_id,
+                cursor,
+            ),
+        )
+    return adapters
+
+
+class _LiveSmokeRunner:
+    def __init__(self, project_root: Path) -> None:
+        self.project_root = project_root
+        self.marker = project_root / "rook-mobile-smoke.txt"
+        self.last_display_lines: list[str] = []
+        self.last_pending_input: object | None = None
+
+    async def arun_user_turn(self, content: str) -> object:
+        self.last_display_lines = []
+        self.last_pending_input = SimpleNamespace(
+            id="channel-live-smoke-write",
+            kind="permission_confirmation",
+            payload={
+                "tool_name": "smoke_write",
+                "permission_request": {
+                    "action": "write_path",
+                    "target": str(self.marker),
+                },
+            },
+        )
+        return SimpleNamespace(content="等待手机端单次审批。")
+
+    async def aresume_with_user_input(self, request_id: str, answer: str) -> object:
+        if request_id != "channel-live-smoke-write":
+            raise ValueError("Live Smoke approval request does not match")
+        self.last_pending_input = None
+        if answer == "allow_once":
+            self.marker.write_text(
+                "Rook Mobile Channel Live Smoke\n",
+                encoding="utf-8",
+            )
+            content = "Live Smoke 已获单次批准并写入 marker；未调用模型。"
+        else:
+            content = "Live Smoke 已拒绝；未写入文件，也未调用模型。"
+        self.last_display_lines = [content]
+        return SimpleNamespace(content=content)
+
+    def cancel_current_turn(self) -> None:
+        self.last_display_lines = ["Live Smoke 已收到取消请求。"]
 
 
 def _run_autostart(args: argparse.Namespace) -> int:
