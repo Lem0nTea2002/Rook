@@ -1888,6 +1888,62 @@ def test_agent_loop_reminds_model_to_create_todo_for_multi_step_tool_work(tmp_pa
     ) == 1
 
 
+def test_todo_planning_reminder_ignores_tool_results_from_previous_turns(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = AgentSession.create(
+        store=store,
+        session_id="sess_todo_current_turn_only",
+        agents_md="",
+        tools=[create_todo_tool(), _echo_tool()],
+    )
+    first_provider = FakeProvider(
+        [
+            ChatResponse(
+                provider="fake",
+                model="fake-model",
+                content="",
+                tool_calls=[
+                    ToolCall(id="call_echo_first", name="echo", arguments={"text": "first"})
+                ],
+                finish_reason="tool_calls",
+            ),
+            ChatResponse(provider="fake", model="fake-model", content="first done"),
+        ]
+    )
+    AgentLoop(
+        session=session,
+        provider=first_provider,
+        task_boundary_decider=lambda _: "new",
+    ).run_user_turn("first task")
+    second_provider = FakeProvider(
+        [
+            ChatResponse(
+                provider="fake",
+                model="fake-model",
+                content="",
+                tool_calls=[
+                    ToolCall(id="call_echo_second", name="echo", arguments={"text": "second"})
+                ],
+                finish_reason="tool_calls",
+            ),
+            ChatResponse(provider="fake", model="fake-model", content="second done"),
+        ]
+    )
+
+    response = AgentLoop(
+        session=session,
+        provider=second_provider,
+        task_boundary_decider=lambda _: "new",
+    ).run_user_turn("second task")
+
+    assert response.content == "second done"
+    assert all(
+        "Todo planning reminder" not in request.messages[-1].content
+        for request in second_provider.requests
+        if request.messages
+    )
+
+
 def test_agent_loop_injects_guidance_before_next_provider_call(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path)
     session = AgentSession.create(store=store, session_id="sess_guidance", agents_md="", tools=[_echo_tool()])
