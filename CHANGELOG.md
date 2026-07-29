@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Added a selectable Textual coding workbench with a searchable Slash Command
+  palette, `@file` references, controlled shell mode, diff/transcript viewers,
+  clipboard actions, prompt history, external-editor support, and bounded
+  rendering for long sessions.
 - Added the local Rook Mobile Channel gateway for controlling whitelisted
   projects from private Feishu or WeChat conversations.
 - Added the official Feishu `lark-oapi` long-connection transport and a native
@@ -25,6 +29,16 @@ All notable changes to this project are documented here. The format follows [Kee
   lock.
 - Added the optional `im` dependency extra; default installation and offline CI
   do not require either channel SDK.
+
+### Fixed
+
+- Corrected the WeChat iLink channel-version payload and Windows QR rendering.
+- Limited IM replies to the final Agent answer instead of exposing internal tool
+  traces.
+- Bound mobile approval records to the real tool, action, target, and action
+  hash.
+- Scoped Todo reminders to the current user turn and included untracked files
+  in the channel diff.
 
 ### Security
 

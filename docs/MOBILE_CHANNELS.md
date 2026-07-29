@@ -8,7 +8,8 @@ stay local.
 ## Setup
 
 ```powershell
-python -m pip install -e ".[im]"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
+pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 rook channel project add rook --path "D:\absolute\path\to\Rook"
 rook channel setup feishu
 rook channel login weixin
@@ -16,6 +17,9 @@ rook channel pair create --channel feishu --project rook
 rook channel pair create --channel weixin --project rook
 rook channel serve --channels feishu,weixin
 ```
+
+For a source checkout used for development, install the optional dependencies
+with `python -m pip install -e ".[im]"` instead.
 
 Send `/pair ABC123` in each private chat using the single-use code printed by
 Rook. Codes expire after ten minutes.

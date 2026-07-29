@@ -66,7 +66,7 @@ single sensitive action; project files, model credentials, the Agent Loop,
 Skills, and tool execution remain on your computer.
 
 ```powershell
-python -m pip install -e ".[im]"
+pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 rook channel project add rook --path "D:\absolute\path\to\Rook"
 rook channel setup feishu
 rook channel login weixin

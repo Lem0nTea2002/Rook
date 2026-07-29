@@ -64,7 +64,7 @@ Rook v0.4.0 可在电脑上运行本地 Gateway。手机只负责发送任务和
 审批；项目文件、模型凭据、Agent Loop、Skill 和工具执行仍留在电脑。
 
 ```powershell
-python -m pip install -e ".[im]"
+pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 rook channel project add rook --path "D:\absolute\path\to\Rook"
 rook channel setup feishu
 rook channel login weixin
