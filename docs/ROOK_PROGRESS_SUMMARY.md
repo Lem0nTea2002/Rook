@@ -14,10 +14,11 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前开发位置
 
-- 当前分支：`feature/tui-workbench`
+- 公开主分支：`main`，当前发布提交：`1e8c9475c82ae67886548d0b8b35137e10dc0d16`
 - 工作树：`D:/WorkAndStudy/FindJob/New-Harness-Agent/Rook/.worktrees/first-run-setup`
-- v0.4.0 Mobile Channel 已完成本地实现与离线验证，尚未推送、连接真实飞书/微信或发布 Release。
-- Rook Forge v0.2.4 已发布：PR #15–#17 合并 Candidate v5 Formal/发布、跨仓库 holdout、Coding Agent 加固、GitHub PR Gate 和统一证据；Release 和 Windows/Linux CI 均可公开复核。
+- PR #5 已合并，Rook v0.4.0 已在 `Lem0nTea2002/Rook` 发布；标签、Release target、主分支、包版本和中英文安装文档均指向同一版本。
+- v0.4.0 的 Windows/Ubuntu、Python 3.11/3.12 CI 全绿，并在各平台使用构建 wheel 完成全新虚拟环境安装和 `rook --help` 验证。
+- 飞书与个人微信均已连接真实 DeepSeek Runtime；个人微信已完成配对、只读任务、单次写入审批、diff、取消、重启恢复和渠道会话隔离验收。
 - 当前状态：内容不同的 Candidate v5 已使用 Adapter v12 从零完成 72-call Formal，自动门禁 promoted，随后完成真实人工审批和仓库级 Codex v1→v5 部署。审计中发现跨 Adapter target fingerprint 替换记录丢失 `from_version`，修复后通过真实 v5→v1 rollback 和 v1→v5 redeploy 验证，最终 v5 active、stale=false。
 - 两个不同 Skill 在两个公开仓库完成 16/16 次 live holdout，轨迹完整度 100%、基础设施排除 0；两者均因新增回归被正确拒绝。
 - Candidate v5 随后在独立的两仓库六案例 suite 完成 24/24 次、12 个有效配对：Baseline 33.3% → Forced 91.7%（+58.3pp），能力提升 +87.5pp，新增回归和基础设施排除均为 0；同时中位时延增加 23.6%、Token 增加 10.8%，已如实保留。
@@ -101,7 +102,8 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 当前验证结果
 
-- 2026-07-29 v0.4.0 Mobile Channel 本地离线基线：完整核心套件 `1957 passed, 12 skipped`；通道、共享 Runtime、CLI、权限恢复、回复投递终态和私聊审批绑定直接回归 `84 passed`。核心源码与测试的 Ruff、mypy、wheel 构建与 `git diff --check` 均通过；本轮未登录真实飞书/微信，也未调用模型。全仓 Ruff 仍保留 4 个既有 benchmark 启动脚本的 32 个 `E402`，这些脚本先设置源码路径再导入，未在本轮无关修改中重排。
+- 2026-07-29 v0.4.0 Mobile Channel 合并前离线基线：完整核心套件 `1957 passed, 12 skipped`；通道、共享 Runtime、CLI、权限恢复、回复投递终态和私聊审批绑定直接回归 `84 passed`。随后完成真实飞书与个人微信联调；最终发布候选的 TUI、配置、Channel、Agent loop 直接回归为 `287 passed`，Ruff、mypy（31 个源码文件）、wheel/sdist 构建与 `git diff --check` 均通过。
+- PR #5 及合并后的主分支 CI 均通过 Windows/Ubuntu × Python 3.11/3.12 矩阵、全新 wheel 安装、质量与供应链门禁和 Linux Docker 隔离边界验证。主分支运行记录：<https://github.com/Lem0nTea2002/Rook/actions/runs/30448105972>。
 - 2026-07-27 新增完整仓库与执行规模阶段的本地离线基线：`1829 passed, 11 skipped`；EvalOps 覆盖率门禁为 `529 passed, 7 skipped`、总覆盖率 `85.96%`。Ruff、mypy、wheel/sdist 构建与 `git diff --check` 均通过。本机 Docker daemon 未运行，因此真实 Docker 测试在本地保持 opt-in skipped；PR #19 的 [offline run 30267855455](https://github.com/ZHUMUJUN/Rook/actions/runs/30267855455) 已在 Ubuntu 中验证 digest 固定、禁网、只读根文件系统、无 capabilities、宿主 UID:GID、资源限制和 bind mount，连同 [Forge Gate run 30267855429](https://github.com/ZHUMUJUN/Rook/actions/runs/30267855429) 共 7/7 checks 全绿。
 - 本阶段锁定 SWE-bench Lite 固定 revision 派生的 24 个完整仓库任务（pytest、scikit-learn、Sphinx 各 8 个），并对 pytest 任务完成一次真实完整 clone、精确 detached checkout 与 clean-tree 校验；尚未声称已经解决这些任务或提交新的上游 PR。
 - 单机 SQLite WAL 调度器在 10/25/50 workers、每档 300 个离线确定性任务下分别达到 38.17/80.34/106.65 jobs/s，P95 为 266/297/844ms；900/900 成功、51/51 注入故障恢复。该结果只衡量持久化队列与故障恢复控制面，不代表真实 Agent、模型或 Docker 吞吐。
@@ -110,8 +112,8 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 - 当前远端完整核心离线基线：Ubuntu Python 3.11/3.12 均为 `1804 passed, 7 skipped`；Windows Python 3.11/3.12 均为 `1805 passed, 6 skipped`。PR #18 的 [offline run 30259202971](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202971) 和 [Rook Forge PR Gate run 30259202974](https://github.com/ZHUMUJUN/Rook/actions/runs/30259202974) 共 6/6 checks 全绿；默认外部评测关闭，不会启动真实 Codex 或产生模型费用。
 - Ruff 全仓关键规则、mypy 核心 EvalOps 边界和 pip-audit 均通过；pip-audit 未发现已知第三方依赖漏洞，本地未发布包按预期标记为不可从 PyPI 审计。
-- [`rook-agent v0.2.4`](https://github.com/ZHUMUJUN/Rook/releases/tag/v0.2.4) wheel/sdist 已发布；wheel 在全新临时虚拟环境中完成安装、版本导入、`rook --help` 和 `rook eval demo`。
-- v0.2.4 wheel SHA-256 为 `98bde2b44e9abaf06d5a7d883c703a1d3a4a83b3df8e30b10ec229ac66e7bfd0`；sdist SHA-256 为 `f35289532bfde706cb3a5918d1d63549d279e807bd6d7d6c8f335de5d7ee0bfa`。
+- [`rook-agent v0.4.0`](https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0) wheel/sdist 已发布；远端下载制品的 SHA-256 与本地发布构建完全一致。
+- v0.4.0 wheel SHA-256 为 `cad4387cca763270d8ede6397916396fb21cae6e34996cfb768d41c0990aa2d0`；sdist SHA-256 为 `9f287d94e65006c335789fb7ebc5d51d7e7905d2364a1b68e5cd34dcbf4b1692`。
 - PR #16 的 GitHub Actions [offline run 30253080662](https://github.com/ZHUMUJUN/Rook/actions/runs/30253080662) 5/5 job 全绿：Quality、Ubuntu Python 3.11/3.12、Windows Python 3.11/3.12 全部通过。
 - 独立的 [Rook Forge PR Gate run 30253080798](https://github.com/ZHUMUJUN/Rook/actions/runs/30253080798) 通过，外部模型调用和费用均关闭。
 - RM-2 离线控制实验：有效 Candidate `promoted`、中性 Candidate `rejected`、危险 Candidate 因 3 个 adversarial 新增回归而 `rejected`；仅证明控制面，不作为真实模型效果。
@@ -171,10 +173,9 @@ Rook 是一个可真实运行的本地 Python Coding Agent；Rook Forge 是内�
 
 ## 下一阶段计划
 
-1. 提交并推送 v0.4.0 Mobile Channel，等待 Windows/Linux 远端离线 CI。
-2. 由用户分别完成飞书应用和微信 iLink 的真实登录；首次联调只绑定一个测试账号和一个临时项目。
-3. 在单独授权后完成真实私聊收发、一次性权限审批、断线重连、进程重启恢复和拒绝越权路径的联调记录。
-4. 根据联调结果修正文档和适配器边界，再发布 v0.4.0 Release；真实 IM 联调不得触发 Formal 或其他付费模型评测。
+1. 观察 v0.4.0 在全新用户环境中的安装和首次配置反馈，问题通过独立补丁版本修复。
+2. 保持个人微信与飞书首版仅支持私聊文本；图片、语音、文件、群聊和主动推送不进入当前承诺。
+3. 在不扩大权限边界的前提下补充长期运行、断网恢复和队列积压观测证据。
 
 ## 当前停点
 
@@ -184,4 +185,4 @@ Rook Forge 产品闭环已经形成，并可由 `rook eval demo` 零配置复现
 
 当前最有价值的新证据并非全部正向：两个真实仓库 Candidate 均因新增回归被拒绝，Rook 自身真实 Coding dogfood 也只有 3/5 通过。这些结果表明 Forge 的拒绝链路有效，同时给出了下一轮 Rook Agent 隔离和上下文效率改进的明确基线。内容不同的 Candidate v5 已独立完成真实 Formal、审批、v1→v5 部署，并通过一次真实 v5→v1→v5 事务链验证跨 Adapter rollback 与审计记录。
 
-v0.4.0 Mobile Channel 已形成离线闭环：单用户配对 → 项目白名单 → 持久队列 → 本地 Rook Runtime → 一次性 IM 权限审批 → 脱敏回复。它目前只有 Fake Adapter 和本地 SDK 构造验证，尚未声称真实飞书/微信端到端可用；真实联调需要用户单独授权并完成平台登录。
+v0.4.0 Mobile Channel 已完成真实闭环：单用户配对 → 项目白名单 → 持久队列 → DeepSeek 驱动的本地 Rook Runtime → 一次性 IM 权限审批 → 最终答案回复。飞书与个人微信已同时在线并保持独立 Channel Session；个人微信还验证了消息去重、`context_token`、游标恢复、diff、取消和重启恢复。首版仍明确排除图片、语音、文件、群聊和主动推送。
