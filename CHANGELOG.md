@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-29
+
+### Added
+
+- Added the `rook-pixel` and `rook-high-contrast` Textual themes, a compact
+  pixel-bird identity, grouped `/help` viewer, and 21 deterministic SVG
+  snapshots across three terminal sizes.
+
+### Changed
+
+- Reworked the TUI into the Night Flight Mint palette with clearer role labels,
+  square interaction borders, a focused metadata bar, and higher-contrast
+  command, picker, message, activity, and composer states.
+- Refreshed the README TUI screenshots and product demo GIF from real Textual
+  widgets without model calls.
+
+### Fixed
+
+- Forced TrueColor only while constructing the full-screen TUI so inherited
+  `NO_COLOR=1` and `TERM=dumb` no longer erase the interface palette, while
+  ordinary CLI output and the parent process environment remain unchanged.
+- Moved `/help` out of the transcript into a dismissible local page so command
+  discovery no longer consumes conversation space or context.
+- Kept SVG snapshot comparison inside the test suite and raised the development
+  pytest floor to 9.0.3, avoiding the known vulnerability forced by the latest
+  third-party Textual snapshot plugin.
+
 ## [0.4.0] - 2026-07-29
 
 ### Added
@@ -289,7 +316,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.7...v0.4.0
 [0.2.7]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.5...v0.2.6

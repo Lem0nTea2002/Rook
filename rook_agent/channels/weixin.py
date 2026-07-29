@@ -24,7 +24,7 @@ from rook_agent.channels.base import ChannelAdapter, InboundHandler, split_chann
 from rook_agent.channels.models import ChannelKind, InboundMessage
 
 
-BOT_AGENT = "Rook/0.4.0"
+BOT_AGENT = "Rook/0.4.1"
 DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com"
 logger = logging.getLogger(__name__)
 
@@ -370,7 +370,7 @@ def _normalize_weixin_message(
 
 
 def _base_info() -> dict[str, Any]:
-    return {"channel_version": "0.4.0", "bot_agent": BOT_AGENT}
+    return {"channel_version": "0.4.1", "bot_agent": BOT_AGENT}
 
 
 def _require_success(response: dict[str, Any], *, operation: str) -> None:

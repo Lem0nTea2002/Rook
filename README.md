@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.0"><img alt="Release v0.4.0" src="https://img.shields.io/badge/release-v0.4.0-56A8FF?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.1"><img alt="Release v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-38CFE0?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.zh-CN.md">简体中文</a>
@@ -28,7 +28,7 @@ useful enough to ship.
 ## Quickstart
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.0"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
 rook
 ```
 
@@ -61,7 +61,7 @@ rook eval demo
 
 ## Control local Rook from Feishu or WeChat
 
-Rook v0.4.0 can run a local gateway. Your phone sends tasks and approves a
+Rook v0.4.1 can run a local gateway. Your phone sends tasks and approves a
 single sensitive action; project files, model credentials, the Agent Loop,
 Skills, and tool execution remain on your computer.
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rook_agent.app.command_actions import SwitchPageAction
 from rook_agent.app.command_registry import CommandSpec
 from rook_agent.app.commands import CommandResult
 
@@ -56,10 +57,40 @@ BUILTIN_COMMAND_SPECS = (
 )
 
 _SPEC_BY_NAME = {spec.name: spec for spec in BUILTIN_COMMAND_SPECS}
-HELP_COMMANDS = [(spec.display_usage, spec.description) for spec in BUILTIN_COMMAND_SPECS]
-HELP_TEXT = "\n".join(
-    ["Rook 命令：", *[f"{command.ljust(48)} {description}" for command, description in HELP_COMMANDS]]
+
+_HELP_GROUPS = (
+    ("会话", ("/new", "/fork", "/sessions", "/session", "/resume", "/rename")),
+    (
+        "模型、Skill 与上下文",
+        ("/model", "/skills", "/skill", "/use", "/forge", "/context", "/compact"),
+    ),
+    ("项目与 Git", ("/status", "/usage", "/diff")),
+    (
+        "权限与界面",
+        ("/mode", "/permissions", "/copy", "/clear", "/keys", "/language", "/theme"),
+    ),
+    (
+        "导出与诊断",
+        ("/help", "/share", "/transcript", "/config", "/doctor", "/quit"),
+    ),
 )
+
+
+def _help_page_markdown() -> str:
+    lines = [
+        "# ROOK // COMMAND DECK",
+        "",
+        "在输入框键入 `/` 搜索命令；继续输入可实时过滤。按 `Esc` 返回聊天。",
+    ]
+    for title, names in _HELP_GROUPS:
+        lines.extend(("", f"## {title}", ""))
+        for name in names:
+            spec = _SPEC_BY_NAME[name]
+            lines.append(f"- `{spec.display_usage}` — {spec.description}")
+    return "\n".join(lines)
+
+
+HELP_PAGE_MARKDOWN = _help_page_markdown()
 
 
 def command_specs(*names: str) -> tuple[CommandSpec, ...]:
@@ -74,4 +105,7 @@ class HelpCommandHandler:
         command = " ".join(text.strip().split())
         if command not in {"/help", "/?"}:
             return CommandResult(handled=False)
-        return CommandResult(handled=True, output=HELP_TEXT)
+        return CommandResult(
+            handled=True,
+            action=SwitchPageAction(page="help", content=HELP_PAGE_MARKDOWN),
+        )
