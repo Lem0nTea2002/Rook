@@ -74,6 +74,11 @@ rook channel pair create --channel feishu --project rook
 rook channel serve --channels feishu,weixin
 ```
 
+`channel setup feishu` uses Feishu's official QR registration flow and stores
+the returned secret directly in the operating-system credential manager. To
+reuse an existing app, pass `--app-id cli_xxx`; its secret is read from a
+hidden local prompt and must never be pasted into chat or a command argument.
+
 Only a paired user's private text messages and explicitly whitelisted projects
 are accepted. Feishu uses approval cards and WeChat uses six-digit codes. Mobile
 approval is allow-once or deny only and expires as denial after five minutes.

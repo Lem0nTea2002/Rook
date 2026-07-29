@@ -91,10 +91,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     channel_setup = channel_subparsers.add_parser(
         "setup",
-        help="Store official channel application credentials securely.",
+        help="Create or configure an official channel application securely.",
     )
     channel_setup.add_argument("setup_channel", choices=("feishu",))
-    channel_setup.add_argument("--app-id", default=None)
+    channel_setup.add_argument(
+        "--app-id",
+        default=None,
+        help="Configure an existing Feishu app; omit to create a dedicated app by QR scan.",
+    )
     channel_login = channel_subparsers.add_parser(
         "login",
         help="Log in to an official user-authorized channel.",

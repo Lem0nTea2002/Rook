@@ -72,6 +72,10 @@ rook channel pair create --channel feishu --project rook
 rook channel serve --channels feishu,weixin
 ```
 
+`channel setup feishu` 默认通过飞书官方二维码创建独立应用，并把 Secret 直接
+写入操作系统凭据库。复用已有应用时使用 `--app-id cli_xxx`，Secret 只在本机
+隐藏输入；不要把它发送到聊天或命令行参数。
+
 入口只接受已配对用户的私聊文本和本机白名单项目。敏感工具会暂停：飞书显示
 审批卡片，微信显示 6 位码；只能允许一次或拒绝，5 分钟超时自动拒绝。TUI 与
 手机入口复用同一权限管理器、Session Store 和项目执行锁。

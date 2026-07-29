@@ -6,6 +6,7 @@ import argparse
 import asyncio
 from dataclasses import dataclass
 import getpass
+import importlib
 import json
 import logging
 from logging.handlers import RotatingFileHandler
@@ -38,6 +39,7 @@ from rook_agent.config.credentials import read_secret, write_secret
 
 FEISHU_CREDENTIAL = "channel:feishu:default"
 WEIXIN_CREDENTIAL = "channel:weixin:default"
+FeishuRegistrar = Callable[[], dict[str, object]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +67,7 @@ def run_channel_command(
     paths: ChannelPaths | None = None,
     credential_reader: Callable[[str], str | None] = read_secret,
     credential_writer: Callable[[str, str], None] = write_secret,
+    feishu_registrar: FeishuRegistrar | None = None,
 ) -> int:
     selected = paths or default_channel_paths()
     command = args.channel_command
@@ -75,7 +78,11 @@ def run_channel_command(
     if command == "status":
         return _run_status(args, selected, credential_reader)
     if command == "setup":
-        return _run_setup(args, credential_writer)
+        return _run_setup(
+            args,
+            credential_writer,
+            feishu_registrar or _register_feishu_application,
+        )
     if command == "login":
         return _run_login(args, credential_writer)
     if command == "serve":
@@ -157,19 +164,91 @@ def _run_status(
 def _run_setup(
     args: argparse.Namespace,
     credential_writer: Callable[[str, str], None],
+    feishu_registrar: FeishuRegistrar,
 ) -> int:
     if args.setup_channel != "feishu":
         raise ValueError("only Feishu setup is supported by this command")
-    app_id = (args.app_id or input("Feishu App ID: ")).strip()
-    app_secret = getpass.getpass("Feishu App Secret: ").strip()
+    if args.app_id:
+        app_id = str(args.app_id).strip()
+        app_secret = getpass.getpass("Feishu App Secret: ").strip()
+    else:
+        registration = feishu_registrar()
+        app_id = _required_registration_value(registration, "client_id")
+        app_secret = _required_registration_value(registration, "client_secret")
     if not app_id or not app_secret:
         raise ValueError("Feishu App ID and App Secret are required")
     credential_writer(
         FEISHU_CREDENTIAL,
         json.dumps({"app_id": app_id, "app_secret": app_secret}, separators=(",", ":")),
     )
+    print(f"Feishu app configured: {app_id}")
     print("Feishu credentials stored in the operating-system credential manager.")
     return 0
+
+
+def _register_feishu_application() -> dict[str, object]:
+    try:
+        lark = importlib.import_module("lark_oapi")
+    except ImportError as exc:
+        raise RuntimeError(
+            'Feishu setup requires channel extras: pip install "rook-agent[im]"'
+        ) from exc
+
+    def show_qr(info: object) -> None:
+        if not isinstance(info, dict):
+            raise ValueError("Feishu registration QR response is invalid")
+        raw_url = info.get("url")
+        if not isinstance(raw_url, str) or not raw_url:
+            raise ValueError("Feishu registration QR response is incomplete")
+        print("Scan with Feishu to create a dedicated Rook application:")
+        print(raw_url)
+        _print_qr(raw_url)
+        expire_in = info.get("expire_in")
+        if isinstance(expire_in, int):
+            print(f"QR expires in {expire_in} seconds.")
+
+    raw_result = lark.register_app(
+        on_qr_code=show_qr,
+        source="rook-0.4.0",
+        app_preset={
+            "name": "Rook",
+            "desc": "Local coding agent mobile gateway",
+        },
+        addons={
+            "scopes": {
+                "tenant": [
+                    "im:message.p2p_msg:readonly",
+                    "im:message:send_as_bot",
+                ],
+            },
+            "events": {
+                "items": {
+                    "tenant": ["im.message.receive_v1"],
+                },
+            },
+            "callbacks": {
+                "items": ["card.action.trigger"],
+            },
+        },
+        create_only=True,
+    )
+    if not isinstance(raw_result, dict):
+        raise ValueError("Feishu registration result is invalid")
+    result: dict[str, object] = {}
+    for key, value in raw_result.items():
+        if isinstance(key, str):
+            result[key] = value
+    return result
+
+
+def _required_registration_value(
+    registration: dict[str, object],
+    name: str,
+) -> str:
+    value = registration.get(name)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Feishu registration result is incomplete")
+    return value.strip()
 
 
 def _run_login(

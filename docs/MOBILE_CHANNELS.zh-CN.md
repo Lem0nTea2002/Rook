@@ -43,7 +43,17 @@ rook channel project add rook --path "D:\WorkAndStudy\FindJob\Rook"
 
 ## 2. 配置飞书
 
-在飞书开放平台创建企业自建应用，启用机器人，并配置：
+首次配置直接运行：
+
+```powershell
+rook channel setup feishu
+```
+
+Rook 使用飞书官方扫码注册流程创建独立应用，并把返回的 App ID 和 App Secret
+直接写入操作系统凭据库。Secret 不会显示在终端，也不会进入 `channels.toml`、
+启动参数或日志。
+
+扫码后，在飞书开放平台为新应用启用机器人，并确认：
 
 - 应用身份权限：`im:message.p2p_msg:readonly`
 - 应用身份权限：`im:message:send_as_bot`
@@ -51,14 +61,14 @@ rook channel project add rook --path "D:\WorkAndStudy\FindJob\Rook"
 - 事件接收方式：使用长连接
 - 回调：`card.action.trigger`（用于审批卡片）
 
-然后在电脑执行：
+如果必须复用已有应用，则执行：
 
 ```powershell
-rook channel setup feishu
+rook channel setup feishu --app-id cli_xxx
 ```
 
-App Secret 通过隐藏输入读取并写入操作系统凭据库，不进入
-`channels.toml`、启动参数或日志。
+此时 App Secret 只通过本机隐藏输入读取。不要通过聊天、Issue、命令行参数或
+环境变量传递 Secret；一旦误发，应先在飞书开发者后台重置，再重新配置 Rook。
 
 飞书没有面向机器人的原生“正在输入”接口。Rook 会先发送“正在处理”进度卡，
 任务结束后原地更新为“处理完成”，再回复最终结果；不会把普通消息伪装成原生

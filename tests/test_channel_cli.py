@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import rook_agent.channels.cli as channel_cli
 from rook_agent.channels.autostart import WindowsAutostart
 from rook_agent.channels.cli import (
     ChannelPaths,
@@ -80,6 +82,127 @@ def test_qr_renderer_is_ascii_only_for_windows_terminals() -> None:
 
     assert rendered.splitlines() == ["  ##  ", "######", "  ##  "]
     assert rendered.isascii()
+
+
+def test_feishu_setup_registers_dedicated_app_without_printing_secret(
+    capsys,
+) -> None:
+    stored: dict[str, str] = {}
+    registered: list[bool] = []
+    args = build_parser().parse_args(["channel", "setup", "feishu"])
+
+    result = run_channel_command(
+        args,
+        credential_writer=stored.__setitem__,
+        feishu_registrar=lambda: (
+            registered.append(True)
+            or {
+                "client_id": "cli_rook",
+                "client_secret": "registered-secret",
+            }
+        ),
+    )
+
+    assert result == 0
+    assert registered == [True]
+    assert json.loads(stored["channel:feishu:default"]) == {
+        "app_id": "cli_rook",
+        "app_secret": "registered-secret",
+    }
+    output = capsys.readouterr().out
+    assert "cli_rook" in output
+    assert "registered-secret" not in output
+
+
+def test_feishu_setup_rejects_incomplete_registration_result() -> None:
+    args = build_parser().parse_args(["channel", "setup", "feishu"])
+
+    with pytest.raises(ValueError, match="incomplete"):
+        run_channel_command(
+            args,
+            credential_writer=lambda _name, _value: pytest.fail(
+                "incomplete credentials must not be stored"
+            ),
+            feishu_registrar=lambda: {"client_id": "cli_rook"},
+        )
+
+
+def test_feishu_setup_can_reuse_existing_app_with_hidden_secret(
+    monkeypatch,
+) -> None:
+    stored: dict[str, str] = {}
+    monkeypatch.setattr(
+        channel_cli.getpass,
+        "getpass",
+        lambda _prompt: "local-secret",
+    )
+
+    result = run_channel_command(
+        build_parser().parse_args(
+            ["channel", "setup", "feishu", "--app-id", "cli_existing"]
+        ),
+        credential_writer=stored.__setitem__,
+        feishu_registrar=lambda: pytest.fail(
+            "manual setup must not create another application"
+        ),
+    )
+
+    assert result == 0
+    assert json.loads(stored["channel:feishu:default"]) == {
+        "app_id": "cli_existing",
+        "app_secret": "local-secret",
+    }
+
+
+def test_feishu_registration_requests_only_mobile_gateway_capabilities(
+    monkeypatch,
+    capsys,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def register_app(**kwargs):
+        captured.update(kwargs)
+        kwargs["on_qr_code"](
+            {
+                "url": "https://accounts.feishu.cn/device",
+                "expire_in": 60,
+            }
+        )
+        return {
+            "client_id": "cli_rook",
+            "client_secret": "registered-secret",
+        }
+
+    monkeypatch.setattr(
+        channel_cli.importlib,
+        "import_module",
+        lambda name: SimpleNamespace(register_app=register_app),
+    )
+    rendered: list[str] = []
+    monkeypatch.setattr(channel_cli, "_print_qr", rendered.append)
+
+    result = channel_cli._register_feishu_application()
+
+    assert result["client_id"] == "cli_rook"
+    assert captured["create_only"] is True
+    assert captured["addons"] == {
+        "scopes": {
+            "tenant": [
+                "im:message.p2p_msg:readonly",
+                "im:message:send_as_bot",
+            ],
+        },
+        "events": {
+            "items": {
+                "tenant": ["im.message.receive_v1"],
+            },
+        },
+        "callbacks": {
+            "items": ["card.action.trigger"],
+        },
+    }
+    assert rendered == ["https://accounts.feishu.cn/device"]
+    assert "registered-secret" not in capsys.readouterr().out
 
 
 def test_project_add_requires_absolute_existing_directory(tmp_path: Path) -> None:
