@@ -385,9 +385,9 @@ def _dispatch_callback(
     data: object,
     *,
     loop: asyncio.AbstractEventLoop,
-    timeout_seconds: float = 2.5,
+    timeout_seconds: float = 10.0,
 ) -> None:
-    """在飞书回调返回前确认事件已交给持久化网关。"""
+    """在飞书回调返回前确认事件已由持久化网关处理。"""
     result = handler(data)
     if not inspect.isawaitable(result):
         return
@@ -399,7 +399,9 @@ def _dispatch_callback(
     try:
         future.result(timeout=timeout_seconds)
     except FutureTimeoutError as exc:
-        raise RuntimeError("飞书事件未在 2.5 秒内完成持久交接") from exc
+        raise RuntimeError(
+            f"飞书事件未在 {timeout_seconds:g} 秒内完成持久处理"
+        ) from exc
 
 
 def _progress_card(*, active: bool) -> dict[str, Any]:

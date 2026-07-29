@@ -308,6 +308,25 @@ def test_feishu_callback_waits_for_durable_handoff() -> None:
     assert asyncio.run(scenario()) == ["event"]
 
 
+def test_feishu_callback_allows_reply_after_previous_timeout_boundary() -> None:
+    async def scenario() -> list[str]:
+        received: list[str] = []
+
+        async def handler(data: object) -> None:
+            await asyncio.sleep(2.6)
+            received.append(str(data))
+
+        await asyncio.to_thread(
+            _dispatch_callback,
+            handler,
+            "event",
+            loop=asyncio.get_running_loop(),
+        )
+        return received
+
+    assert asyncio.run(scenario()) == ["event"]
+
+
 def test_feishu_callback_fails_when_handoff_exceeds_boundary() -> None:
     async def scenario() -> None:
         completed = asyncio.Event()
@@ -316,7 +335,7 @@ def test_feishu_callback_fails_when_handoff_exceeds_boundary() -> None:
             await asyncio.sleep(0.05)
             completed.set()
 
-        with pytest.raises(RuntimeError, match="持久交接"):
+        with pytest.raises(RuntimeError, match="持久处理"):
             await asyncio.to_thread(
                 _dispatch_callback,
                 handler,
