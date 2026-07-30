@@ -30,7 +30,7 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
+pipx install --backend pip "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
 rook
 ```
 

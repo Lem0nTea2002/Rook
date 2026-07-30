@@ -248,7 +248,10 @@ def _render_quickstart(index: int) -> Image.Image:
     _panel(draw, (90, 180, 1190, 555), fill="#071017", outline="#2A555D")
     code_font = _font(22, mono=True)
     commands = (
-        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"', CYAN),
+        (
+            '$ pipx install --backend pip "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"',
+            CYAN,
+        ),
         ("$ rook", GREEN),
         ("$ rook eval demo", BLUE),
     )
