@@ -1,4 +1,4 @@
-from rook_agent.app.command_actions import SwitchPageAction
+from rook_agent.app.commands import ContentFormat
 from rook_agent.app.help_commands import (
     BUILTIN_COMMAND_SPECS,
     HELP_PAGE_MARKDOWN,
@@ -10,8 +10,9 @@ def test_help_command_lists_current_slash_commands_in_chinese() -> None:
     result = HelpCommandHandler().handle("/help")
 
     assert result.handled is True
-    assert result.output == ""
-    assert result.action == SwitchPageAction(page="help", content=HELP_PAGE_MARKDOWN)
+    assert result.output == HELP_PAGE_MARKDOWN
+    assert result.output_format == ContentFormat.MARKDOWN
+    assert result.action is None
     assert "# ROOK // COMMAND DECK" in HELP_PAGE_MARKDOWN
     assert "## 会话" in HELP_PAGE_MARKDOWN
     assert "## 模型、Skill 与上下文" in HELP_PAGE_MARKDOWN

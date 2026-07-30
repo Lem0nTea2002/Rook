@@ -32,6 +32,11 @@ class ExpandableCard(Static):
         self.update(self._card_text())
         event.stop()
 
+    def replace_content(self, content: str) -> None:
+        self.full_content = content
+        self.expanded = len(content) <= self.SUMMARY_CHARS
+        self.update(self._card_text())
+
 
 class ToolCard(ExpandableCard):
     pass

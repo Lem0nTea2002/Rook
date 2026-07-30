@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.1"><img alt="Release v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-38CFE0?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.2"><img alt="Release v0.4.2" src="https://img.shields.io/badge/release-v0.4.2-38CFE0?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.zh-CN.md">简体中文</a>
@@ -25,10 +25,13 @@ useful enough to ship.
 
 ![Rook product demo: Rookie startup, coding workflow, and Skill release gates](docs/images/rook-demo.gif)
 
+[Run the three-minute interview demo](docs/THREE_MINUTE_DEMO.zh-CN.md): Coding
+Task → Tool Call → Skill exam → gate → approval → deploy → drift → rollback.
+
 ## Quickstart
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
 rook
 ```
 
@@ -54,14 +57,14 @@ rook eval demo
 | Coding agent | Read, search, edit, run commands, and verify changes |
 | Coding workbench | Selectable output, Slash Palette, `@` files, controlled shell, diff, and transcript |
 | Visible agent loop | Stream model output, tool calls, results, permission requests, and todos |
-| Permissions and sessions | Confirm risky actions; persist, resume, and compact sessions |
+| Permissions and sessions | Choose risky actions in an automatic picker; persist, resume, and compact sessions |
 | Mobile channels | Paired Feishu/WeChat DMs submit tasks and approve one sensitive action |
 | Skill exams | Run isolated Baseline, Forced, and Routed paired experiments |
 | Skill releases | Require human approval, deploy to Rook/Codex independently, and roll back |
 
 ## Control local Rook from Feishu or WeChat
 
-Rook v0.4.1 can run a local gateway. Your phone sends tasks and approves a
+Rook v0.4.2 can run a local gateway. Your phone sends tasks and approves a
 single sensitive action; project files, model credentials, the Agent Loop,
 Skills, and tool execution remain on your computer.
 
@@ -128,6 +131,8 @@ argument completion.
 | `Ctrl+R` | Search project-scoped prompt history |
 | `Ctrl+X Ctrl+E` | Edit the prompt with `$VISUAL` or `$EDITOR` |
 | `Shift+Tab` | Cycle safe permission modes; never enters bypass |
+| `Enter` / `Alt+Enter` while running | Steer the current turn / queue the next task |
+| `↑` / `↓` then `Enter` on approval | Select and confirm `deny`, `allow once`, or scoped persistent access |
 
 Output, Markdown, code blocks, and tool cards are selectable. Long tool output
 expands on click. The full transcript stays in state while only the latest 200
@@ -145,7 +150,7 @@ Rendering does not call a model.
 | --- | --- |
 | `gpt-5.4-mini` Formal | 72/72 calls and 36 comparable pairs; Baseline 25% → Forced 94.4% (+69.4pp) |
 | Efficiency and safety | Median latency -5.8%, median tokens -15.2%, 0 new regressions, 100% trace completeness |
-| Cross-platform CI | Ubuntu 1844 passed / 8 skipped; Windows 1845 passed / 7 skipped |
+| Cross-platform CI | 2,000+ offline tests on Ubuntu/Windows and Python 3.11/3.12; exact counts stay in CI |
 | Release lifecycle | Real gate, human approval, dual-target deployment, drift detection, and atomic rollback |
 
 The Formal used a sealed holdout. Dollar cost and Codex routing activation were not

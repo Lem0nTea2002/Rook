@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from rook_agent.app.command_actions import SwitchPageAction
 from rook_agent.app.command_registry import CommandSpec
-from rook_agent.app.commands import CommandResult
+from rook_agent.app.commands import CommandResult, ContentFormat
 
 
 BUILTIN_COMMAND_SPECS = (
@@ -107,5 +106,6 @@ class HelpCommandHandler:
             return CommandResult(handled=False)
         return CommandResult(
             handled=True,
-            action=SwitchPageAction(page="help", content=HELP_PAGE_MARKDOWN),
+            output=HELP_PAGE_MARKDOWN,
+            output_format=ContentFormat.MARKDOWN,
         )

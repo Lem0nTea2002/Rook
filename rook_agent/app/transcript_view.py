@@ -13,6 +13,7 @@ _DISPLAY_LABELS = {
     TuiEntryKind.REASONING: "THINK",
     TuiEntryKind.TOOL: "TOOL",
     TuiEntryKind.PERMISSION: "APPROVAL",
+    TuiEntryKind.QUEUE: "QUEUE",
     TuiEntryKind.ERROR: "ERROR",
 }
 
@@ -20,7 +21,13 @@ _DISPLAY_LABELS = {
 def entry_display_label(entry: TuiTranscriptEntry) -> str:
     """返回只用于界面呈现的稳定角色标签。"""
 
-    return _DISPLAY_LABELS[entry.kind]
+    base = _DISPLAY_LABELS[entry.kind]
+    custom = entry.label.strip().upper()
+    if entry.kind == TuiEntryKind.QUEUE:
+        return custom or base
+    if entry.kind == TuiEntryKind.COMMAND and custom not in {"", "COMMAND"}:
+        return f"{base} · {custom}"
+    return base
 
 
 def entry_display_markdown_text(entry: TuiTranscriptEntry) -> str:
@@ -59,6 +66,16 @@ def entry_classes(entry: TuiTranscriptEntry) -> str:
         return f"{base} system-message"
     if entry.kind == TuiEntryKind.COMMAND:
         return f"{base} command-message"
+    if entry.kind == TuiEntryKind.QUEUE:
+        if entry.status == "paused":
+            return f"{base} queue-message queue-paused"
+        if entry.status in {"done", "consumed"}:
+            return f"{base} queue-message queue-done"
+        if entry.status == "running":
+            return f"{base} queue-message queue-running"
+        if entry.status == "cancelled":
+            return f"{base} queue-message queue-cancelled"
+        return f"{base} queue-message queue-queued"
     if entry.kind == TuiEntryKind.USER:
         return f"{base} user-message"
     if entry.kind == TuiEntryKind.ASSISTANT:
@@ -85,7 +102,13 @@ def entry_classes(entry: TuiTranscriptEntry) -> str:
 
 
 def entry_plain_text(entry: TuiTranscriptEntry) -> str:
-    if entry.kind in {TuiEntryKind.USER, TuiEntryKind.ASSISTANT, TuiEntryKind.TOOL, TuiEntryKind.REASONING}:
+    if entry.kind in {
+        TuiEntryKind.USER,
+        TuiEntryKind.ASSISTANT,
+        TuiEntryKind.TOOL,
+        TuiEntryKind.REASONING,
+        TuiEntryKind.QUEUE,
+    }:
         return f"{entry.label}\n  {entry.body}"
     return entry.body
 

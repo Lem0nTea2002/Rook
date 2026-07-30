@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-30
+
+### Added
+
+- Added in-session steering with `Enter`, FIFO follow-up tasks with `Alt+Enter`,
+  queue recall, paused failure states, and transcript-visible queue cards.
+- Added a reproducible three-minute interview demo covering a live Coding Task
+  and the deterministic Forge exam, gate, approval, deployment, drift, and
+  rollback lifecycle.
+
+### Changed
+
+- Kept `/help` in the local TUI transcript as grouped Markdown without writing
+  it to the Agent session or model context.
+- Permission requests now open a keyboard picker automatically. `Allow once`
+  is highlighted, but execution still requires an explicit Enter confirmation.
+- Raised the development test baseline to pytest 9 and removed the unused
+  third-party snapshot plugin; Rook's repository-owned SVG comparator remains.
+
+### Fixed
+
+- Preserved queued-task isolation across permission waits, cancellation, late
+  steering, Provider failures, and session changes.
+- Kept explicit typed permission answers authoritative even while the picker is
+  open, preventing a typed `deny` from accepting the highlighted option.
+
 ## [0.4.1] - 2026-07-29
 
 ### Added
@@ -316,7 +342,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Candidate, artifact, deployment, and rollback paths reject traversal and symbolic-link escapes; unmanaged Codex Skill directories are never overwritten.
 - Default tests and CI keep real Codex execution and model costs disabled.
 
-[Unreleased]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/Lem0nTea2002/Rook/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.7...v0.4.0
 [0.2.7]: https://github.com/Lem0nTea2002/Rook/compare/v0.2.6...v0.2.7

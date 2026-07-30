@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from rook_agent.agent.loop_limits import AgentLoopLimits
-from rook_agent.app.command_actions import ModelChangedAction, SwitchPageAction
+from rook_agent.app.command_actions import ModelChangedAction
+from rook_agent.app.commands import ContentFormat
 from rook_agent.app.factory import RookRuntime, create_rook_app, create_rook_runtime
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.runtime import AgentChatRunner
@@ -53,8 +54,9 @@ def test_create_rook_app_wires_session_commands_context_and_chat(tmp_path: Path)
     assert "Session: sess_test" in app.command_handler.handle("/context").output
     assert "Sessions:" in app.command_handler.handle("/sessions").output
     help_result = app.command_handler.handle("/help")
-    assert isinstance(help_result.action, SwitchPageAction)
-    assert "/resume" in help_result.action.content
+    assert help_result.action is None
+    assert help_result.output_format is ContentFormat.MARKDOWN
+    assert "/resume" in help_result.output
     response = app.chat_runner.run_user_turn("你好")
     assert response.content == "收到"
     assert "项目规则" in provider.requests[0].messages[0].content
