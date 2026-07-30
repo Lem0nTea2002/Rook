@@ -92,7 +92,7 @@ def _base(index: int, title: str, subtitle: str) -> tuple[Image.Image, ImageDraw
     draw.line((64, 655, 1216, 655), fill="#29404E", width=2)
     draw.text(
         (64, 674),
-        "Rook v0.4.1 · github.com/Lem0nTea2002/Rook",
+        "Rook v0.4.2 · github.com/Lem0nTea2002/Rook",
         font=_font(17),
         fill=MUTED,
     )
@@ -248,7 +248,7 @@ def _render_quickstart(index: int) -> Image.Image:
     _panel(draw, (90, 180, 1190, 555), fill="#071017", outline="#2A555D")
     code_font = _font(22, mono=True)
     commands = (
-        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"', CYAN),
+        ('$ pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"', CYAN),
         ("$ rook", GREEN),
         ("$ rook eval demo", BLUE),
     )

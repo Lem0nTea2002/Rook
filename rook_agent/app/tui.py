@@ -8,6 +8,7 @@ injected runner so the terminal layer remains testable without model calls.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import re
 import threading
 import time
@@ -44,7 +45,7 @@ from rook_agent.app.command_actions import (
     SubmitPromptAction,
     SwitchPageAction,
 )
-from rook_agent.app.commands import CommandResult
+from rook_agent.app.commands import CommandResult, ContentFormat
 from rook_agent.app.clipboard import ClipboardResult, ClipboardService
 from rook_agent.app.command_registry import CommandSource, CommandSuggestion
 from rook_agent.app.file_references import (
@@ -93,7 +94,14 @@ from rook_agent.app.transcript_view import (
     normalize_stream_text,
     tool_event_entry_kind,
 )
-from rook_agent.app.tui_state import TuiEntryKind, TuiTranscript, TuiTranscriptEntry
+from rook_agent.app.tui_state import (
+    TuiEntryKind,
+    TuiQueueKind,
+    TuiQueuedMessage,
+    TuiQueueStatus,
+    TuiTranscript,
+    TuiTranscriptEntry,
+)
 from rook_agent.app.tui_theme import (
     ROOK_HIGH_CONTRAST_THEME,
     ROOK_PIXEL_THEME,
@@ -137,7 +145,9 @@ class ComposerTextArea(TextArea):
     """Multiline composer where Enter submits and Shift+Enter inserts a newline."""
 
     class Submitted(Message):
-        pass
+        def __init__(self, *, follow_up: bool = False) -> None:
+            super().__init__()
+            self.follow_up = follow_up
 
     class CompletionRequested(Message):
         pass
@@ -149,6 +159,11 @@ class ComposerTextArea(TextArea):
             event.stop()
             event.prevent_default()
             self.post_message(self.CompletionRequested())
+            return
+        if event.key == "alt+enter":
+            event.stop()
+            event.prevent_default()
+            self.post_message(self.Submitted(follow_up=True))
             return
         if event.key == "enter":
             event.stop()
@@ -169,6 +184,18 @@ def _plain_static(content: object = "", *args, **kwargs) -> Static:
 
 
 def _observe_markdown_update(update_result) -> None:
+    if inspect.isawaitable(update_result):
+        async def await_update() -> None:
+            try:
+                await update_result
+            except asyncio.CancelledError:
+                return
+
+        try:
+            asyncio.get_running_loop().create_task(await_update())
+        except RuntimeError:
+            pass
+        return
     future = getattr(update_result, "_future", None)
     if future is None or not hasattr(future, "add_done_callback"):
         return
@@ -184,6 +211,30 @@ def _observe_markdown_update(update_result) -> None:
             raise exception
 
     future.add_done_callback(observe_cancelled_update)
+
+
+def _mount_markdown(
+    output,
+    widget: RookMarkdown,
+    content: str,
+) -> asyncio.Task[None] | None:
+    mount_result = output.mount(widget)
+
+    async def mount_and_update() -> None:
+        if inspect.isawaitable(mount_result):
+            await mount_result
+        try:
+            update_result = widget.update(content)
+            if inspect.isawaitable(update_result):
+                await update_result
+        except asyncio.CancelledError:
+            return
+
+    try:
+        return asyncio.get_running_loop().create_task(mount_and_update())
+    except RuntimeError:
+        _observe_markdown_update(widget.update(content))
+        return None
 
 
 class CommandHandlerLike(Protocol):
@@ -306,8 +357,9 @@ class RookApp(App[None]):
         self._stream_text_started = False
         self._stream_text_needs_newline = False
         self._stream_text_buffer = ""
-        self._stream_text_widget = None
+        self._stream_text_widget: RookMarkdown | None = None
         self._stream_text_entry: TuiTranscriptEntry | None = None
+        self._markdown_mount_tasks: set[asyncio.Task[None]] = set()
         self._stream_rendered_text = ""
         self._stream_flush_timer: Timer | None = None
         self._reasoning_buffer = ""
@@ -338,6 +390,8 @@ class RookApp(App[None]):
         self._input_history: list[str] = []
         self._input_history_index: int | None = None
         self._picker: TuiPickerState | None = None
+        self._permission_picker_input = None
+        self._permission_picker_entry: TuiTranscriptEntry | None = None
         self._command_suggestions: tuple[CommandSuggestion, ...] = ()
         self._command_suggestion_index = 0
         self._file_suggestions: tuple[FileReferenceSuggestion, ...] = ()
@@ -347,6 +401,11 @@ class RookApp(App[None]):
         self._welcome_particle_frame = 0
         self._provider_glow_timer: Timer | None = None
         self._provider_glow_frame = 0
+        self._queued_messages: list[TuiQueuedMessage] = []
+        self._follow_up_queue: list[TuiQueuedMessage] = []
+        self._queue_sequence = 0
+        self._queue_paused = False
+        self._active_queue_message: TuiQueuedMessage | None = None
         self.transcript = TuiTranscript()
 
     def compose(self) -> ComposeResult:
@@ -375,6 +434,9 @@ class RookApp(App[None]):
         self._apply_theme()
         self._refresh_session_subtitle()
         self._show_welcome()
+        if self._has_pending_chat_input():
+            self._dismiss_welcome()
+            self._write_pending_input()
         self._sync_provider_glow()
 
     def _on_terminal_resized(self) -> None:
@@ -394,7 +456,7 @@ class RookApp(App[None]):
             except Exception:
                 pass
 
-    async def _submit_composer(self) -> None:
+    async def _submit_composer(self, *, follow_up: bool = False) -> None:
         input_widget = self.query_one("#input", TextArea)
         text = input_widget.text.strip()
         input_widget.clear()
@@ -410,7 +472,13 @@ class RookApp(App[None]):
                 return
 
         is_help_request = " ".join(text.split()) in {"/help", "/?"}
-        if not is_help_request:
+        queueing_chat = (
+            not text.startswith(("/", "!"))
+            and not self._shell_mode
+            and self._pending_shell_input is None
+            and (self._chat_busy or (follow_up and self._has_pending_chat_input()))
+        )
+        if not is_help_request and not queueing_chat:
             self._write_line(f"> {text}", kind=TuiEntryKind.USER)
 
         if self._pending_shell_input is not None:
@@ -421,11 +489,9 @@ class RookApp(App[None]):
                     kind=TuiEntryKind.PERMISSION,
                 )
                 return
-            self._shell_busy = True
-            self._set_activity("shell · resuming permission")
-            self.run_worker(
-                self._resume_direct_shell(self._pending_shell_input.id, choice)
-            )
+            pending = self._pending_shell_input
+            self._close_permission_picker()
+            self._resume_permission_choice("shell", pending, choice)
             return
 
         if text == "!":
@@ -436,6 +502,11 @@ class RookApp(App[None]):
             self._start_direct_shell(command)
             return
 
+        if follow_up and self._has_pending_chat_input():
+            self._persist_prompt(text)
+            self._queue_follow_up(text)
+            return
+
         if text.startswith("/"):
             if self.command_handler is None:
                 self._write_line("Command handler is not configured.", kind=TuiEntryKind.ERROR)
@@ -444,7 +515,12 @@ class RookApp(App[None]):
             result = self.command_handler.handle(text)
             if result.handled:
                 if result.output and not isinstance(result.action, SwitchPageAction):
-                    self._write_line(result.output, kind=TuiEntryKind.COMMAND)
+                    self._write_line(
+                        result.output,
+                        kind=TuiEntryKind.COMMAND,
+                        label="HELP" if result.output_format == ContentFormat.MARKDOWN else None,
+                        content_format=result.output_format,
+                    )
                 if self._handle_command_action(result.action, output=result.output):
                     self._refresh_session_subtitle()
                     return
@@ -454,16 +530,24 @@ class RookApp(App[None]):
             return
 
         self._persist_prompt(text)
-        self._submit_chat_text(self._resolve_prompt_references(text))
+        self._submit_chat_text(
+            self._resolve_prompt_references(text),
+            follow_up=follow_up,
+        )
 
     async def on_composer_text_area_submitted(self, event: ComposerTextArea.Submitted) -> None:
         event.stop()
         if self._accept_command_suggestion(execute=True):
             return
         if self._picker is not None:
+            if self._picker.kind.startswith("permission-"):
+                input_widget = self.query_one("#input", TextArea)
+                if input_widget.text.strip():
+                    await self._submit_composer(follow_up=event.follow_up)
+                    return
             self._picker_select_index(self._picker.selected_index)
             return
-        await self._submit_composer()
+        await self._submit_composer(follow_up=event.follow_up)
 
     def on_composer_text_area_completion_requested(
         self,
@@ -536,6 +620,11 @@ class RookApp(App[None]):
             return
         if event.key == "escape":
             if self._handle_escape_interrupt():
+                event.stop()
+                event.prevent_default()
+            return
+        if event.key == "alt+up":
+            if self._recall_queued_message():
                 event.stop()
                 event.prevent_default()
             return
@@ -731,6 +820,124 @@ class RookApp(App[None]):
         self._chat_worker = None
         if getattr(self.chat_runner, "last_pending_input", None) is None:
             self._active_chat_turn = None
+        self._refresh_queue_chrome()
+
+    def _settle_steering_after_turn(self) -> None:
+        queued = [
+            message
+            for message in self._queued_messages
+            if message.kind == TuiQueueKind.STEERING
+            and message.status == TuiQueueStatus.QUEUED
+        ]
+        if not queued:
+            return
+        take_pending = getattr(self.chat_runner, "take_pending_guidance", None)
+        late = list(take_pending() or []) if callable(take_pending) else []
+        late_count = min(len(late), len(queued))
+        consumed_count = len(queued) - late_count
+        for message in queued[:consumed_count]:
+            message.status = TuiQueueStatus.CONSUMED
+            self._update_queue_message(message)
+        late_messages = queued[consumed_count:]
+        for index, message in enumerate(late_messages):
+            self._queue_follow_up(
+                message.content,
+                position=index,
+                existing=message,
+            )
+
+    def _complete_active_queue_message(self) -> None:
+        message = self._active_queue_message
+        if message is None:
+            return
+        message.status = TuiQueueStatus.DONE
+        self._update_queue_message(message)
+        self._active_queue_message = None
+
+    def _pause_follow_up_queue(self) -> None:
+        active = self._active_queue_message
+        self._queue_paused = bool(active or self._follow_up_queue)
+        if active is not None:
+            active.status = TuiQueueStatus.PAUSED
+            if active not in self._follow_up_queue:
+                self._follow_up_queue.insert(0, active)
+            self._update_queue_message(active)
+            self._active_queue_message = None
+        for message in self._follow_up_queue:
+            if message.status == TuiQueueStatus.QUEUED:
+                message.status = TuiQueueStatus.PAUSED
+                self._update_queue_message(message)
+        self._refresh_queue_chrome()
+
+    def _cancel_queued_steering(self) -> None:
+        take_pending = getattr(self.chat_runner, "take_pending_guidance", None)
+        if callable(take_pending):
+            take_pending()
+        for message in self._queued_messages:
+            if (
+                message.kind == TuiQueueKind.STEERING
+                and message.status == TuiQueueStatus.QUEUED
+            ):
+                message.status = TuiQueueStatus.CANCELLED
+                self._update_queue_message(message)
+
+    def _start_next_follow_up_if_ready(self) -> bool:
+        if (
+            self._queue_paused
+            or self._chat_busy
+            or self._has_pending_chat_input()
+            or not self._follow_up_queue
+        ):
+            self._refresh_queue_chrome()
+            return False
+        message = self._follow_up_queue[0]
+        current_session_id = str(getattr(self.current_session, "session_id", "") or "")
+        if message.session_id != current_session_id:
+            message.status = TuiQueueStatus.PAUSED
+            self._queue_paused = True
+            self._update_queue_message(message)
+            self._refresh_queue_chrome()
+            return False
+        self._follow_up_queue.pop(0)
+        message.status = TuiQueueStatus.RUNNING
+        self._active_queue_message = message
+        self._update_queue_message(message)
+        self._chat_busy = True
+        token = self._begin_active_chat_turn()
+        self._refresh_queue_chrome()
+        self._chat_worker = self.run_worker(self._run_chat_turn(message.content, token))
+        return True
+
+    def _refresh_queue_chrome(self) -> None:
+        if not getattr(self, "is_mounted", False):
+            return
+        self._set_activity(self._activity_text)
+        self._refresh_footer()
+        self._refresh_composer_hint()
+
+    def _refresh_composer_hint(self) -> None:
+        try:
+            input_widget = self.query_one("#input", ComposerTextArea)
+            composer = self.query_one("#composer")
+        except NoMatches:
+            return
+        composer.remove_class("chat-running")
+        composer.remove_class("queue-paused")
+        if self._shell_mode:
+            return
+        if self._chat_busy:
+            composer.add_class("chat-running")
+            input_widget.placeholder = (
+                "运行中：Enter 引导当前，Alt+Enter 排队下一任务，Shift+Enter 换行"
+            )
+        elif self._has_pending_chat_input():
+            input_widget.placeholder = (
+                "等待输入：Enter 提交选择，Alt+Enter 排队下一任务"
+            )
+        else:
+            input_widget.placeholder = "输入消息，Enter 发送，Shift+Enter 换行"
+        if self._queue_paused:
+            composer.add_class("queue-paused")
 
     def _handle_escape_interrupt(self) -> bool:
         if not self._chat_busy and not self._shell_busy:
@@ -762,6 +969,8 @@ class RookApp(App[None]):
             worker.cancel()
         self._chat_busy = False
         self._active_chat_turn = None
+        self._cancel_queued_steering()
+        self._pause_follow_up_queue()
         self._running_tool_call_ids.clear()
         self._stop_working_animation()
         self._stop_activity_animation()
@@ -1084,12 +1293,15 @@ class RookApp(App[None]):
             return self._input_history[self._input_history_index]
         return None
 
-    def _submit_chat_text(self, text: str) -> None:
+    def _submit_chat_text(self, text: str, *, follow_up: bool = False) -> None:
         if self.chat_runner is None:
             self._write_line("普通聊天入口尚未接入 AgentLoop。", kind=TuiEntryKind.ERROR)
             return
 
         if self._chat_busy:
+            if follow_up:
+                self._queue_follow_up(text)
+                return
             add_guidance = getattr(self.chat_runner, "add_guidance", None)
             if add_guidance is None:
                 self._write_line(
@@ -1098,24 +1310,119 @@ class RookApp(App[None]):
                 )
                 return
             add_guidance(text)
-            self._write_line("Guidance queued for the running turn.", kind=TuiEntryKind.SYSTEM)
-            self._set_activity("running · guidance queued")
+            self._queue_steering(text)
             return
 
         pending = getattr(self.chat_runner, "last_pending_input", None)
         if getattr(pending, "kind", None) == "permission_confirmation":
+            assert pending is not None
             choice = permission_choice_for_text(text, pending)
             if choice is None:
                 self._write_line(permission_options_text(pending), kind=TuiEntryKind.PERMISSION)
                 return
-            self._chat_busy = True
-            token = self._resume_active_chat_turn()
-            self._chat_worker = self.run_worker(self._resume_permission_turn(pending.id, choice, token))
+            self._close_permission_picker()
+            self._resume_permission_choice("chat", pending, choice)
             return
 
         self._chat_busy = True
         token = self._begin_active_chat_turn()
+        self._refresh_composer_hint()
         self._chat_worker = self.run_worker(self._run_chat_turn(text, token))
+
+    def _has_pending_chat_input(self) -> bool:
+        return getattr(self.chat_runner, "last_pending_input", None) is not None
+
+    def _queue_steering(self, text: str) -> TuiQueuedMessage:
+        message = self._new_queue_message(TuiQueueKind.STEERING, text)
+        self._write_queue_message(message)
+        self._refresh_queue_chrome()
+        return message
+
+    def _queue_follow_up(
+        self,
+        text: str,
+        *,
+        position: int | None = None,
+        existing: TuiQueuedMessage | None = None,
+    ) -> TuiQueuedMessage:
+        message = existing or self._new_queue_message(TuiQueueKind.FOLLOW_UP, text)
+        message.kind = TuiQueueKind.FOLLOW_UP
+        message.status = TuiQueueStatus.PAUSED if self._queue_paused else TuiQueueStatus.QUEUED
+        if position is None:
+            self._follow_up_queue.append(message)
+        else:
+            self._follow_up_queue.insert(position, message)
+        if message.entry_id is None:
+            self._write_queue_message(message)
+        else:
+            self._update_queue_message(message)
+        self._refresh_queue_chrome()
+        return message
+
+    def _new_queue_message(self, kind: TuiQueueKind, text: str) -> TuiQueuedMessage:
+        self._queue_sequence += 1
+        message = TuiQueuedMessage(
+            id=uuid4().hex,
+            kind=kind,
+            content=text,
+            session_id=str(getattr(self.current_session, "session_id", "") or ""),
+            created_order=self._queue_sequence,
+        )
+        self._queued_messages.append(message)
+        return message
+
+    def _write_queue_message(self, message: TuiQueuedMessage) -> None:
+        entry = self._write_line(
+            message.content,
+            kind=TuiEntryKind.QUEUE,
+            label=self._queue_message_label(message),
+            status=message.status.value,
+        )
+        message.entry_id = entry.id
+
+    def _queue_message_label(self, message: TuiQueuedMessage) -> str:
+        kind = "GUIDE" if message.kind == TuiQueueKind.STEERING else "NEXT"
+        return f"{kind} · {message.status.value.upper()}"
+
+    def _update_queue_message(self, message: TuiQueuedMessage) -> None:
+        entry = next(
+            (item for item in self.transcript.entries if item.id == message.entry_id),
+            None,
+        )
+        if entry is None:
+            return
+        entry.label = self._queue_message_label(message)
+        entry.status = message.status.value
+        widget = entry.widget
+        if widget is not None:
+            widget.set_classes(entry_classes(entry))
+            widget.update(_entry_renderable(entry, entry_plain_text(entry)))
+
+    def _recall_queued_message(self) -> bool:
+        candidates = [
+            message
+            for message in self._queued_messages
+            if message.status in {TuiQueueStatus.QUEUED, TuiQueueStatus.PAUSED}
+        ]
+        if not candidates:
+            return False
+        message = candidates[-1]
+        if message.kind == TuiQueueKind.STEERING:
+            pop_pending = getattr(self.chat_runner, "pop_pending_guidance", None)
+            if not callable(pop_pending) or pop_pending() is None:
+                return False
+        elif message in self._follow_up_queue:
+            self._follow_up_queue.remove(message)
+        message.status = TuiQueueStatus.CANCELLED
+        self._update_queue_message(message)
+        input_widget = self.query_one("#input", ComposerTextArea)
+        input_widget.load_text(message.content)
+        input_widget.cursor_location = input_widget.document.end
+        input_widget.focus()
+        if not self._follow_up_queue:
+            self._queue_paused = False
+        self._refresh_queue_chrome()
+        return True
 
     def _handle_command_action(
         self,
@@ -1132,6 +1439,8 @@ class RookApp(App[None]):
                 self._submit_chat_text(self._resolve_prompt_references(text))
             return True
         if isinstance(action, NewSessionAction):
+            if self._follow_up_queue or self._active_queue_message is not None:
+                self._pause_follow_up_queue()
             self._picker = None
             self._clear_output()
             if output:
@@ -1201,15 +1510,6 @@ class RookApp(App[None]):
             self._write_line(self._usage_text(), kind=TuiEntryKind.COMMAND)
             return True
         if isinstance(action, SwitchPageAction):
-            if action.page == "help":
-                self.push_screen(
-                    ContentViewerScreen(
-                        title="ROOK // COMMAND DECK",
-                        content=action.content or output or "当前没有可用命令。",
-                        kind="help",
-                    )
-                )
-                return True
             if action.page == "transcript":
                 transcript = self._transcript_markdown()
                 self.push_screen(
@@ -1305,7 +1605,10 @@ class RookApp(App[None]):
             return True
         if event.key == "escape":
             kind = picker.kind
-            self._picker = None
+            if kind.startswith("permission-"):
+                self._close_permission_picker()
+            else:
+                self._picker = None
             self._write_line(f"{kind.capitalize()} selection cancelled.", kind=TuiEntryKind.COMMAND)
             return True
         return False
@@ -1328,6 +1631,24 @@ class RookApp(App[None]):
         if index < 0 or index >= len(picker.items):
             return
         item = picker.items[index]
+        if picker.kind.startswith("permission-"):
+            source = picker.kind.removeprefix("permission-")
+            pending = (
+                self._pending_shell_input
+                if source == "shell"
+                else getattr(self.chat_runner, "last_pending_input", None)
+            )
+            if pending is None or pending is not self._permission_picker_input:
+                self._write_line("权限请求已失效。", kind=TuiEntryKind.ERROR)
+                self._close_permission_picker()
+                return
+            choice = permission_choice_for_text(item.id, pending)
+            if choice is None:
+                self._write_line("无效的权限选择。", kind=TuiEntryKind.ERROR)
+                return
+            self._close_permission_picker()
+            self._resume_permission_choice(source, pending, choice)
+            return
         if picker.kind == "history":
             prompt = str((item.meta or {}).get("text") or item.label)
             self._picker = None
@@ -1352,12 +1673,93 @@ class RookApp(App[None]):
         picker = self._picker
         if picker is None:
             return
+        if picker.kind.startswith("permission-"):
+            self._render_permission_picker()
+            return
         self._replace_last_command_output(
             render_picker(
                 picker,
                 limit=SESSION_LIST_VISIBLE_LIMIT,
                 render_item=lambda item, index: render_picker_item(picker, item, index),
             )
+        )
+
+    def _open_permission_picker(self, pending, *, source: str) -> None:
+        options = list(getattr(pending, "options", []) or [])
+        items = [
+            TuiPickerItem(
+                id=str(getattr(option, "id", "")),
+                label=str(getattr(option, "label", "") or getattr(option, "id", "")),
+                detail=str(getattr(option, "description", "") or ""),
+            )
+            for option in options
+        ]
+        selected_index = next(
+            (index for index, item in enumerate(items) if item.id == "allow_once"),
+            0,
+        )
+        self._picker = TuiPickerState(
+            kind=f"permission-{source}",
+            title="选择权限：",
+            items=items,
+            selected_index=selected_index,
+            empty_text="没有可用的权限选项。",
+            footer="↑↓ 选择 · Enter 确认 · 也可直接输入 deny / allow_once",
+            count_label="choices",
+        )
+        self._permission_picker_input = pending
+        text = self._permission_picker_text()
+        self._permission_picker_entry = self._write_line(
+            text,
+            kind=TuiEntryKind.PERMISSION,
+            label=str((getattr(pending, "payload", {}) or {}).get("action") or "request"),
+        )
+
+    def _permission_picker_text(self) -> str:
+        picker = self._picker
+        pending = self._permission_picker_input
+        if picker is None or pending is None:
+            return ""
+        return "\n".join(
+            [
+                permission_prompt_text(pending, include_options=False),
+                render_picker(
+                    picker,
+                    limit=SESSION_LIST_VISIBLE_LIMIT,
+                    render_item=lambda item, index: render_picker_item(picker, item, index),
+                ),
+            ]
+        )
+
+    def _render_permission_picker(self) -> None:
+        entry = self._permission_picker_entry
+        if entry is None:
+            return
+        text = self._permission_picker_text()
+        entry.body = text
+        widget = entry.widget
+        if isinstance(widget, PermissionCard):
+            widget.replace_content(text)
+
+    def _close_permission_picker(self) -> None:
+        if self._picker is not None and self._picker.kind.startswith("permission-"):
+            self._picker = None
+        self._permission_picker_input = None
+        self._permission_picker_entry = None
+
+    def _resume_permission_choice(self, source: str, pending, choice: str) -> None:
+        if source == "shell":
+            self._shell_busy = True
+            self._set_activity("shell · resuming permission")
+            self.run_worker(self._resume_direct_shell(pending.id, choice))
+            return
+        if source != "chat":
+            raise ValueError(f"不支持的权限来源：{source}")
+        self._chat_busy = True
+        token = self._resume_active_chat_turn()
+        self._refresh_composer_hint()
+        self._chat_worker = self.run_worker(
+            self._resume_permission_turn(pending.id, choice, token)
         )
 
     def _insert_input_text(self, text: str) -> None:
@@ -1372,7 +1774,10 @@ class RookApp(App[None]):
 
     def _replace_last_command_output(self, text: str) -> None:
         for entry in reversed(self.transcript.entries):
-            if entry.kind == TuiEntryKind.COMMAND:
+            if (
+                entry.kind == TuiEntryKind.COMMAND
+                and entry.content_format == ContentFormat.PLAIN
+            ):
                 entry.body = text
                 rendered = entry_plain_text(entry)
                 widget = entry.widget
@@ -1394,11 +1799,12 @@ class RookApp(App[None]):
             entry.widget = None
         output = self.query_one("#output")
         for entry in self.transcript.visible_entries(self.TRANSCRIPT_WINDOW_SIZE):
-            if entry.kind == TuiEntryKind.ASSISTANT:
+            if entry.content_format == ContentFormat.MARKDOWN:
                 markdown = RookMarkdown(classes=entry_classes(entry))
                 entry.widget = markdown
-                output.mount(markdown)
-                _observe_markdown_update(markdown.update(entry_display_markdown_text(entry)))
+                self._track_markdown_mount(
+                    _mount_markdown(output, markdown, entry_display_markdown_text(entry))
+                )
             elif entry.kind == TuiEntryKind.TOOL:
                 widget = ToolCard(
                     entry.body,
@@ -1424,7 +1830,30 @@ class RookApp(App[None]):
                 entry.widget = widget
                 output.mount(widget)
 
+    def _track_markdown_mount(self, task: asyncio.Task[None] | None) -> None:
+        if task is None:
+            return
+        self._markdown_mount_tasks.add(task)
+
+        def finish(done: asyncio.Task[None]) -> None:
+            self._markdown_mount_tasks.discard(done)
+            if done.cancelled():
+                return
+            done.result()
+
+        task.add_done_callback(finish)
+
+    async def _wait_for_markdown_mounts(self) -> None:
+        while self._markdown_mount_tasks:
+            await asyncio.gather(*tuple(self._markdown_mount_tasks))
+
+    def _cancel_markdown_mounts(self) -> None:
+        for task in tuple(self._markdown_mount_tasks):
+            task.cancel()
+        self._markdown_mount_tasks.clear()
+
     def _remove_output_children(self) -> None:
+        self._cancel_markdown_mounts()
         output = self.query_one("#output")
         if hasattr(output, "remove_children"):
             output.remove_children()
@@ -1466,20 +1895,26 @@ class RookApp(App[None]):
             async_resume = getattr(self.chat_runner, "aresume_with_user_input", None)
             if async_resume is not None:
                 response = await async_resume(request_id, answer)
-                if self._is_current_chat_turn(token):
-                    self._write_chat_response(response)
-                return
-            resume = getattr(self.chat_runner, "resume_with_user_input", None)
-            if resume is None:
-                if self._is_current_chat_turn(token):
-                    self._write_line("Permission resume is not configured.", kind=TuiEntryKind.ERROR)
-                return
-            response = resume(request_id, answer)
+            else:
+                resume = getattr(self.chat_runner, "resume_with_user_input", None)
+                if resume is None:
+                    if self._is_current_chat_turn(token):
+                        self._write_line(
+                            "Permission resume is not configured.",
+                            kind=TuiEntryKind.ERROR,
+                        )
+                    return
+                response = resume(request_id, answer)
         except asyncio.CancelledError:
+            if self._is_current_chat_turn(token):
+                self._cancel_queued_steering()
+                self._pause_follow_up_queue()
             return
         except Exception as exc:
             if self._is_current_chat_turn(token):
                 self._write_line(f"Chat error: {exc}", kind=TuiEntryKind.ERROR)
+                self._cancel_queued_steering()
+                self._pause_follow_up_queue()
                 self._refresh_session_subtitle()
             return
         finally:
@@ -1489,6 +1924,10 @@ class RookApp(App[None]):
 
         if self._is_current_chat_turn(token):
             self._write_chat_response(response)
+            if not self._has_pending_chat_input():
+                self._complete_active_queue_message()
+                self._settle_steering_after_turn()
+                self._start_next_follow_up_if_ready()
 
     async def _run_chat_turn(self, text: str, token: int) -> None:
         previous_stream_handler = None
@@ -1509,10 +1948,15 @@ class RookApp(App[None]):
             else:
                 response = self.chat_runner.run_user_turn(text)
         except asyncio.CancelledError:
+            if self._is_current_chat_turn(token):
+                self._cancel_queued_steering()
+                self._pause_follow_up_queue()
             return
         except Exception as exc:
             if self._is_current_chat_turn(token):
                 self._write_line(f"Chat error: {exc}", kind=TuiEntryKind.ERROR)
+                self._cancel_queued_steering()
+                self._pause_follow_up_queue()
                 self._refresh_session_subtitle()
             return
         finally:
@@ -1522,6 +1966,10 @@ class RookApp(App[None]):
 
         if self._is_current_chat_turn(token):
             self._write_chat_response(response)
+            if not self._has_pending_chat_input():
+                self._complete_active_queue_message()
+                self._settle_steering_after_turn()
+                self._start_next_follow_up_if_ready()
 
     def _write_chat_response(self, response) -> None:
         self._record_completed_turn_metrics(response)
@@ -1759,12 +2207,28 @@ class RookApp(App[None]):
         kind: TuiEntryKind = TuiEntryKind.SYSTEM,
         label: str | None = None,
         status: str | None = None,
+        content_format: ContentFormat = ContentFormat.PLAIN,
     ) -> TuiTranscriptEntry:
-        entry = self.transcript.add(kind, text, label=label, status=status)
+        entry = self.transcript.add(
+            kind,
+            text,
+            label=label,
+            status=status,
+            content_format=content_format,
+        )
         classes = classes or entry_classes(entry)
         rendered = entry_plain_text(entry)
         output = self.query_one("#output")
         if hasattr(output, "mount"):
+            if content_format == ContentFormat.MARKDOWN:
+                widget = RookMarkdown(classes=classes)
+                entry.widget = widget
+                self._track_markdown_mount(
+                    _mount_markdown(output, widget, entry_display_markdown_text(entry))
+                )
+                self._prune_rendered_transcript()
+                self._scroll_output_end_if_pinned(output)
+                return entry
             if kind == TuiEntryKind.TOOL:
                 widget = ToolCard(
                     text,
@@ -1966,10 +2430,7 @@ class RookApp(App[None]):
             self._shell_busy = False
             self._pending_shell_input = outcome.pending_input
             if outcome.pending_input is not None:
-                self._write_line(
-                    permission_prompt_text(outcome.pending_input),
-                    kind=TuiEntryKind.PERMISSION,
-                )
+                self._open_permission_picker(outcome.pending_input, source="shell")
             self._set_activity("shell · waiting permission")
             return
         self._shell_busy = False
@@ -2060,14 +2521,17 @@ class RookApp(App[None]):
         panel.update(todo_panel_text(todos))
 
     def _write_markdown_message(self, content: str, *, classes: str = "message assistant-message") -> None:
-        entry = self.transcript.add(TuiEntryKind.ASSISTANT, content)
+        entry = self.transcript.add(
+            TuiEntryKind.ASSISTANT,
+            content,
+            content_format=ContentFormat.MARKDOWN,
+        )
         text = entry_display_markdown_text(entry)
         output = self.query_one("#output")
         if hasattr(output, "mount"):
             markdown = RookMarkdown(classes=classes)
             entry.widget = markdown
-            output.mount(markdown)
-            _observe_markdown_update(markdown.update(text))
+            self._track_markdown_mount(_mount_markdown(output, markdown, text))
             self._prune_rendered_transcript()
             self._scroll_output_end_if_pinned(output)
             return
@@ -2092,7 +2556,7 @@ class RookApp(App[None]):
         if pending is None:
             return
         if getattr(pending, "kind", None) == "permission_confirmation":
-            self._write_line(permission_prompt_text(pending), kind=TuiEntryKind.PERMISSION)
+            self._open_permission_picker(pending, source="chat")
             self._set_activity("waiting · permission")
             return
         question = str(getattr(pending, "question", "") or "需要用户输入。")
@@ -2276,10 +2740,19 @@ class RookApp(App[None]):
             if isinstance(limit, int) and limit > 0:
                 percentage = min(999.9, self._last_context_tokens * 100 / limit)
                 context_text = f"{percentage:.1f}% ({self._last_context_tokens}/{limit})"
+        if self._chat_busy:
+            return "Enter 引导 · Alt+Enter 下一任务 · Alt+↑ 取回 · Esc×2 中断"
+        if self._has_pending_chat_input():
+            return "Enter 提交选择 · Alt+Enter 下一任务 · Alt+↑ 取回 · /keys"
+        if any(
+            message.status == TuiQueueStatus.PAUSED
+            for message in self._follow_up_queue
+        ):
+            return "Alt+↑ 取回暂停任务 · /help 命令 · /keys 快捷键"
         if width is not None and width < 80:
             return f"/help 命令 · /keys 快捷键 · Token {token_text}"
         return (
-            "/help 命令 · /keys 快捷键 · Ctrl+R 历史 · Ctrl+Shift+C 复制 · Alt+P 模型"
+            "/help 命令 · /keys 快捷键 · Ctrl+R 历史 · Alt+P 模型"
             f"  |  Context {context_text}  |  Token {token_text}"
         )
 
@@ -2287,6 +2760,9 @@ class RookApp(App[None]):
         return Text(text, style="#79E6B3")
 
     def tool_activity_line_text(self, text: str, activity) -> str:
+        queue_summary = self._queue_summary()
+        if queue_summary:
+            text = f"{text} · {queue_summary}"
         metrics = turn_metrics_text(self._turn_elapsed_seconds(), self._turn_tool_count)
         width = getattr(getattr(activity, "size", None), "width", None)
         if not isinstance(width, int) or width <= 0:
@@ -2298,12 +2774,34 @@ class RookApp(App[None]):
             text = truncate_activity_text(text, available)
         return f"{text}{' ' * (width - len(text) - len(metrics))}{metrics}"
 
+    def _queue_summary(self) -> str:
+        steering = sum(
+            message.kind == TuiQueueKind.STEERING
+            and message.status == TuiQueueStatus.QUEUED
+            for message in self._queued_messages
+        )
+        follow_up = sum(
+            message.status in {TuiQueueStatus.QUEUED, TuiQueueStatus.PAUSED}
+            for message in self._follow_up_queue
+        )
+        values: list[str] = []
+        if steering:
+            values.append(f"引导 {steering}")
+        if follow_up:
+            label = "暂停" if self._queue_paused else "后续"
+            values.append(f"{label} {follow_up}")
+        return " · ".join(values)
+
     def _append_stream_text(self, text: str) -> None:
         if self._stream_segment_closed_for_tool:
             self._start_new_stream_segment()
         self._stream_text_buffer += text
         if self._stream_text_entry is None:
-            self._stream_text_entry = self.transcript.add(TuiEntryKind.ASSISTANT, self._stream_text_buffer)
+            self._stream_text_entry = self.transcript.add(
+                TuiEntryKind.ASSISTANT,
+                self._stream_text_buffer,
+                content_format=ContentFormat.MARKDOWN,
+            )
         else:
             self._stream_text_entry.body = self._stream_text_buffer
         output = self.query_one("#output")
@@ -2448,6 +2946,7 @@ def _entry_renderable(entry: TuiTranscriptEntry, rendered: str) -> object:
         TuiEntryKind.REASONING: "#79E6B3 bold",
         TuiEntryKind.TOOL: "#8798A1 bold",
         TuiEntryKind.PERMISSION: "#F2C14E bold",
+        TuiEntryKind.QUEUE: "#38CFE0 bold",
         TuiEntryKind.ERROR: "#FF6B6B bold",
     }
     body = entry.body or rendered

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from rook_agent.app.command_actions import CommandActionType
@@ -32,10 +33,16 @@ class ContextManagerLike(Protocol):
         ...
 
 
+class ContentFormat(StrEnum):
+    PLAIN = "plain"
+    MARKDOWN = "markdown"
+
+
 @dataclass(frozen=True, slots=True)
 class CommandResult:
     handled: bool
     output: str = ""
+    output_format: ContentFormat = ContentFormat.PLAIN
     action: CommandActionType | None = None
 
 

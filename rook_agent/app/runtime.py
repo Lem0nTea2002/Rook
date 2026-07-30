@@ -135,6 +135,19 @@ class AgentChatRunner:
             self.pending_guidance.clear()
         return guidance
 
+    def take_pending_guidance(self) -> list[str]:
+        """在一轮结束后收走没有被 AgentLoop 消费的迟到引导。"""
+
+        return self.drain_guidance()
+
+    def pop_pending_guidance(self) -> str | None:
+        """撤回尚未进入模型上下文的最近一条引导。"""
+
+        with self._guidance_lock:
+            if not self.pending_guidance:
+                return None
+            return self.pending_guidance.pop()
+
     def cancel_current_turn(self) -> None:
         with self._cancellation_lock:
             if self._active_cancellation_token is not None:

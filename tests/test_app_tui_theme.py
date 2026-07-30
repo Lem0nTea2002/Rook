@@ -5,14 +5,13 @@ import os
 import pytest
 from rich.text import Text
 from textual import constants as textual_constants
-from textual.widgets import MarkdownViewer
 
 from rook_agent.app.help_commands import HelpCommandHandler
-from rook_agent.app.tui import RookApp, RookTuiConfig
+from rook_agent.app.tui import RookApp, RookMarkdown, RookTuiConfig
 from rook_agent.app.tui_theme import ROOK_PIXEL_COLORS
+from rook_agent.app.commands import ContentFormat
 from rook_agent.app.tui_state import TuiEntryKind, TuiTranscript
 from rook_agent.app.transcript_view import entry_display_label
-from rook_agent.app.viewer import ContentViewerScreen
 
 
 def _relative_luminance(color: str) -> float:
@@ -55,23 +54,30 @@ async def test_rook_theme_maps_to_registered_pixel_theme() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
-async def test_help_opens_dismissible_page_without_transcript_noise() -> None:
+async def test_help_renders_markdown_inside_chat_without_model_context() -> None:
     app = RookApp(command_handler=HelpCommandHandler())
 
     async with app.run_test() as pilot:
         await pilot.click("#input")
         await pilot.press(*"/help")
         await pilot.press("enter")
+        await app._wait_for_markdown_mounts()
         await pilot.pause()
 
-        assert isinstance(app.screen, ContentViewerScreen)
-        help_viewer = app.screen.query_one("#help-content", MarkdownViewer)
-        assert "COMMAND DECK" in help_viewer.document.source
-        assert app.transcript.entries == []
+        assert app.screen.id == "_default"
+        assert len(app.transcript.entries) == 1
+        entry = app.transcript.entries[0]
+        assert entry.kind == TuiEntryKind.COMMAND
+        assert entry.content_format == ContentFormat.MARKDOWN
+        assert "COMMAND DECK" in entry.body
+        assert isinstance(entry.widget, RookMarkdown)
+        assert entry.widget.content_region.height > 0
 
-        await pilot.press("escape")
+        app._rerender_transcript()
+        await app._wait_for_markdown_mounts()
         await pilot.pause()
-        assert not isinstance(app.screen, ContentViewerScreen)
+        assert isinstance(entry.widget, RookMarkdown)
+        assert "COMMAND DECK" in app._transcript_markdown()
 
 
 @pytest.mark.parametrize("text_color", ["foreground", "text_secondary", "text_muted"])
@@ -127,6 +133,7 @@ def test_footer_points_to_keys_without_repeating_activity() -> None:
         (TuiEntryKind.ASSISTANT, "ROOK"),
         (TuiEntryKind.SYSTEM, "SYS"),
         (TuiEntryKind.TOOL, "TOOL"),
+        (TuiEntryKind.QUEUE, "QUEUE"),
     ],
 )
 def test_transcript_uses_clear_uppercase_display_labels(

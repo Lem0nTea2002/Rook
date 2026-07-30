@@ -132,10 +132,11 @@ ContentViewerScreen {
 
 .viewer-title {
     height: 3;
-    padding: 1 2;
+    padding: 0 2;
     color: $foreground;
     background: $surface;
     border-bottom: solid $primary;
+    content-align: left middle;
     text-style: bold;
 }
 
@@ -146,16 +147,11 @@ ContentViewerScreen {
     background: $surface;
 }
 
-#viewer-content,
-#help-content {
+#viewer-content {
     height: 1fr;
     border: none;
     background: $background;
     color: $foreground;
-}
-
-#help-content {
-    padding: 1 3;
 }
 
 .command-palette {
@@ -190,6 +186,14 @@ ContentViewerScreen {
     border: solid $primary;
 }
 
+.composer.chat-running {
+    border: solid $secondary;
+}
+
+.composer.queue-paused {
+    border: solid $warning;
+}
+
 .message {
     width: 100%;
     margin: 0 0 1 0;
@@ -202,7 +206,7 @@ ContentViewerScreen {
 .reasoning-message,
 .tool-message {
     color: $rook-text-secondary;
-    background: $surface;
+    background: $background;
     border-left: solid $rook-border;
 }
 
@@ -243,18 +247,44 @@ PermissionCard:hover {
 
 .user-message {
     color: $foreground;
-    background: $surface;
+    background: $background;
     border-left: solid $secondary;
 }
 
 .assistant-message {
     color: $foreground;
-    background: $surface;
+    background: $background;
     border-left: solid $primary;
 }
 
-.assistant-message MarkdownBlock {
+.assistant-message MarkdownBlock,
+.command-message MarkdownBlock {
     margin: 0;
+}
+
+.queue-message {
+    color: $rook-text-secondary;
+    background: $background;
+    border-left: solid $rook-border;
+}
+
+.queue-queued {
+    border-left: solid $secondary;
+}
+
+.queue-running,
+.queue-done {
+    border-left: solid $primary;
+}
+
+.queue-paused {
+    color: $warning;
+    border-left: solid $warning;
+}
+
+.queue-cancelled {
+    color: $rook-text-muted;
+    border-left: solid $rook-border;
 }
 
 .reasoning-message {

@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from types import SimpleNamespace
 
 import pytest
 from textual.pilot import Pilot
 
-from rook_agent.app.command_actions import OpenPickerAction, SwitchPageAction
+from rook_agent.app.command_actions import OpenPickerAction
 from rook_agent.app.command_registry import CommandRegistry, CommandSpec
+from rook_agent.app.commands import ContentFormat
 from rook_agent.app.help_commands import HELP_PAGE_MARKDOWN, HelpCommandHandler
 from rook_agent.app.router import CompositeCommandHandler
 from rook_agent.app.tui import RookApp, RookTuiConfig
-from rook_agent.app.tui_state import TuiEntryKind
-from rook_agent.app.transcript_view import entry_display_markdown_text
+from rook_agent.app.tui_state import TuiEntryKind, TuiQueueStatus
 
 
 SceneSetup = Callable[[RookApp, Pilot], Awaitable[None]]
@@ -54,13 +55,9 @@ async def _conversation_scene(app: RookApp, pilot: Pilot) -> None:
     app._write_line("读取 README.md", kind=TuiEntryKind.TOOL, label="view", status="success")
     await pilot.pause()
     app._write_markdown_message("Rook 是本地 Coding Agent，并通过 **Rook Forge** 治理 Skill。")
-    await pilot.pause()
-    assistant_entry = app.transcript.entries[-1]
-    markdown = assistant_entry.widget
-    assert markdown is not None
-    await markdown.update(entry_display_markdown_text(assistant_entry))
-    await pilot.pause()
     app._write_line("上下文保持在安全预算内。", kind=TuiEntryKind.SYSTEM)
+    await app._wait_for_markdown_mounts()
+    app.query_one("#output").scroll_end(animate=False)
     await pilot.pause()
 
 
@@ -73,19 +70,55 @@ async def _palette_scene(app: RookApp, pilot: Pilot) -> None:
 
 async def _help_scene(app: RookApp, pilot: Pilot) -> None:
     app._dismiss_welcome()
-    app._handle_command_action(
-        SwitchPageAction(page="help", content=HELP_PAGE_MARKDOWN)
+    entry = app._write_line(
+        HELP_PAGE_MARKDOWN,
+        kind=TuiEntryKind.COMMAND,
+        label="HELP",
+        content_format=ContentFormat.MARKDOWN,
     )
+    markdown = entry.widget
+    assert markdown is not None
+    await app._wait_for_markdown_mounts()
+    await pilot.pause()
+
+
+async def _queue_scene(app: RookApp, pilot: Pilot) -> None:
+    app._dismiss_welcome()
+    steering = app._queue_steering("继续检查失败测试，不要开始总结。")
+    steering.status = TuiQueueStatus.CONSUMED
+    app._update_queue_message(steering)
+    app._queue_follow_up("测试通过后整理变更摘要。")
+    paused = app._queue_follow_up("最后运行完整离线回归。")
+    paused.status = TuiQueueStatus.PAUSED
+    app._queue_paused = True
+    app._update_queue_message(paused)
+    app._refresh_queue_chrome()
     await pilot.pause()
 
 
 async def _permission_scene(app: RookApp, pilot: Pilot) -> None:
     app._dismiss_welcome()
-    app._write_line(
-        "工具：write\n目标：README.md\n选择：allow once / deny",
-        kind=TuiEntryKind.PERMISSION,
-        label="write README.md",
-        status="permission_requested",
+    app._open_permission_picker(
+        SimpleNamespace(
+            id="perm_write",
+            kind="permission_confirmation",
+            question="允许写 README 吗？",
+            options=[
+                SimpleNamespace(id="deny", label="Deny", description=""),
+                SimpleNamespace(id="allow_once", label="Allow once", description=""),
+                SimpleNamespace(
+                    id="allow_always_same_scope",
+                    label="Allow always",
+                    description="exact_path: README.md",
+                ),
+            ],
+            payload={
+                "action": "write_path",
+                "target": "README.md",
+                "reason": "写入项目文件需要明确授权。",
+            },
+        ),
+        source="chat",
     )
     await pilot.pause()
 
@@ -118,6 +151,7 @@ SCENES: dict[str, tuple[bool, bool, SceneSetup]] = {
     "conversation": (False, False, _conversation_scene),
     "palette": (False, True, _palette_scene),
     "help": (True, False, _help_scene),
+    "queue": (False, False, _queue_scene),
     "permission": (False, False, _permission_scene),
     "picker": (False, False, _picker_scene),
     "error": (False, False, _error_scene),

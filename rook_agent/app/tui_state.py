@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from rook_agent.app.commands import ContentFormat
+
 
 class TuiEntryKind(StrEnum):
     SYSTEM = "system"
@@ -15,6 +17,7 @@ class TuiEntryKind(StrEnum):
     REASONING = "reasoning"
     TOOL = "tool"
     PERMISSION = "permission"
+    QUEUE = "queue"
     ERROR = "error"
 
 
@@ -26,8 +29,23 @@ _DEFAULT_LABELS = {
     TuiEntryKind.REASONING: "thinking",
     TuiEntryKind.TOOL: "tool",
     TuiEntryKind.PERMISSION: "permission",
+    TuiEntryKind.QUEUE: "queue",
     TuiEntryKind.ERROR: "error",
 }
+
+
+class TuiQueueKind(StrEnum):
+    STEERING = "steering"
+    FOLLOW_UP = "follow_up"
+
+
+class TuiQueueStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    CONSUMED = "consumed"
+    DONE = "done"
+    PAUSED = "paused"
+    CANCELLED = "cancelled"
 
 
 @dataclass(slots=True)
@@ -37,7 +55,19 @@ class TuiTranscriptEntry:
     body: str
     label: str
     status: str | None = None
+    content_format: ContentFormat = ContentFormat.PLAIN
     widget: Any | None = None
+
+
+@dataclass(slots=True)
+class TuiQueuedMessage:
+    id: str
+    kind: TuiQueueKind
+    content: str
+    session_id: str
+    created_order: int
+    status: TuiQueueStatus = TuiQueueStatus.QUEUED
+    entry_id: int | None = None
 
 
 @dataclass(slots=True)
@@ -69,6 +99,7 @@ class TuiTranscript:
         *,
         label: str | None = None,
         status: str | None = None,
+        content_format: ContentFormat = ContentFormat.PLAIN,
     ) -> TuiTranscriptEntry:
         entry = TuiTranscriptEntry(
             id=self._next_id,
@@ -76,6 +107,7 @@ class TuiTranscript:
             body=body,
             label=label or _DEFAULT_LABELS[kind],
             status=status,
+            content_format=content_format,
         )
         self._next_id += 1
         self.entries.append(entry)

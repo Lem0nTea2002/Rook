@@ -218,7 +218,7 @@ def _register_feishu_application() -> dict[str, object]:
 
     raw_result = lark.register_app(
         on_qr_code=show_qr,
-        source="rook-0.4.1",
+        source="rook-0.4.2",
         app_preset={
             "name": "Rook",
             "desc": "Local coding agent mobile gateway",

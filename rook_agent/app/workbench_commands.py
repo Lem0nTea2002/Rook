@@ -33,6 +33,10 @@ DiffReader = Callable[[Path], str]
 
 
 _KEYS_TEXT = """快捷键：
+  Enter          空闲时发送；运行中引导当前任务
+  Alt+Enter      运行中排队下一任务
+  Shift+Enter    输入换行
+  Alt+Up         取回最近一条未执行的排队消息
   Ctrl+C         取消运行、清空输入；空输入连续两次退出
   Ctrl+D         空输入时退出
   Ctrl+Shift+C   复制所选文本或最后一条回复
@@ -41,7 +45,10 @@ _KEYS_TEXT = """快捷键：
   Ctrl+X Ctrl+E  在外部编辑器中编辑输入
   Alt+P          选择模型
   Shift+Tab      切换权限模式（不会进入 bypass）
-  Esc            关闭面板；运行中连续两次中断"""
+  Esc            关闭面板；运行中连续两次中断
+
+Windows Terminal 默认可能占用 Alt+Enter。若 Rook 收不到该按键，请在终端设置中移除
+“切换全屏”的 Alt+Enter 绑定。"""
 
 
 @dataclass(slots=True)

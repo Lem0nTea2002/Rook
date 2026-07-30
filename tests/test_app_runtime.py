@@ -278,6 +278,23 @@ def test_agent_chat_runner_drains_pending_guidance_once(tmp_path) -> None:
     assert runner.drain_guidance() == []
 
 
+def test_agent_chat_runner_can_recall_or_collect_unconsumed_guidance(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    runner = AgentChatRunner(
+        current_session=CurrentSessionState(
+            AgentSession.create(store=store, session_id="sess_unused", agents_md="")
+        ),
+        provider=FakeProvider([]),
+    )
+
+    runner.add_guidance("第一条")
+    runner.add_guidance("第二条")
+
+    assert runner.pop_pending_guidance() == "第二条"
+    assert runner.take_pending_guidance() == ["第一条"]
+    assert runner.pop_pending_guidance() is None
+
+
 def test_chat_runner_passes_loop_limits_to_agent_loop(tmp_path) -> None:
     store = JsonlSessionStore(tmp_path)
     session = AgentSession.create(store=store, session_id="sess_runner_limits", agents_md="")

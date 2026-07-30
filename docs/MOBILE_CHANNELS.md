@@ -1,6 +1,6 @@
 # Rook mobile channels
 
-Rook v0.4.1 can keep a local gateway running so one paired Feishu or WeChat
+Rook v0.4.2 can keep a local gateway running so one paired Feishu or WeChat
 private chat can submit coding tasks to the Rook process on your computer. The
 computer must remain online; projects, credentials, sessions, and tool execution
 stay local.
@@ -8,7 +8,7 @@ stay local.
 ## Setup
 
 ```powershell
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
 pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 rook channel project add rook --path "D:\absolute\path\to\Rook"
 rook channel setup feishu

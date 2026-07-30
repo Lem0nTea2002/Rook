@@ -37,7 +37,13 @@ from rook_agent.app.picker_adapters import render_picker_item
 from rook_agent.app.activity_view import tool_event_label, tool_event_status, turn_metrics_text
 from rook_agent.app.welcome import WELCOME_LOGO_PIXELS, welcome_renderable
 from rook_agent.app.transcript_view import entry_classes, tool_event_entry_kind
-from rook_agent.app.tui_state import TuiEntryKind, TuiTodoItem, TuiTranscript
+from rook_agent.app.tui_state import (
+    TuiEntryKind,
+    TuiQueueKind,
+    TuiQueueStatus,
+    TuiTodoItem,
+    TuiTranscript,
+)
 from rook_agent.app.tui_state import TuiTranscriptEntry
 from rook_agent.app.viewer import ContentViewerScreen
 from rook_agent.context.models import SessionView
@@ -664,8 +670,11 @@ async def test_rook_app_direct_shell_resumes_permission_confirmation() -> None:
         await pilot.press("enter")
         await pilot.pause()
         assert app._pending_shell_input is pending
+        assert app._picker is not None
+        assert app._picker.kind == "permission-shell"
+        assert app._picker.selected_item is not None
+        assert app._picker.selected_item.id == "allow_once"
 
-        await pilot.press(*"allow once")
         await pilot.press("enter")
         await pilot.pause()
 
@@ -1303,6 +1312,45 @@ class BlockingGuidanceAsyncChatRunner(BlockingAsyncChatRunner):
         self.guidance.append(content)
 
 
+class FollowUpQueueAsyncChatRunner(FakeChatRunner):
+    def __init__(self, *, fail_follow_up: bool = False) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.fail_follow_up = fail_follow_up
+        self.last_pending_input = None
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        if len(self.inputs) == 1:
+            self.started.set()
+            await self.release.wait()
+        elif self.fail_follow_up:
+            raise RuntimeError("provider down")
+        return ChatResponse(provider="fake", model="fake", content=f"done:{content}")
+
+
+class LateGuidanceAsyncChatRunner(FollowUpQueueAsyncChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.guidance: list[str] = []
+
+    def add_guidance(self, content: str) -> None:
+        self.guidance.append(content)
+
+    def take_pending_guidance(self) -> list[str]:
+        values = list(self.guidance)
+        self.guidance.clear()
+        return values
+
+
+class RecallableGuidanceAsyncChatRunner(BlockingGuidanceAsyncChatRunner):
+    def pop_pending_guidance(self) -> str | None:
+        if not self.guidance:
+            return None
+        return self.guidance.pop()
+
+
 class UnhandledCommandHandler:
     def handle(self, text: str) -> CommandResult:
         return CommandResult(handled=False)
@@ -1455,6 +1503,163 @@ async def test_rook_app_queues_guidance_while_chat_is_running() -> None:
 
     assert runner.inputs == ["start"]
     assert runner.guidance == ["先别总结"]
+    assert app._queued_messages[0].kind == TuiQueueKind.STEERING
+    assert app._queued_messages[0].status == TuiQueueStatus.CONSUMED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_help_does_not_call_chat_runner() -> None:
+    from rook_agent.app.help_commands import HelpCommandHandler
+
+    runner = FakeChatRunner()
+    app = RookApp(command_handler=HelpCommandHandler(), chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/help")
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+
+    assert runner.inputs == []
+    assert len(app.transcript.entries) == 1
+    assert app.transcript.entries[0].kind == TuiEntryKind.COMMAND
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_runs_alt_enter_follow_up_after_current_turn() -> None:
+    runner = FollowUpQueueAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"下一任务")
+        await pilot.press("alt+enter")
+        await pilot.pause()
+
+        assert runner.inputs == ["start"]
+        assert app._follow_up_queue[0].status == TuiQueueStatus.QUEUED
+
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if runner.inputs == ["start", "下一任务"] and not app._chat_busy:
+                break
+
+    assert runner.inputs == ["start", "下一任务"]
+    assert app._queued_messages[0].status == TuiQueueStatus.DONE
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_converts_late_guidance_to_next_turn() -> None:
+    runner = LateGuidanceAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"来不及的引导")
+        await pilot.press("enter")
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if runner.inputs == ["start", "来不及的引导"] and not app._chat_busy:
+                break
+
+    assert runner.inputs == ["start", "来不及的引导"]
+    assert app._queued_messages[0].kind == TuiQueueKind.FOLLOW_UP
+    assert app._queued_messages[0].status == TuiQueueStatus.DONE
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_alt_up_recalls_latest_queued_message() -> None:
+    runner = RecallableGuidanceAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"撤回我")
+        await pilot.press("enter")
+        await pilot.press("alt+up")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "撤回我"
+        assert runner.guidance == []
+        assert app._queued_messages[0].status == TuiQueueStatus.CANCELLED
+        runner.release.set()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_queues_follow_up_while_permission_is_waiting() -> None:
+    runner = FakePermissionWaitingRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"审批后再运行测试")
+        await pilot.press("alt+enter")
+        await pilot.pause()
+
+        assert runner.inputs == []
+        assert len(app._follow_up_queue) == 1
+        assert app._follow_up_queue[0].status == TuiQueueStatus.QUEUED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_pauses_follow_up_queue_after_provider_error() -> None:
+    runner = FollowUpQueueAsyncChatRunner(fail_follow_up=True)
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"会失败的后续")
+        await pilot.press("alt+enter")
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if app._queue_paused:
+                break
+
+    assert runner.inputs == ["start", "会失败的后续"]
+    assert app._queue_paused is True
+    assert app._follow_up_queue[0].status == TuiQueueStatus.PAUSED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_interrupt_pauses_follow_up_queue() -> None:
+    runner = FollowUpQueueAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"中断后不要自动运行")
+        await pilot.press("alt+enter")
+        app._interrupt_chat_turn()
+        await pilot.pause()
+
+    assert runner.inputs == ["start"]
+    assert app._queue_paused is True
+    assert app._follow_up_queue[0].status == TuiQueueStatus.PAUSED
 
 
 @pytest.mark.anyio
@@ -2707,9 +2912,9 @@ def test_rook_app_displays_pending_permission_prompt_immediately(monkeypatch) ->
     )
     assert "permission requested  write_path README.md" in rendered
     assert "写入文件需要用户确认。" in rendered
-    assert "[1] deny" in rendered
-    assert "[2] allow once" in rendered
-    assert "[3] allow always" in rendered
+    assert "1. Deny" in rendered
+    assert "> 2. Allow once" in rendered
+    assert "3. Allow always" in rendered
 
 
 @pytest.mark.anyio
@@ -2755,13 +2960,31 @@ async def test_rook_app_routes_permission_answer_to_resume() -> None:
     app = RookApp(chat_runner=runner)
 
     async with app.run_test() as pilot:
-        await pilot.click("#input")
-        await pilot.press(*"allow once")
+        assert app._picker is not None
+        assert app._picker.kind == "permission-chat"
+        assert app._picker.selected_item is not None
+        assert app._picker.selected_item.id == "allow_once"
         await pilot.press("enter")
         await pilot.pause()
 
     assert runner.inputs == []
     assert runner.resumes == [("perm_write", "allow_once")]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_permission_picker_still_accepts_explicit_deny_text() -> None:
+    runner = FakePermissionResumeRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"deny")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert runner.inputs == []
+    assert runner.resumes == [("perm_write", "deny")]
 
 
 @pytest.mark.anyio
@@ -2783,7 +3006,8 @@ async def test_rook_app_permission_resume_keeps_same_active_turn_metrics(monkeyp
         assert started_at > 0
 
         app._turn_tool_count = 2
-        await pilot.press(*"allow once")
+        assert app._picker is not None
+        assert app._picker.kind == "permission-chat"
         await pilot.press("enter")
         await pilot.pause()
 

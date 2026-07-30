@@ -34,7 +34,7 @@ def permission_options_text(pending) -> str:
     return f"请回复权限选择：{rendered}"
 
 
-def permission_prompt_text(pending) -> str:
+def permission_prompt_text(pending, *, include_options: bool = True) -> str:
     payload = getattr(pending, "payload", {}) or {}
     action = str(payload.get("action") or "")
     target = str(payload.get("target") or "")
@@ -54,17 +54,18 @@ def permission_prompt_text(pending) -> str:
     elif not any((action, target)):
         lines.append(f"  {question}")
 
-    options = list(getattr(pending, "options", []) or [])
-    if options:
-        choices: list[str] = []
-        for index, option in enumerate(options, start=1):
-            label = str(getattr(option, "label", "") or getattr(option, "id", ""))
-            option_id = str(getattr(option, "id", ""))
-            rendered = permission_option_label(label, option_id)
-            choices.append(f"[{index}] {rendered}")
-        lines.append("  " + "  ".join(choices))
-    else:
-        lines.append("  [1] deny  [2] allow once  [3] allow always")
+    if include_options:
+        options = list(getattr(pending, "options", []) or [])
+        if options:
+            choices: list[str] = []
+            for index, option in enumerate(options, start=1):
+                label = str(getattr(option, "label", "") or getattr(option, "id", ""))
+                option_id = str(getattr(option, "id", ""))
+                rendered = permission_option_label(label, option_id)
+                choices.append(f"[{index}] {rendered}")
+            lines.append("  " + "  ".join(choices))
+        else:
+            lines.append("  [1] deny  [2] allow once  [3] allow always")
     return "\n".join(lines)
 
 

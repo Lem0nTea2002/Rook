@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.1"><img alt="Release v0.4.1" src="https://img.shields.io/badge/release-v0.4.1-38CFE0?style=flat-square"></a>
+  <a href="https://github.com/Lem0nTea2002/Rook/releases/tag/v0.4.2"><img alt="Release v0.4.2" src="https://img.shields.io/badge/release-v0.4.2-38CFE0?style=flat-square"></a>
   <a href="https://github.com/Lem0nTea2002/Rook/actions/workflows/offline-tests.yml"><img alt="Offline CI" src="https://img.shields.io/badge/CI-Windows%20%7C%20Linux-61D095?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
   <a href="README.md">English</a>
@@ -24,10 +24,13 @@ Rook 能在本地工作区读取和修改代码、调用工具、运行测试，
 
 ![Rook 动态演示：Rookie 启动页、Coding 工作流与 Skill 上线门禁](docs/images/rook-demo.gif)
 
+[运行三分钟面试演示](docs/THREE_MINUTE_DEMO.zh-CN.md)：Coding Task → Tool Call
+→ Skill 考试 → Gate → 人工审批 → 部署 → drift → rollback。
+
 ## 快速开始
 
 ```bash
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.1"
+pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
 rook
 ```
 
@@ -53,14 +56,14 @@ rook eval demo
 | Coding Agent | 读取、搜索、修改代码，运行命令和测试 |
 | Coding Workbench | 可复制输出、Slash Palette、`@` 文件、受控 Shell、Diff 和 Transcript |
 | 可见的 Agent Loop | 在 TUI 中展示流式输出、工具调用、结果、权限请求和待办 |
-| 权限与会话 | 高风险操作先确认；会话可持久化、恢复和压缩 |
+| 权限与会话 | 高风险操作自动弹出选择器；会话可持久化、恢复和压缩 |
 | 手机渠道 | 已配对的飞书/微信私聊可远程提交任务，并在 IM 中单次审批 |
 | Skill 考试 | 隔离运行 Baseline、Forced 和 Routed 配对实验 |
 | Skill 发布 | 自动门禁后仍需人工审批，支持 Rook/Codex 独立部署与回滚 |
 
 ## 手机飞书 / 微信控制本地 Rook
 
-Rook v0.4.1 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
+Rook v0.4.2 可在电脑上运行本地 Gateway。手机只负责发送任务和完成单次权限
 审批；项目文件、模型凭据、Agent Loop、Skill 和工具执行仍留在电脑。
 
 ```powershell
@@ -122,6 +125,8 @@ Tab 补全、Enter 执行。`/model`、`/resume`、`/use`、`/mode` 等命令支
 | `Ctrl+R` | 搜索当前项目 Prompt 历史 |
 | `Ctrl+X Ctrl+E` | 用 `$VISUAL` 或 `$EDITOR` 编辑当前 Prompt |
 | `Shift+Tab` | 在安全的权限模式间切换，不会进入 bypass |
+| 执行中 `Enter` / `Alt+Enter` | 引导当前任务 / 排队下一个独立任务 |
+| 审批时 `↑` / `↓` + `Enter` | 选择并确认拒绝、允许一次或同范围持续授权 |
 
 输出、Markdown、代码块和 Tool Card 均可鼠标选择。长工具输出可点击展开；完整
 Transcript 保留在状态层，界面只挂载最近 200 条，避免长会话持续变慢。每次启动时
@@ -138,7 +143,7 @@ Rookie 会出现在欢迎区，发送第一条消息后自动让出工作空间�
 | --- | --- |
 | `gpt-5.4-mini` Formal | 72/72 次调用，36 个可比配对；Baseline 25% → Forced 94.4%（+69.4pp） |
 | 效率与安全 | 中位时延 -5.8%，中位 Token -15.2%，新增回归 0，轨迹完整度 100% |
-| 跨平台 CI | Ubuntu 1844 passed / 8 skipped；Windows 1845 passed / 7 skipped |
+| 跨平台 CI | Ubuntu/Windows、Python 3.11/3.12 执行 2,000+ 离线测试；精确数字以 CI 为准 |
 | 发布生命周期 | 真实完成门禁、人工审批、双目标部署、漂移检测与原子回滚 |
 
 Formal 使用 sealed holdout；美元成本和 Codex 路由激活未观测，因此不做估算。
