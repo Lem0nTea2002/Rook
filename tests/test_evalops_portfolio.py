@@ -80,6 +80,8 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
     assert evidence["authorization"]["formal_authorized"] is False
     assert "prompt" not in json.dumps(evidence).casefold()
     assert "pipx install rook-agent" not in english_readme + chinese_readme
+    assert "pipx install --backend pip" in english_readme
+    assert "pipx install --backend pip" in chinese_readme
     project = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     version = project["project"]["version"]
     repository = project["project"]["urls"]["Repository"]

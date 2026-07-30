@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- Made the documented pipx install deterministic with `--backend pip`, avoiding
+  failures when an older unrelated `uv` executable is present on `PATH`.
+
 ## [0.4.2] - 2026-07-30
 
 ### Added

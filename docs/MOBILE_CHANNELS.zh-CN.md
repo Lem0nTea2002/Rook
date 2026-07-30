@@ -21,7 +21,7 @@ IM 单次审批 → 结果回传
 ## 安装
 
 ```powershell
-pipx install "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
+pipx install --backend pip "git+https://github.com/Lem0nTea2002/Rook.git@v0.4.2"
 pipx inject rook-agent "lark-oapi>=1.7,<2" "qrcode>=8,<9"
 ```
 
