@@ -92,7 +92,7 @@ jobs:
 
       - name: Upload PR gate evidence
         if: always() && hashFiles('.rook/pr-gate/report.json') != ''
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rook-forge-pr-gate-${{ github.run_id }}
           path: .rook/pr-gate/report.json
