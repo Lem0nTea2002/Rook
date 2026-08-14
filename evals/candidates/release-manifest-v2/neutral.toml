@@ -1,0 +1,9 @@
+name = "release-manifest-v2-normalizer"
+description = "Use generic care while handling release-related files without defining a repository convention."
+triggers = ["work with release metadata"]
+procedure = [
+  "Read the task and the named file carefully.",
+  "Make only changes explicitly supported by the task.",
+]
+verification = ["Re-read any file changed during the task."]
+pitfalls = ["Avoid unrelated edits and invented repository rules."]

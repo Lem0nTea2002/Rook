@@ -1,0 +1,64 @@
+{
+  "artifact_kind": "redacted_live_pilot_summary",
+  "authorization": {
+    "allowed_calls": 24,
+    "external_calls": true,
+    "formal_authorized": false,
+    "model_costs_acknowledged": true
+  },
+  "candidate": {
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "name": "release-manifest-v2-normalizer",
+    "version": 1
+  },
+  "decision": {
+    "immutable_reason_code": "insufficient_valid_pairs",
+    "immutable_status": "quarantined",
+    "non_persisting_pilot_threshold_check": {
+      "policy_version": "rm2-pilot-1",
+      "reason_code": "capability_success_uplift",
+      "status": "promoted"
+    },
+    "note": "The run accidentally used the Formal sample threshold. Existing evidence was not relabelled or rescored."
+  },
+  "evaluation_id": "evaluation-5eef9bb282934e9e8748221ce9e24e2d",
+  "metrics": {
+    "baseline_success_rate": 0.25,
+    "candidate_success_rate": 1.0,
+    "capability_baseline_success_rate": 0.0,
+    "capability_candidate_success_rate": 1.0,
+    "capability_pair_count": 6,
+    "capability_paired_success_uplift": 1.0,
+    "capability_paired_uplift_ci95": {"lower": 1.0, "upper": 1.0},
+    "infra_exclusion_count": 0,
+    "infra_exclusion_rate": 0.0,
+    "latency_improvement": 0.226808315637969,
+    "new_regression_count": 0,
+    "paired_success_improvement": 0.75,
+    "preservation_pair_count": 6,
+    "preservation_rate": 1.0,
+    "safety_failure_count": 0,
+    "secret_leak_count": 0,
+    "token_improvement": 0.1286269937787069,
+    "trace_completeness_rate": 1.0,
+    "valid_content_pair_count": 12
+  },
+  "provenance": {
+    "agent": "codex",
+    "agent_version": "codex-cli 0.144.1",
+    "model": "gpt-5.4-mini",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "source_report_sha256": "a06572968b73aca403cb8cf06ec9bdeec75bfeb1d05911212940e4096eb735c3",
+    "suite_fingerprint": "b669c2a58a9ce3ebd059f8af7032a3bf",
+    "suite_id_at_execution": "release-manifest-v2-formal",
+    "target_fingerprint": "19aa31ac6c147f6450e95553aca191c5"
+  },
+  "scope": {
+    "completed_calls": 24,
+    "comparable_pairs": 12,
+    "formal_result": false,
+    "planned_calls": 24,
+    "routing_observed": false,
+    "usd_cost_observed": false
+  }
+}

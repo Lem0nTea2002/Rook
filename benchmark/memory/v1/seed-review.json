@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "benchmark_version": "memory-seed-review-v1",
+  "status": "confirmed",
+  "evidence_state": "ten_development_seeds_executed",
+  "activation_allowed": true,
+  "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+  "active_memory_records": [
+    {
+      "seed_id": "seed-01-neighbor-tests",
+      "record_id": "memory_9937e28457979e16d6e04a37",
+      "content_hash": "dd09fdfe4ba4b1c22db394a7599b222f0a96a8ad83f6bf2485d4255958d39387"
+    },
+    {
+      "seed_id": "seed-02-resolve-path",
+      "record_id": "memory_ff9855cbcba8af02b746ec3a",
+      "content_hash": "96f715bffc624fd01764800f66a8e3a24b6939062dfcee9dd70e4f709e3874a4"
+    },
+    {
+      "seed_id": "seed-03-project-entrypoint",
+      "record_id": "memory_3f40e1f4438fe3488dc26836",
+      "content_hash": "60770f14b0103de284cb557cb28925aeaaaa59e569349f94bbc6e0893914dcad"
+    },
+    {
+      "seed_id": "seed-04-semantic-invariant",
+      "record_id": "memory_e74b36949f7ea095df86bab2",
+      "content_hash": "f044e1bf411d514437fc7cac136d1d7dedef9a6890b027e431dfe4f685b1ea8d"
+    },
+    {
+      "seed_id": "seed-05-random-determinism",
+      "record_id": "memory_8ede119d2874777a6843375d",
+      "content_hash": "10b181e5e746352a2837968182c20da2ef0ec765f012810e528738da2dcf009e"
+    },
+    {
+      "seed_id": "seed-06-version-compatibility",
+      "record_id": "memory_9f396d05d6feb44ad9139467",
+      "content_hash": "0dadc125d21dadc575b797a00aecec03c4fc4ab45bac457fefc083d2bdfb9b34"
+    },
+    {
+      "seed_id": "seed-07-config-negative-path",
+      "record_id": "memory_25c34193dd617186dcdb4066",
+      "content_hash": "0f89afcb2f6947d605fe06a6b34e33ee847d15b4efbc341774cdf66bd5c333d3"
+    },
+    {
+      "seed_id": "seed-08-state-cleanup",
+      "record_id": "memory_3c5a2e34dd3042847d494b9b",
+      "content_hash": "aa98dc6a67a953535f730741e979010fe5bb75de4c9f153a7517f8ce27b69781"
+    },
+    {
+      "seed_id": "seed-09-doctest-source",
+      "record_id": "memory_635b8ebe6aad77c132655005",
+      "content_hash": "8a031a82d0e34007af7f462b8872a9d91ae995a30a84b7e86aa999215ef1c7ab"
+    },
+    {
+      "seed_id": "seed-10-output-backends",
+      "record_id": "memory_cfbace9bfcac095ec622c5dc",
+      "content_hash": "7202d72f783a3f7c96186cc2a85f98d361383832eaf3caeac3c70bdd34b75332"
+    }
+  ],
+  "accepted_evidence": [
+    {
+      "seed_id": "seed-01-neighbor-tests",
+      "experiment_id": "memory-seed-20260731T172756562700Z-fe3dfe59",
+      "record_sha256": "5f14ace75552b57e6a40aacb0542979ff027bc8e3f5aa62ec77703e037fa8a18",
+      "recovery_opportunity_id": "recovery_b3866158e6989fb5e43c73ba376c61b5",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-02-resolve-path",
+      "experiment_id": "memory-seed-20260731T170756346896Z-a2eea9fc",
+      "record_sha256": "083507583222ca71bf6522f179c945445085928a27042f34547423be92bd3cfd",
+      "recovery_opportunity_id": "recovery_abf31cc9df85baff349925f7b7ee1f98",
+      "trigger_kind": "alternative_solution"
+    },
+    {
+      "seed_id": "seed-03-project-entrypoint",
+      "experiment_id": "memory-seed-20260801T050213076472Z-480b5585",
+      "record_sha256": "6221d54c1922db09d0c6ba10980cb50370f0b97da77772b4abe65ab665933386",
+      "recovery_opportunity_id": "recovery_28aac919e07d993f7035553f9e511dad",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-04-semantic-invariant",
+      "experiment_id": "memory-seed-20260801T051829694265Z-6df7fd5e",
+      "record_sha256": "37df90ad8441b85539f87964662c8d1c3781f88fbd541b7e6e0274ee115668a5",
+      "recovery_opportunity_id": "recovery_e4dd83affb959c5c020508d361f01132",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-05-random-determinism",
+      "experiment_id": "memory-seed-20260801T051829694265Z-6df7fd5e",
+      "record_sha256": "dcff4a6b46311c88c55284f888143e40b29cb18d45a198b91e94158759c370f9",
+      "recovery_opportunity_id": "recovery_79d658877403804900c901d6b9439edd",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-06-version-compatibility",
+      "experiment_id": "memory-seed-20260801T051829694265Z-6df7fd5e",
+      "record_sha256": "e7c56735fb65e28dc4ede2b53c4fe4265d29c2699eb8220137ce120ddf508920",
+      "recovery_opportunity_id": "recovery_0587f1b5037f698d17725efeafddfc27",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-07-config-negative-path",
+      "experiment_id": "memory-seed-20260801T052046177449Z-53d377ac",
+      "record_sha256": "6f08cfe99dad3152291dc60484634cf92555cb79443979f6da0ba252f45cb06d",
+      "recovery_opportunity_id": "recovery_f457d7f0807df17d747925bec177b737",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-08-state-cleanup",
+      "experiment_id": "memory-seed-20260801T052046177449Z-53d377ac",
+      "record_sha256": "26d6342a842c1fb2d7537ec2bebc006c66830872c66265b694535d59628baf41",
+      "recovery_opportunity_id": "recovery_214a9c8e3968e4cb4c14347fcc14512c",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-09-doctest-source",
+      "experiment_id": "memory-seed-20260801T052046177449Z-53d377ac",
+      "record_sha256": "e6d6d718dc465f9f14fcda2f6d400bb602f412cd196104a1e0e2858cd69315c9",
+      "recovery_opportunity_id": "recovery_70e399f4c58cb76725868648181b2ae8",
+      "trigger_kind": "verification_recovery"
+    },
+    {
+      "seed_id": "seed-10-output-backends",
+      "experiment_id": "memory-seed-20260731T172756562700Z-fe3dfe59",
+      "record_sha256": "22bd1bb2b8f271a659323d3b85ef7c01bf84a77a8b1ce5a373474fd89b49bb60",
+      "recovery_opportunity_id": "recovery_2fcc684f15220705249743d20dca03cd",
+      "trigger_kind": "verification_recovery"
+    }
+  ],
+  "seeds": [
+    {
+      "seed_id": "seed-01-neighbor-tests",
+      "category": "verification_workflow",
+      "failure_pattern": "修改后只运行宽泛或无关检查，未能证明目标行为。",
+      "seed_task": "在隔离小仓库中先让相邻测试失败，再要求定位目标测试、完成最小修改并运行目标测试与相关回归。",
+      "proposed_rule": "修改有现有测试覆盖的行为时，先读取生产实现和最接近该行为的测试；修改后运行最窄复现测试，再运行受影响回归。",
+      "triggers": ["修改已有测试覆盖的行为", "需要选择最小验证范围"],
+      "verification": ["目标测试退出码为 0", "相关回归退出码为 0"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-02-resolve-path",
+      "category": "tool_recovery",
+      "failure_pattern": "按猜测路径读取文件失败后继续重复同一路径。",
+      "seed_task": "提供名称相近但目录不同的文件；首次读取失败后，要求通过目录或 glob 证据找到真实路径并完成验证。",
+      "proposed_rule": "路径读取失败后，使用目录、tree 或 glob 获取实际路径，再使用工具返回的规范路径继续操作。",
+      "triggers": ["view 或 grep 报告路径不存在", "仓库存在相似文件名"],
+      "verification": ["修正路径的读取成功", "后续目标验证通过"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-03-project-entrypoint",
+      "category": "environment_recovery",
+      "failure_pattern": "直接使用通用测试命令失败，忽略仓库已经声明的验证入口。",
+      "seed_task": "让通用命令因项目布局失败，但在项目配置中提供有效的本地验证入口；要求读取配置后恢复。",
+      "proposed_rule": "通用验证命令失败时，先读取项目的测试与构建配置，改用仓库声明的本地入口，不自行安装依赖。",
+      "triggers": ["通用测试命令无法导入项目", "仓库包含 tox、nox、pyproject 或贡献指南"],
+      "verification": ["仓库声明的入口退出码为 0", "没有联网安装或修改环境"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-04-semantic-invariant",
+      "category": "test_robustness",
+      "failure_pattern": "测试断言任意编号或排列，等价结果在不同后端下失败。",
+      "seed_task": "构造标签可置换但语义等价的结果；先让精确编号断言失败，再改为验证关系不变量。",
+      "proposed_rule": "当编号、顺序或名称本身没有业务含义时，断言语义关系或集合不变量，不断言任意表示。",
+      "triggers": ["结果允许标签置换", "输出顺序不属于公开契约"],
+      "verification": ["至少两个等价排列都通过", "非等价结果仍会失败"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-05-random-determinism",
+      "category": "test_determinism",
+      "failure_pattern": "单次随机样本通过，但改变种子或执行顺序后失败。",
+      "seed_task": "先暴露依赖全局随机状态的失败，再使用显式随机源并验证多次执行。",
+      "proposed_rule": "测试涉及随机行为时使用显式、局部随机源，并用多个固定种子验证稳定性；不要依赖全局随机状态。",
+      "triggers": ["测试结果依赖随机采样", "单测单独通过但顺序变化后失败"],
+      "verification": ["多个固定种子重复通过", "改变测试顺序不影响结果"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-06-version-compatibility",
+      "category": "compatibility",
+      "failure_pattern": "补丁使用仓库最低支持版本不可用的语法或 API。",
+      "seed_task": "让新版本写法在当前解释器可用、在项目最低版本检查中失败；要求依据项目元数据改为兼容实现。",
+      "proposed_rule": "使用新语法或 API 前先核对项目最低支持版本；兼容性修复必须运行最低版本对应的静态或运行时检查。",
+      "triggers": ["引入较新的语言语法", "调用可能有版本差异的库 API"],
+      "verification": ["最低支持版本检查通过", "当前版本回归通过"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-07-config-negative-path",
+      "category": "configuration",
+      "failure_pattern": "新功能在默认配置下通过，但关闭或反向配置时行为错误。",
+      "seed_task": "先实现正向配置并暴露负向配置失败，再补齐两条配置路径。",
+      "proposed_rule": "修改受配置控制的行为时，同时验证启用与禁用路径，并确认默认值保持兼容。",
+      "triggers": ["功能由布尔或枚举配置控制", "新增配置分支或默认值"],
+      "verification": ["启用路径通过", "禁用路径与默认路径都通过"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-08-state-cleanup",
+      "category": "test_isolation",
+      "failure_pattern": "测试单独通过，但完整模块运行时因全局状态残留失败。",
+      "seed_task": "先运行单测成功、再运行组合测试失败；要求定位状态泄漏并使用项目既有清理机制。",
+      "proposed_rule": "测试修改全局注册表、环境变量或缓存时，使用 try/finally、fixture 或项目既有清理机制恢复状态，并通过异常路径与完整模块测试验证隔离性。",
+      "triggers": ["测试修改进程级状态", "单测通过但组合运行失败"],
+      "verification": ["正常路径清理后通过", "异常路径清理后与完整模块测试通过"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-09-doctest-source",
+      "category": "documentation",
+      "failure_pattern": "普通测试通过，但没有执行已经失效的 docstring 示例或 doctest。",
+      "seed_task": "让普通测试通过但示例断言失败；要求发现并运行仓库已有的 doctest 入口。",
+      "proposed_rule": "修改 docstring 或可执行文档示例时，运行对应 doctest 或示例测试，并同时运行相关普通回归；不能用普通单测通过替代示例验证。",
+      "triggers": ["修改文档中的可执行示例", "修改 docstring 或 doctest 输出"],
+      "verification": ["对应 doctest 或示例测试通过", "相关普通回归通过"],
+      "destination": "project_memory",
+      "status": "active"
+    },
+    {
+      "seed_id": "seed-10-output-backends",
+      "category": "multi_backend",
+      "failure_pattern": "共享输出文案只在一个后端完成修改，其他受支持后端仍保留旧语义。",
+      "seed_task": "先让主要后端的文案检查失败；修正共享实现后，再验证主要后端和替代后端输出一致。",
+      "proposed_rule": "修改跨后端共享的文案或输出语义时，枚举相关后端，并验证至少一个主要后端、一个替代后端及相关回归。",
+      "triggers": ["修改共享输出文案", "同一输出语义支持多个后端"],
+      "verification": ["主要后端验证通过", "替代后端与相关回归通过"],
+      "destination": "project_memory",
+      "status": "active"
+    }
+  ]
+}

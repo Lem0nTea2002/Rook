@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "benchmark_version": "memory-recovery-seeds-v1",
+  "cases": [
+    {
+      "seed_id": "seed-01-neighbor-tests",
+      "fixture": "seeds/seed-01-neighbor-tests",
+      "fixture_sha256": "62be0244591ab9614181f035182fb7bc47bb3e47bc2a6967c2e920658af3e13e",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。修复 slugify 对连续空白处理错误的问题。第一步必须先运行 `python -m pytest -q tests/test_slugify.py` 记录失败；随后读取相邻测试和生产实现，只修改 `src/rook_seed/slugify.py`；最后运行 `python -m pytest -q` 验证全部回归。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/slugify.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-02-resolve-path",
+      "fixture": "seeds/seed-02-resolve-path",
+      "fixture_sha256": "71d147592b6be002243406ccd23361d36754445113e1d89beb3a7e1e8b5df07d",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。修复 service_url 在 host 以斜杠结尾时产生错误地址的问题。历史说明声称实现位于 `src/rook_seed/settings.py`：第一步必须先用 view 读取这个路径；确认路径不存在后，不得重复猜测，必须用 glob、tree 或目录证据找到真实实现。只修改真实生产文件，最后运行 `python -m pytest -q`。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/config/settings_impl.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-03-project-entrypoint",
+      "fixture": "seeds/seed-03-project-entrypoint",
+      "fixture_sha256": "5f9f32763e98fccb55a3f3781daf3463193a041cac63682c695bda9d9fe7e657",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。修复 normalize_key 未将内部空格转换为下划线的问题。第一步必须运行通用命令 `python -m pytest -q tests` 记录入口失败；随后读取 pyproject.toml 找到仓库声明的验证入口，读取测试和生产实现，只修改 `src/rook_seed/normalizer.py`；最后运行声明的入口验证。不要安装依赖，不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/normalizer.py"],
+      "validation_args": ["-q", "checks"]
+    },
+    {
+      "seed_id": "seed-04-semantic-invariant",
+      "fixture": "seeds/seed-04-semantic-invariant",
+      "fixture_sha256": "d2dd4752dba43650aca4c705cf5fd1d5e4b56c09e12ad5926eb228a82a921361",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。cluster_labels 返回的数字标签允许整体置换，现有测试错误地绑定了任意编号。第一步必须运行 `python -m pytest -q tests/test_clusters.py` 记录失败；随后读取实现和测试，只修改 `tests/test_clusters.py`，将精确编号断言改为能够接受等价置换、同时拒绝不同分组的语义关系断言；最后运行 `python -m pytest -q`。不要修改生产实现，不要访问网络。",
+      "allowed_change_paths": ["tests/test_clusters.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-05-random-determinism",
+      "fixture": "seeds/seed-05-random-determinism",
+      "fixture_sha256": "e534b64775c6e6d090e999995a625218c65669d3f59d6e5eb142f264e761b385",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。sample_indices 依赖全局随机状态且不支持固定随机源。第一步必须运行 `python -m pytest -q tests/test_sampling.py` 记录失败；随后读取测试和实现，只修改 `src/rook_seed/sampling.py`，使用调用级局部随机源支持固定种子；最后运行 `python -m pytest -q`。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/sampling.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-06-version-compatibility",
+      "fixture": "seeds/seed-06-version-compatibility",
+      "fixture_sha256": "98e7e064022be9ce57f3c8ae0d029beefbdc95393916964d062dc4b9eca5af8f",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。项目声明最低支持 Python 3.8，但 without_prefix 使用了更高版本 API。第一步必须运行 `python -m pytest -q tests/test_prefix.py` 记录失败；随后读取 pyproject.toml、测试和实现，只修改 `src/rook_seed/prefix.py`，保持行为并兼容声明的最低版本；最后运行 `python -m pytest -q`。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/prefix.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-07-config-negative-path",
+      "fixture": "seeds/seed-07-config-negative-path",
+      "fixture_sha256": "8068f06188ab1ff87df90bdb68cd4c3630055ad5965f931a0c5e8f99a386dfe8",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。render_todos 的默认启用路径正常，禁用配置仍错误输出内容。先运行 `python -m pytest -q tests/test_todos.py -k default` 确认正向路径，再运行 `python -m pytest -q tests/test_todos.py -k disabled` 记录失败；随后只修改 `src/rook_seed/todos.py`；最后运行 `python -m pytest -q` 验证启用、禁用与默认路径。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/todos.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-08-state-cleanup",
+      "fixture": "seeds/seed-08-state-cleanup",
+      "fixture_sha256": "28f0468ef401a48c6728ce909ba051aeec4b59d60e8e07df25e51494974d3640",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。temporary_registration 在上下文内部抛错时会泄漏全局注册状态。先运行 `python -m pytest -q tests/test_registry.py -k visible` 确认普通路径，再运行 `python -m pytest -q tests/test_registry.py -k failure` 记录失败；随后只修改 `src/rook_seed/registry.py`，确保异常路径也清理状态；最后运行 `python -m pytest -q`。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/registry.py"],
+      "validation_args": ["-q"]
+    },
+    {
+      "seed_id": "seed-09-doctest-source",
+      "fixture": "seeds/seed-09-doctest-source",
+      "fixture_sha256": "1ffb27dfa0d1a985359d0b6cd408f5e7c9d2012c98125bf8c9310f935d13882f",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。normalize_name 的生产行为符合小写契约，docstring 示例输出已经过期。先运行 `python -m pytest -q tests` 确认普通测试通过，再运行 `python -m pytest -q --doctest-modules src/rook_seed` 记录示例失败；随后只修改 `src/rook_seed/formatting.py` 中的示例期望值；最后重新运行 doctest 和 `python -m pytest -q tests`。不要改生产逻辑，不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/formatting.py"],
+      "validation_args": ["-q", "--doctest-modules", "src/rook_seed"]
+    },
+    {
+      "seed_id": "seed-10-output-backends",
+      "fixture": "seeds/seed-10-output-backends",
+      "fixture_sha256": "d9ae983026d4f27139c74a9545160dff74a596d51b15efadb182bc0ad7bd9672",
+      "prompt": "当前 Host 是 Windows PowerShell；运行测试必须使用 diagnostics 工具和给定的纯 pytest 命令，不得添加管道、重定向、head、cat 或 /tmp 路径。将所有受支持输出后端中的提示语从 `Permalink to this headline` 改为 `Permalink to this heading`。第一步必须运行 `python -m pytest -q tests/test_renderers.py -k html` 记录主后端失败；随后检查同一结构支持的其他后端，只修改 `src/rook_seed/renderers.py`；最后运行 `python -m pytest -q` 验证全部后端。不要修改测试，不要访问网络。",
+      "allowed_change_paths": ["src/rook_seed/renderers.py"],
+      "validation_args": ["-q"]
+    }
+  ]
+}

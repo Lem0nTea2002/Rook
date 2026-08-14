@@ -1,0 +1,18 @@
+{
+  "retrieval_mode": "baseline_hybrid",
+  "summary": {
+    "dataset_path": "/home/suity/worksapce/PycharmProjects/FindJob/agentic-rag-for-dummies-main/project/evaluation/datasets/sample_eval.jsonl",
+    "mode": "baseline_hybrid",
+    "case_count": 2,
+    "avg_latency_ms": 51937.88,
+    "p95_latency_ms": 66111.05,
+    "avg_answer_length": 376,
+    "ragas": {
+      "enabled": false,
+      "available": false,
+      "evaluated_cases": 0,
+      "scores": {},
+      "skipped_reason": "No cases with non-empty ground_truth were found."
+    }
+  }
+}

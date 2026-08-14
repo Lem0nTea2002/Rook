@@ -1,0 +1,72 @@
+{
+  "artifact_kind": "redacted_restricted_shell_incident_remediation",
+  "authorization": {
+    "external_calls_used_for_remediation": 0,
+    "live_verification_authorized": false,
+    "model_costs_incurred_for_remediation": false,
+    "new_readiness_authorization_required": true
+  },
+  "incident": {
+    "command_executions": 10,
+    "failed_command_executions": 5,
+    "max_consecutive_restricted_shell_failures": 4,
+    "run_id": "codex-ce322624aefc7a7b4dbdeb50",
+    "source_evidence": "rm2-formal-v5-attempt-2026-07-22.json",
+    "terminal_event": false,
+    "timeout_ms": 180140
+  },
+  "observed_failure_classes": [
+    "powershell_profile_language_mode_conflict",
+    "nested_powershell_quoting_parser_error",
+    "constrained_language_method_invocation_denied",
+    "output_missing_after_failed_write",
+    "python_launcher_probe_failed_before_py_launcher_was_found"
+  ],
+  "root_cause": {
+    "adapter_boundary": "The Adapter received the Codex process result and JSONL only after process completion, so it could classify the timeout but could not inject a mid-turn correction.",
+    "agent_behavior": "The prompt had no numeric failure budget, no single-attempt fallback contract, and no stable exhaustion marker. The Agent kept rewriting PowerShell, checked an output that had not been created, and spent late recovery attempts on launcher probes.",
+    "not_observed": [
+      "authentication_failure",
+      "network_or_websocket_failure",
+      "windows_sandbox_start_failure",
+      "web_search_policy_violation"
+    ]
+  },
+  "remediation": {
+    "adapter_version": "codex-evalops-v6",
+    "fallback_attempts_after_limit": 1,
+    "fallbacks": [
+      "cmd.exe /d /s /c",
+      "direct executable such as py",
+      "dedicated non-shell tool when available"
+    ],
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "restricted_shell_failure_limit": 2,
+    "stable_diagnostics": [
+      "codex_restricted_shell_failure_limit_reached",
+      "codex_restricted_shell_recovered",
+      "codex_shell_fallback_exhausted"
+    ],
+    "stable_error_codes": [
+      "codex_restricted_shell_timeout",
+      "codex_shell_fallback_exhausted"
+    ],
+    "stable_user_marker": "ROOK_SHELL_FALLBACK_EXHAUSTED"
+  },
+  "offline_replay": {
+    "fallback_recovery_observed": true,
+    "failure_limit_reached": true,
+    "normalizer_diagnostics": [
+      "codex_restricted_shell_failure_limit_reached",
+      "codex_restricted_shell_recovered",
+      "codex_turn_terminal_missing"
+    ],
+    "trace_complete": false
+  },
+  "result": {
+    "candidate_changed": false,
+    "formal_metric_produced": false,
+    "live_claim": false,
+    "status": "offline_remediation_complete_pending_live_readiness_smoke"
+  }
+}

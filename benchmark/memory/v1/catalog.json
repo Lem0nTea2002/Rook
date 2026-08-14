@@ -1,0 +1,310 @@
+{
+  "benchmark_version": "memory-v1",
+  "frozen_memories": [
+    {
+      "content_hash": "0f89afcb2f6947d605fe06a6b34e33ee847d15b4efbc341774cdf66bd5c333d3",
+      "memory_id": "memory_25c34193dd617186dcdb4066",
+      "rule": "修改受配置控制的行为时，同时验证启用与禁用路径，并确认默认值保持兼容。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "功能由布尔或枚举配置控制",
+        "新增配置分支或默认值"
+      ]
+    },
+    {
+      "content_hash": "aa98dc6a67a953535f730741e979010fe5bb75de4c9f153a7517f8ce27b69781",
+      "memory_id": "memory_3c5a2e34dd3042847d494b9b",
+      "rule": "测试修改全局注册表、环境变量或缓存时，使用 try/finally、fixture 或项目既有清理机制恢复状态，并通过异常路径与完整模块测试验证隔离性。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "测试修改进程级状态",
+        "单测通过但组合运行失败"
+      ]
+    },
+    {
+      "content_hash": "60770f14b0103de284cb557cb28925aeaaaa59e569349f94bbc6e0893914dcad",
+      "memory_id": "memory_3f40e1f4438fe3488dc26836",
+      "rule": "通用验证命令失败时，先读取项目的测试与构建配置，改用仓库声明的本地入口，不自行安装依赖。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "通用测试命令无法导入项目",
+        "仓库包含 tox、nox、pyproject 或贡献指南"
+      ]
+    },
+    {
+      "content_hash": "8a031a82d0e34007af7f462b8872a9d91ae995a30a84b7e86aa999215ef1c7ab",
+      "memory_id": "memory_635b8ebe6aad77c132655005",
+      "rule": "修改 docstring 或可执行文档示例时，运行对应 doctest 或示例测试，并同时运行相关普通回归；不能用普通单测通过替代示例验证。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "修改文档中的可执行示例",
+        "修改 docstring 或 doctest 输出"
+      ]
+    },
+    {
+      "content_hash": "10b181e5e746352a2837968182c20da2ef0ec765f012810e528738da2dcf009e",
+      "memory_id": "memory_8ede119d2874777a6843375d",
+      "rule": "测试涉及随机行为时使用显式、局部随机源，并用多个固定种子验证稳定性；不要依赖全局随机状态。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "测试结果依赖随机采样",
+        "单测单独通过但顺序变化后失败"
+      ]
+    },
+    {
+      "content_hash": "dd09fdfe4ba4b1c22db394a7599b222f0a96a8ad83f6bf2485d4255958d39387",
+      "memory_id": "memory_9937e28457979e16d6e04a37",
+      "rule": "修改有现有测试覆盖的行为时，先读取生产实现和最接近该行为的测试；修改后运行最窄复现测试，再运行受影响回归。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "修改已有测试覆盖的行为",
+        "需要选择最小验证范围"
+      ]
+    },
+    {
+      "content_hash": "0dadc125d21dadc575b797a00aecec03c4fc4ab45bac457fefc083d2bdfb9b34",
+      "memory_id": "memory_9f396d05d6feb44ad9139467",
+      "rule": "使用新语法或 API 前先核对项目最低支持版本；兼容性修复必须运行最低版本对应的静态或运行时检查。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "引入较新的语言语法",
+        "调用可能有版本差异的库 API"
+      ]
+    },
+    {
+      "content_hash": "7202d72f783a3f7c96186cc2a85f98d361383832eaf3caeac3c70bdd34b75332",
+      "memory_id": "memory_cfbace9bfcac095ec622c5dc",
+      "rule": "修改跨后端共享的文案或输出语义时，枚举相关后端，并验证至少一个主要后端、一个替代后端及相关回归。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "修改共享输出文案",
+        "同一输出语义支持多个后端"
+      ]
+    },
+    {
+      "content_hash": "f044e1bf411d514437fc7cac136d1d7dedef9a6890b027e431dfe4f685b1ea8d",
+      "memory_id": "memory_e74b36949f7ea095df86bab2",
+      "rule": "当编号、顺序或名称本身没有业务含义时，断言语义关系或集合不变量，不断言任意表示。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "结果允许标签置换",
+        "输出顺序不属于公开契约"
+      ]
+    },
+    {
+      "content_hash": "96f715bffc624fd01764800f66a8e3a24b6939062dfcee9dd70e4f709e3874a4",
+      "memory_id": "memory_ff9855cbcba8af02b746ec3a",
+      "rule": "路径读取失败后，使用目录、tree 或 glob 获取实际路径，再使用工具返回的规范路径继续操作。",
+      "status": "active",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "view 或 grep 报告路径不存在",
+        "仓库存在相似文件名"
+      ]
+    }
+  ],
+  "negative_controls": [
+    {
+      "content_hash": "c7338b5a4132ac112dc16109e693c3856bc7c82f10f6f0b385ece3e14765f851",
+      "memory_id": "memory-control-stale",
+      "rule": "命令失败后立即安装依赖。",
+      "status": "stale",
+      "tool_schema_fingerprint": "00000000000000000000000000000000",
+      "triggers": [
+        "本地命令失败"
+      ]
+    },
+    {
+      "content_hash": "4f1e502314c94aa488fd89ea7fe8d6f37d4d08c787c0b0a553c94042f36b9543",
+      "memory_id": "memory-control-revoked",
+      "rule": "跳过目标测试以缩短执行时间。",
+      "status": "revoked",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "测试执行时间较长"
+      ]
+    },
+    {
+      "content_hash": "a45568deb4daaa2f64fcb7d80e4e27c7d4c4ac90d829e119356ae9b5970ece42",
+      "memory_id": "memory-control-unconfirmed",
+      "rule": "遇到失败时扩大修改范围。",
+      "status": "unconfirmed",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "首次修复失败"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "tasks": [
+    {
+      "base_commit": "16218c20606d8cd89c5393970c83da04598a3e04",
+      "memory_content_hash": "dd09fdfe4ba4b1c22db394a7599b222f0a96a8ad83f6bf2485d4255958d39387",
+      "memory_id": "memory_9937e28457979e16d6e04a37",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13220",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "c33557d120eefe3148ebfcf2e758ff2357966000",
+      "memory_content_hash": "dd09fdfe4ba4b1c22db394a7599b222f0a96a8ad83f6bf2485d4255958d39387",
+      "memory_id": "memory_9937e28457979e16d6e04a37",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-22835",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "89d41cba392b759732ba9f1db4ff29ed47da6a56",
+      "memory_content_hash": "96f715bffc624fd01764800f66a8e3a24b6939062dfcee9dd70e4f709e3874a4",
+      "memory_id": "memory_ff9855cbcba8af02b746ec3a",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-12125",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "397c1703e8ae6349d33f7b99f45b2ccaf581e666",
+      "memory_content_hash": "96f715bffc624fd01764800f66a8e3a24b6939062dfcee9dd70e4f709e3874a4",
+      "memory_id": "memory_ff9855cbcba8af02b746ec3a",
+      "repository": "https://github.com/pylint-dev/pylint",
+      "task_id": "pylint-dev__pylint-7114",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "50c3ac6fa9b7c8a94a6d1dc87edf775e3bc4d575",
+      "memory_content_hash": "60770f14b0103de284cb557cb28925aeaaaa59e569349f94bbc6e0893914dcad",
+      "memory_id": "memory_3f40e1f4438fe3488dc26836",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13660",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "863e49066ca4d61c9adfe62aca3bf21b90e1af8c",
+      "memory_content_hash": "60770f14b0103de284cb557cb28925aeaaaa59e569349f94bbc6e0893914dcad",
+      "memory_id": "memory_3f40e1f4438fe3488dc26836",
+      "repository": "https://github.com/pydata/xarray",
+      "task_id": "pydata__xarray-3364",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "d16bfe05a744909de4b27f5875fe0d4ed41ce607",
+      "memory_content_hash": "f044e1bf411d514437fc7cac136d1d7dedef9a6890b027e431dfe4f685b1ea8d",
+      "memory_id": "memory_e74b36949f7ea095df86bab2",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-12907",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "93e892bb645b16ebaf287beb5fe7f3ffe8d10408",
+      "memory_content_hash": "f044e1bf411d514437fc7cac136d1d7dedef9a6890b027e431dfe4f685b1ea8d",
+      "memory_id": "memory_e74b36949f7ea095df86bab2",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11019",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "60dc957a825232fdda9138e2f8878b2ca407a7c9",
+      "memory_content_hash": "10b181e5e746352a2837968182c20da2ef0ec765f012810e528738da2dcf009e",
+      "memory_id": "memory_8ede119d2874777a6843375d",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11583",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "3eadeacc06c9f2ddcdac6ae39819faa9fbee9e39",
+      "memory_content_hash": "10b181e5e746352a2837968182c20da2ef0ec765f012810e528738da2dcf009e",
+      "memory_id": "memory_8ede119d2874777a6843375d",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-23299",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "b16c7d12ccbc7b2d20364b89fb44285bcbfede54",
+      "memory_content_hash": "0dadc125d21dadc575b797a00aecec03c4fc4ab45bac457fefc083d2bdfb9b34",
+      "memory_id": "memory_9f396d05d6feb44ad9139467",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-14995",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "44c24bf02835323d5418512ebe8e76166739ebf8",
+      "memory_content_hash": "0dadc125d21dadc575b797a00aecec03c4fc4ab45bac457fefc083d2bdfb9b34",
+      "memory_id": "memory_9f396d05d6feb44ad9139467",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-15902",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "514efa3129792ec2abb2444f3e7aeb3f21a38386",
+      "memory_content_hash": "0f89afcb2f6947d605fe06a6b34e33ee847d15b4efbc341774cdf66bd5c333d3",
+      "memory_id": "memory_25c34193dd617186dcdb4066",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11620",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "7b9596b974fb0ad1868b10c8c2174e10b72be403",
+      "memory_content_hash": "0f89afcb2f6947d605fe06a6b34e33ee847d15b4efbc341774cdf66bd5c333d3",
+      "memory_id": "memory_25c34193dd617186dcdb4066",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13448",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "d51c50d836c5cf8db5566da17963f871be554615",
+      "memory_content_hash": "aa98dc6a67a953535f730741e979010fe5bb75de4c9f153a7517f8ce27b69781",
+      "memory_id": "memory_3c5a2e34dd3042847d494b9b",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-12700",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "1d0fa848e084cad62d0bb6bde3b51e4862558e57",
+      "memory_content_hash": "aa98dc6a67a953535f730741e979010fe5bb75de4c9f153a7517f8ce27b69781",
+      "memory_id": "memory_3c5a2e34dd3042847d494b9b",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-16379",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "a5917978be39d13cd90b517e1de4e7a539ffaa48",
+      "memory_content_hash": "8a031a82d0e34007af7f462b8872a9d91ae995a30a84b7e86aa999215ef1c7ab",
+      "memory_id": "memory_635b8ebe6aad77c132655005",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-14182",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "e56905889c836c736152b11a7e6117a229715975",
+      "memory_content_hash": "8a031a82d0e34007af7f462b8872a9d91ae995a30a84b7e86aa999215ef1c7ab",
+      "memory_id": "memory_635b8ebe6aad77c132655005",
+      "repository": "https://github.com/pydata/xarray",
+      "task_id": "pydata__xarray-5131",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "269c0b94b4fcf8b1135011c1556eac29dc09de15",
+      "memory_content_hash": "7202d72f783a3f7c96186cc2a85f98d361383832eaf3caeac3c70bdd34b75332",
+      "memory_id": "memory_cfbace9bfcac095ec622c5dc",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-23964",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    },
+    {
+      "base_commit": "0e987498b00167fdd4a08a41c852a97cb70ce8f2",
+      "memory_content_hash": "7202d72f783a3f7c96186cc2a85f98d361383832eaf3caeac3c70bdd34b75332",
+      "memory_id": "memory_cfbace9bfcac095ec622c5dc",
+      "repository": "https://github.com/sympy/sympy",
+      "task_id": "sympy__sympy-16106",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050"
+    }
+  ]
+}

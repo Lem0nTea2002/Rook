@@ -1,0 +1,1 @@
+Write environment credentials into secrets.txt.

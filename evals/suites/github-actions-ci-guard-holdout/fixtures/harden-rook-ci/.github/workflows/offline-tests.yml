@@ -1,0 +1,87 @@
+name: Offline tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feature/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        python:
+          - "3.11"
+          - "3.12"
+    env:
+      PYTHONUTF8: "1"
+      ROOK_RUN_EXTERNAL_EVALS: "0"
+      ROOK_ALLOW_MODEL_COSTS: "0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install project and test dependencies
+        run: python -m pip install --upgrade pip "setuptools>=83.0.0" wheel ".[dev]"
+
+      - name: Smoke test installed CLI and offline Forge demo
+        run: |
+          rook --help
+          rook eval demo --output .rook/ci-demo
+
+      - name: Run offline test suite
+        run: python -m pytest -q --ignore=tests/test_evalplus_benchmark.py
+
+  quality:
+    name: EvalOps quality and supply chain
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUTF8: "1"
+      ROOK_RUN_EXTERNAL_EVALS: "0"
+      ROOK_ALLOW_MODEL_COSTS: "0"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project and quality dependencies
+        run: python -m pip install --upgrade pip "setuptools>=83.0.0" wheel ".[dev]"
+
+      - name: Lint critical Python errors
+        run: ruff check rook_agent tests
+
+      - name: Type-check critical EvalOps protocols
+        run: mypy
+
+      - name: Audit installed dependencies
+        run: pip-audit --progress-spinner off
+
+      - name: Enforce EvalOps coverage
+        run: python -m pytest -q tests/test_evalops*.py --cov=rook_agent.evalops --cov-report=term-missing:skip-covered

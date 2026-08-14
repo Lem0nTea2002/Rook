@@ -1,0 +1,97 @@
+{
+  "artifact_kind": "redacted_live_smoke_summary",
+  "authorization": {
+    "allowed_calls": 2,
+    "completed_calls": 2,
+    "external_calls": true,
+    "formal_authorized": false,
+    "model_costs_acknowledged": true,
+    "usd_cost_observed": false
+  },
+  "candidate": {
+    "changed": false,
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "name": "release-manifest-v2-normalizer",
+    "version": 1
+  },
+  "decision": {
+    "expected_sample_threshold_quarantine": true,
+    "reason_code": "insufficient_valid_pairs",
+    "resume_eligible": false,
+    "smoke_passed": true,
+    "status": "quarantined"
+  },
+  "diagnostics": {
+    "baseline": {
+      "agent_tool_command_failures": 2,
+      "duration_ms": 127579,
+      "exit_code": 0,
+      "https_fallback_events": 0,
+      "process_status": "succeeded",
+      "reconnect_events": 0,
+      "terminal_events": 1,
+      "top_level_error_events": 0,
+      "windows_sandbox_failure": false
+    },
+    "forced_skill": {
+      "agent_tool_command_failures": 2,
+      "duration_ms": 99500,
+      "exit_code": 0,
+      "https_fallback_events": 0,
+      "process_status": "succeeded",
+      "reconnect_events": 0,
+      "terminal_events": 1,
+      "top_level_error_events": 0,
+      "windows_sandbox_failure": false
+    },
+    "http_only_provider": true,
+    "supports_websockets": false
+  },
+  "evaluation": {
+    "baseline": {
+      "evaluator_reason_code": "command_failed",
+      "status": "wrong_result"
+    },
+    "forced_skill": {
+      "evaluator_reason_code": "command_passed",
+      "status": "passed"
+    }
+  },
+  "evaluation_id": "evaluation-e373ad3d6c394e88b54b67ca60523d0e",
+  "limitations": {
+    "formal_metrics_produced": false,
+    "note": "This one-pair smoke establishes HTTP-only transport, terminal trace, and evaluator readiness. Its effect measurements are not resume-eligible Formal results.",
+    "routing_observed": false
+  },
+  "metrics": {
+    "baseline_success_rate": 0.0,
+    "baseline_tokens": 65226,
+    "candidate_success_rate": 1.0,
+    "candidate_tokens": 58284,
+    "infra_error_count": 0,
+    "infra_exclusion_count": 0,
+    "latency_improvement": 0.2200910808205112,
+    "new_regression_count": 0,
+    "paired_success_improvement": 1.0,
+    "token_improvement": 0.1064299512464355,
+    "trace_completeness_rate": 1.0,
+    "valid_content_pair_count": 1
+  },
+  "provenance": {
+    "adapter_version": "codex-evalops-v5",
+    "codex_cli": "codex-cli 0.144.6",
+    "model": "gpt-5.4-mini",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "recorded_at": "2026-07-21T16:03:27.948745Z",
+    "scorecard_fingerprint": "3e5dd8d8533cd3130c43d24be92df6b2",
+    "scorecard_sha256": "5046f93db78f2b1c90b323cb3d6318c7f462bd5525129d5d0254cd6e4a5aa00f",
+    "suite_fingerprint": "d00abb6eddaa7a96cb359d686ed618de",
+    "suite_id": "release-manifest-v2-windows-path-smoke-v2",
+    "target_fingerprint": "ba15667eca15e1febd2d00508bea7670"
+  },
+  "readiness": {
+    "formal_authorization_required": true,
+    "http_transport_passed": true,
+    "terminal_trace_passed": true
+  }
+}

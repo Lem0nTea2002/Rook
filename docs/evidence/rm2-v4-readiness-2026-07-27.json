@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "redacted_live_readiness_smoke",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "external_calls_completed": 2,
+    "formal_authorized_separately": true,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 4,
+    "candidate_content_hash": "b33037a471752a92fa974a62bf7e2858e8462339ac4b3d204ff87d2b57901ef8",
+    "candidate_fingerprint": "f914338931e855e5ad6ccc99b585d814",
+    "evaluation_id": "evaluation-39c9fc378ab1495b97005c4d7da7933a",
+    "experiment_id": "exp-c2bf53e6f2c74d309371d9d8ace3b432",
+    "suite_id": "release-manifest-v2-v4-readiness",
+    "suite_fingerprint": "ea88b5ff262edf88009565a70a8d7cfb",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124"
+  },
+  "execution": {
+    "planned_runs": 2,
+    "completed_runs": 2,
+    "stop_reason": null,
+    "trace_completeness_rate": 1.0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "cost_usd": null
+  },
+  "runs": [
+    {
+      "treatment": "baseline",
+      "run_id": "codex-d2ac0d272185fb3d20c257d3",
+      "status": "wrong_result",
+      "reason_code": "command_failed",
+      "process_exit_code": 0,
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 85610,
+      "input_tokens": 44698,
+      "output_tokens": 3397
+    },
+    {
+      "treatment": "forced_skill",
+      "run_id": "codex-2d3f9b2b70daf0bf09e34dcb",
+      "status": "passed",
+      "reason_code": "command_passed",
+      "process_exit_code": 0,
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "cleanup_status": "cleaned",
+      "latency_ms": 57562,
+      "input_tokens": 40276,
+      "output_tokens": 1853
+    }
+  ],
+  "audit": {
+    "web_search_event_count": 0,
+    "websocket_marker_count": 0,
+    "reconnect_marker_count": 0,
+    "stream_error_marker_count": 0,
+    "windows_sandbox_failure_count": 0
+  },
+  "readiness_metrics": {
+    "baseline_success_rate": 0.0,
+    "forced_skill_success_rate": 1.0,
+    "paired_success_uplift": 1.0,
+    "latency_change": -0.327625,
+    "token_change": -0.124046
+  },
+  "gate": {
+    "status": "quarantined",
+    "reason_code": "insufficient_valid_pairs",
+    "valid_content_pair_count": 1
+  },
+  "result": {
+    "readiness_passed": true,
+    "formal_metric_produced": false,
+    "status": "live_readiness_passed"
+  }
+}

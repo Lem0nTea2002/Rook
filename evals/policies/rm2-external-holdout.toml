@@ -1,0 +1,14 @@
+version = "rm2-external-holdout-1"
+min_valid_pairs = 12
+min_trace_completeness = 1.0
+min_success_uplift = 0.0
+success_noninferiority_margin = 0.0
+min_efficiency_improvement = 0.0
+min_routing_precision = 0.0
+min_routing_recall = 0.0
+min_capability_pairs = 8
+min_candidate_capability_success_rate = 0.75
+min_capability_success_uplift = 0.20
+max_infra_exclusion_rate = 0.0
+require_positive_capability_uplift_ci = true
+require_success_uplift = true

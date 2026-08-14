@@ -1,0 +1,8 @@
+{
+  "benchmark_version": "memory-v1",
+  "catalog_fingerprint": "33a5692e5a50b900eeb4de5f2856b52ac628d7f82bfa013618f1a2d099a2e225",
+  "revealed": false,
+  "schema_version": 1,
+  "validator_count": 20,
+  "validator_manifest_sha256": "3382235b9db99bd21abbb96e4f55a81c2719467488422d5b836933180634cafc"
+}

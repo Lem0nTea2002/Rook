@@ -1,0 +1,14 @@
+{
+  "benchmark_type": "retrieval",
+  "retrieval_mode": "hybrid_rerank",
+  "summary": {
+    "dataset_path": "/home/suity/worksapce/PycharmProjects/FindJob/agentic-rag-for-dummies-main/project/evaluation/datasets/quick_eval_5.jsonl",
+    "mode": "hybrid_rerank",
+    "case_count": 5,
+    "avg_latency_ms": 6991.2,
+    "p95_latency_ms": 34872.52,
+    "source_hit_rate": 1.0,
+    "mrr": 1.0,
+    "avg_top1_keyword_ratio": 0.0667
+  }
+}

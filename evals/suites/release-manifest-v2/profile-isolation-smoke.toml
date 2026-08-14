@@ -1,0 +1,16 @@
+id = "release-manifest-v2-profile-isolation-smoke-v1"
+version = "1"
+policy = "../../policies/rm2-calibration.toml"
+candidate_content_hash = "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
+
+[[cases]]
+id = "holdout-docs-profile-isolation-smoke"
+category = "regression"
+task = "holdout/tasks/holdout-docs.md"
+fixture = "holdout/fixtures/holdout-docs"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-docs"]
+timeout_seconds = 15

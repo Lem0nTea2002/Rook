@@ -1,0 +1,28 @@
+id = "rag-evidence-reporter-real-repo-holdout"
+version = "1"
+policy = "../../policies/codex-only-mvp.toml"
+candidate_content_hash = "f14946d8c195f4335ff48154b51d8f0a34a9e1e8b10eefc6518b6bc74b48feed"
+
+[[cases]]
+id = "compare-real-retrieval-reports"
+category = "direct"
+task = "tasks/compare-retrieval.md"
+fixture = "fixtures/compare-retrieval"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rag_evidence.py", "--case=compare-retrieval"]
+timeout_seconds = 15
+
+[[cases]]
+id = "preserve-skipped-ragas"
+category = "adversarial"
+task = "tasks/report-skipped-ragas.md"
+fixture = "fixtures/skipped-ragas"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rag_evidence.py", "--case=skipped-ragas"]
+timeout_seconds = 15

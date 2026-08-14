@@ -1,0 +1,106 @@
+{
+  "artifact_kind": "redacted_live_readiness_smoke",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "formal_authorized": false,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "publish_verification": {
+    "commit": "94e866a50f60d1ff3dca9102b7031e2cfd71b4a9",
+    "github_actions_run": 30077998524,
+    "jobs_passed": 5,
+    "quality": "485 passed, 5 skipped; 85.10% coverage",
+    "ubuntu_python_311": "1746 passed, 7 skipped",
+    "ubuntu_python_312": "1746 passed, 7 skipped",
+    "windows_python_311": "1747 passed, 6 skipped",
+    "windows_python_312": "1747 passed, 6 skipped"
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v9",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-de3f7652fa0447e193bd1ddda8b51ce9",
+    "experiment_id": "exp-26005c16d2b749a38c73a44e8e9ff6a1",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "prompt_version": "v15",
+    "suite_fingerprint": "2f1aa90aa907693a3b41b31984ed4548",
+    "suite_id": "release-manifest-v2-post-write-smoke-v1",
+    "target_fingerprint": "b5c4b50fc36686ed84601ce4f2f8751e"
+  },
+  "execution": {
+    "completed_runs": 2,
+    "planned_runs": 2,
+    "process_artifacts_after": 169,
+    "process_artifacts_before": 167,
+    "repetitions": 1,
+    "treatment_family": "content"
+  },
+  "runs": [
+    {
+      "cleanup_status": "cleaned",
+      "error_code": "command_failed",
+      "input_tokens": 89562,
+      "latency_ms": 151421,
+      "output_tokens": 4077,
+      "process_exit_code": 0,
+      "run_id": "codex-2cdc345c2a635d385c5d5720",
+      "status": "wrong_result",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "baseline"
+    },
+    {
+      "cleanup_status": "cleaned",
+      "error_code": null,
+      "input_tokens": 42359,
+      "latency_ms": 101891,
+      "output_tokens": 2904,
+      "process_exit_code": 0,
+      "run_id": "codex-853675f875bafc07c6c8597f",
+      "status": "passed",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "forced_skill"
+    }
+  ],
+  "audit": {
+    "cost_usd": null,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "post_write_verification_inconclusive_markers": 0,
+    "reconnect_event_count": 0,
+    "safety_failures": 0,
+    "shell_fallback_exhausted_markers": 0,
+    "timeout_deadline_overrun_markers": 0,
+    "top_level_stream_error_count": 0,
+    "trace_completeness_rate": 1.0,
+    "web_search_event_count": 0,
+    "websocket_marker_count": 0,
+    "windows_sandbox_failure_count": 0
+  },
+  "readiness_metrics": {
+    "baseline_latency_ms": 151421,
+    "baseline_success_rate": 0.0,
+    "baseline_tokens": 93639,
+    "forced_skill_latency_ms": 101891,
+    "forced_skill_success_rate": 1.0,
+    "forced_skill_tokens": 45263,
+    "latency_change": -0.3271012607,
+    "paired_success_uplift": 1.0,
+    "token_change": -0.5166223475
+  },
+  "gate": {
+    "reason_code": "insufficient_valid_pairs",
+    "status": "quarantined",
+    "valid_content_pair_count": 1
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "readiness_passed": true,
+    "resume_metric_produced": false,
+    "status": "live_readiness_passed_awaiting_separate_formal_authorization"
+  }
+}

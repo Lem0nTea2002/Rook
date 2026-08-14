@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "rook_weixin_ilink_live_acceptance",
+  "recorded_at": "2026-07-29T16:52:45+08:00",
+  "authorization": {
+    "official_weixin_ilink": true,
+    "external_model_calls_allowed": true,
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "fake_runner_used": false,
+    "codex_calls": 0,
+    "usd_cost": null,
+    "usd_cost_observed": false
+  },
+  "scope": {
+    "project_alias": "rook",
+    "project_location": "D 盘本地白名单工作树，绝对路径不公开",
+    "private_text_only": true,
+    "group_messages_supported": false,
+    "image_voice_file_messages_supported": false,
+    "raw_messages_committed": false,
+    "raw_credentials_committed": false
+  },
+  "channel_state": {
+    "weixin_configured": true,
+    "feishu_configured": true,
+    "dual_channel_gateway": true,
+    "weixin_context_token_observed": true,
+    "weixin_cursor_length": 104,
+    "weixin_inbound_messages_after_acceptance": 16,
+    "deduplicated_message_events_observed": 1,
+    "pending_queue_jobs_after_acceptance": 0,
+    "weixin_and_feishu_session_ids_isolated": true
+  },
+  "live_tasks": [
+    {
+      "task_id": "job_020da72c426145a98731b35c25703734",
+      "kind": "read_only",
+      "status": "succeeded",
+      "attempts": 1,
+      "context_token_observed": true
+    },
+    {
+      "task_id": "job_436b4559d16746e082cdd72e9aaa047e",
+      "kind": "final_reply_filter_verification",
+      "status": "succeeded",
+      "attempts": 1,
+      "tool_trace_exposed_after_fix": false
+    },
+    {
+      "task_id": "job_f0c80ab96747465ca532c5ff4aa57f4a",
+      "kind": "write_with_approval",
+      "status": "succeeded",
+      "attempts": 1,
+      "approval_command_task_id": "job_d539facc77c746928415a393d92edeb5"
+    },
+    {
+      "task_id": "job_77c9bdc356f544f6bb3be8f70596b45c",
+      "kind": "post_restart_read_only_defect_reproduction",
+      "status": "succeeded",
+      "attempts": 1,
+      "semantic_result": "failed_due_to_cross_turn_todo_reminder"
+    },
+    {
+      "task_id": "job_9e6d0e20b67642a7bd848571dc4c0474",
+      "kind": "post_restart_read_only_after_fix",
+      "status": "succeeded",
+      "attempts": 1,
+      "final_text": "Rook",
+      "todo_runtime_control_injected": false
+    }
+  ],
+  "approval": {
+    "first_attempt_status": "expired",
+    "first_attempt_sensitive_tool_executed": false,
+    "accepted_tool": "write",
+    "accepted_action": "write_path",
+    "accepted_target": "rook-weixin-live-acceptance.txt",
+    "accepted_action_hash_length": 64,
+    "accepted_status": "allowed",
+    "accepted_wrong_code_attempts": 0,
+    "allow_once_only": true,
+    "marker_content_exact_match": true,
+    "marker_content_length": 32,
+    "diff_observed_untracked_marker": true,
+    "marker_removed_after_acceptance": true,
+    "git_worktree_restored": true
+  },
+  "restart_recovery": {
+    "before_restart_weixin_inbound_messages": 13,
+    "after_restart_weixin_inbound_messages": 13,
+    "before_restart_queue_jobs": 21,
+    "after_restart_queue_jobs": 21,
+    "historical_jobs_reexecuted": 0,
+    "cursor_restored": true,
+    "session_resumed": true
+  },
+  "model_usage": {
+    "session_provider_calls": 11,
+    "input_tokens": 86602,
+    "output_tokens": 914,
+    "total_tokens": 87516,
+    "session_sha256": "6f91d990ba7e47241124e7b602424760a49862408c67c7098f79a451737084ba"
+  },
+  "defects_found_and_fixed": [
+    {
+      "reason": "微信 iLink channel_version 类型错误",
+      "commit": "c79a02605e4b8967167a7a1bee234b5fe4391426"
+    },
+    {
+      "reason": "Channel 回复泄露 TUI 工具轨迹",
+      "commit": "785852bf09788747b007584206b331ab191e6143"
+    },
+    {
+      "reason": "真实权限载荷未绑定 Tool、Action 与 Target",
+      "commit": "d075896bfe2f81ec5a269b0ed48ba4c541ceaa90"
+    },
+    {
+      "reason": "Todo 提醒错误累计历史轮次工具结果",
+      "commit": "614bd2719367e40eaf7ef4d583c584e51f3e1b7f"
+    }
+  ],
+  "validation": {
+    "directly_affected_tests": {
+      "passed": 127,
+      "failed": 0
+    },
+    "ruff": "passed",
+    "mypy_configured_files": {
+      "passed": 31,
+      "failed": 0
+    },
+    "git_diff_check": "passed",
+    "live_commands_observed": [
+      "/pair",
+      "/status",
+      "/approve",
+      "/diff",
+      "/cancel"
+    ],
+    "offline_only_commands": [
+      "/projects",
+      "/project",
+      "/new",
+      "/transcript",
+      "/deny"
+    ]
+  },
+  "claim_boundary": "这是个人微信官方 iLink、真实 DeepSeek、D 盘白名单项目上的私聊文本验收。原始消息、用户标识、context_token、审批码和凭据未提交。未声称图片、语音、文件、群聊或主动推送已受支持。"
+}

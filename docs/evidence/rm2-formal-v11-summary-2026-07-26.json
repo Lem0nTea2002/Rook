@@ -1,0 +1,185 @@
+{
+  "artifact_kind": "redacted_formal_summary",
+  "authorization": {
+    "formal_calls_authorized": 72,
+    "formal_calls_completed": 72,
+    "formal_calls_started": 72,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true,
+    "stop_on_first_infrastructure_exclusion": true
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v11",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-3234f8305aaf4ec7818837ca1a016ac3",
+    "experiment_id": "exp-6261485fb5bf40f4a760ab593c5cbbe1",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "prompt_version": "v15",
+    "scorecard_fingerprint": "80ee35a3696080fd3738666b8841def9",
+    "suite_fingerprint": "8f7f181e6803a6a606e78d963c185c72",
+    "suite_id": "release-manifest-v2-formal-holdout",
+    "suite_version": "5",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124"
+  },
+  "execution": {
+    "completed_run_count": 72,
+    "content_pair_count": 36,
+    "planned_run_count": 72,
+    "raw_event_files_after": 849,
+    "raw_event_files_before": 633,
+    "repetitions": 3,
+    "stop_reason": null,
+    "treatment_family": "content"
+  },
+  "run_status_counts": {
+    "baseline_passed": 9,
+    "baseline_wrong_result": 27,
+    "forced_skill_passed": 36,
+    "passed": 45,
+    "wrong_result": 27
+  },
+  "audit": {
+    "incomplete_pairs": 0,
+    "infrastructure_errors": 0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "powershell_profile_markers": 0,
+    "process_exit_zero": 72,
+    "process_succeeded": 72,
+    "reconnect_markers": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0,
+    "terminal_turns": 72,
+    "top_level_error_events": 0,
+    "trace_complete_runs": 72,
+    "trace_completeness_rate": 1.0,
+    "web_search_events": 0,
+    "websocket_markers": 0,
+    "windows_sandbox_failure_markers": 0
+  },
+  "metrics": {
+    "overall": {
+      "baseline_success_ci95": {
+        "lower": 0.1375047766,
+        "upper": 0.4107045377
+      },
+      "baseline_success_rate": 0.25,
+      "candidate_success_ci95": {
+        "lower": 0.9035813714,
+        "upper": 1.0
+      },
+      "candidate_success_rate": 1.0,
+      "median_latency_baseline_ms": 69773.0,
+      "median_latency_candidate_ms": 58140.5,
+      "median_latency_improvement": 0.166719218,
+      "median_tokens_baseline": 42436.0,
+      "median_tokens_candidate": 34173.5,
+      "median_token_improvement": 0.1947049675,
+      "median_tool_calls_baseline": 6.0,
+      "median_tool_calls_candidate": 4.0,
+      "paired_success_uplift": 0.75,
+      "pair_count": 36,
+      "tool_call_improvement": 0.3333333333
+    },
+    "capability": {
+      "baseline_success_rate": 0.0,
+      "candidate_success_rate": 1.0,
+      "median_latency_baseline_ms": 71163.0,
+      "median_latency_candidate_ms": 58992.5,
+      "median_latency_improvement": 0.1710225794,
+      "median_tokens_baseline": 43844.0,
+      "median_tokens_candidate": 34262.5,
+      "median_token_improvement": 0.2185357175,
+      "pair_count": 18,
+      "paired_success_uplift": 1.0,
+      "paired_uplift_ci95": {
+        "lower": 1.0,
+        "method": "task_stratified_bootstrap",
+        "upper": 1.0
+      }
+    },
+    "preservation": {
+      "new_regression_count": 0,
+      "pair_count": 18,
+      "preservation_rate": 1.0,
+      "regression_failure_count": 0
+    },
+    "cost": {
+      "baseline_cost_usd": null,
+      "candidate_cost_usd": null,
+      "observed": false
+    },
+    "routing": {
+      "observed": false,
+      "precision": null,
+      "recall": null
+    }
+  },
+  "per_case_success": {
+    "holdout-application": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-catalog": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-chart": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-comment": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-config": {
+      "baseline": "3/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-docs": {
+      "baseline": "3/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-instruction": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-ml-service": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-mobile": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-owners": {
+      "baseline": "3/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-package": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    },
+    "holdout-secret": {
+      "baseline": "0/3",
+      "forced_skill": "3/3"
+    }
+  },
+  "gate": {
+    "decision_id": "decision-cf4a04e93cee42cebf813999b14cccc6",
+    "policy_version": "rm2-formal-1",
+    "reason_code": "capability_success_uplift",
+    "status": "promoted"
+  },
+  "result": {
+    "deployment_performed": false,
+    "formal_metric_produced": true,
+    "human_approval_recorded": false,
+    "release_status": "awaiting_human_approval",
+    "resume_metric_produced": true,
+    "routing_metric_produced": false,
+    "status": "formal_completed_gate_promoted"
+  }
+}

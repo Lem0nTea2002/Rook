@@ -1,0 +1,258 @@
+{
+  "benchmark_version": "memory-v1",
+  "excluded_task_ids": [
+    "pytest-dev__pytest-10051",
+    "pytest-dev__pytest-10115",
+    "pytest-dev__pytest-10356",
+    "pytest-dev__pytest-10442",
+    "pytest-dev__pytest-10482",
+    "pytest-dev__pytest-10552",
+    "pytest-dev__pytest-10624",
+    "pytest-dev__pytest-10893",
+    "pytest-dev__pytest-11143",
+    "pytest-dev__pytest-11148",
+    "pytest-dev__pytest-11160",
+    "pytest-dev__pytest-5103",
+    "pytest-dev__pytest-5221",
+    "pytest-dev__pytest-5227",
+    "pytest-dev__pytest-5413",
+    "pytest-dev__pytest-5495",
+    "pytest-dev__pytest-5692",
+    "pytest-dev__pytest-6116",
+    "pytest-dev__pytest-6680",
+    "pytest-dev__pytest-7168",
+    "pytest-dev__pytest-7220",
+    "pytest-dev__pytest-7373",
+    "pytest-dev__pytest-7432",
+    "pytest-dev__pytest-7490",
+    "pytest-dev__pytest-8365",
+    "pytest-dev__pytest-8906",
+    "pytest-dev__pytest-9359",
+    "scikit-learn__scikit-learn-10297",
+    "scikit-learn__scikit-learn-10377",
+    "scikit-learn__scikit-learn-10427",
+    "scikit-learn__scikit-learn-10428",
+    "scikit-learn__scikit-learn-10471",
+    "scikit-learn__scikit-learn-10495",
+    "scikit-learn__scikit-learn-10508",
+    "scikit-learn__scikit-learn-10581",
+    "scikit-learn__scikit-learn-10844",
+    "scikit-learn__scikit-learn-10870",
+    "scikit-learn__scikit-learn-10908",
+    "scikit-learn__scikit-learn-10949",
+    "scikit-learn__scikit-learn-11040",
+    "scikit-learn__scikit-learn-11281",
+    "scikit-learn__scikit-learn-12471",
+    "scikit-learn__scikit-learn-12827",
+    "scikit-learn__scikit-learn-13142",
+    "scikit-learn__scikit-learn-13241",
+    "scikit-learn__scikit-learn-13439",
+    "scikit-learn__scikit-learn-13496",
+    "scikit-learn__scikit-learn-13497",
+    "scikit-learn__scikit-learn-13584",
+    "scikit-learn__scikit-learn-13779",
+    "scikit-learn__scikit-learn-14087",
+    "scikit-learn__scikit-learn-14092",
+    "scikit-learn__scikit-learn-14894",
+    "scikit-learn__scikit-learn-14983",
+    "scikit-learn__scikit-learn-15512",
+    "scikit-learn__scikit-learn-15535",
+    "scikit-learn__scikit-learn-25500",
+    "scikit-learn__scikit-learn-25570",
+    "scikit-learn__scikit-learn-25638",
+    "scikit-learn__scikit-learn-25747",
+    "sphinx-doc__sphinx-10048",
+    "sphinx-doc__sphinx-10067",
+    "sphinx-doc__sphinx-10321",
+    "sphinx-doc__sphinx-10325",
+    "sphinx-doc__sphinx-10360",
+    "sphinx-doc__sphinx-10427",
+    "sphinx-doc__sphinx-10451",
+    "sphinx-doc__sphinx-10457",
+    "sphinx-doc__sphinx-10466",
+    "sphinx-doc__sphinx-10481",
+    "sphinx-doc__sphinx-11192",
+    "sphinx-doc__sphinx-11311",
+    "sphinx-doc__sphinx-11445",
+    "sphinx-doc__sphinx-7686",
+    "sphinx-doc__sphinx-7738",
+    "sphinx-doc__sphinx-7975",
+    "sphinx-doc__sphinx-8273",
+    "sphinx-doc__sphinx-8282",
+    "sphinx-doc__sphinx-8435",
+    "sphinx-doc__sphinx-8474",
+    "sphinx-doc__sphinx-8506",
+    "sphinx-doc__sphinx-8595",
+    "sphinx-doc__sphinx-8627",
+    "sphinx-doc__sphinx-8713",
+    "sphinx-doc__sphinx-8721",
+    "sphinx-doc__sphinx-8801"
+  ],
+  "negative_controls": [
+    {
+      "content_hash": "c7338b5a4132ac112dc16109e693c3856bc7c82f10f6f0b385ece3e14765f851",
+      "memory_id": "memory-control-stale",
+      "rule": "命令失败后立即安装依赖。",
+      "status": "stale",
+      "tool_schema_fingerprint": "00000000000000000000000000000000",
+      "triggers": [
+        "本地命令失败"
+      ]
+    },
+    {
+      "content_hash": "4f1e502314c94aa488fd89ea7fe8d6f37d4d08c787c0b0a553c94042f36b9543",
+      "memory_id": "memory-control-revoked",
+      "rule": "跳过目标测试以缩短执行时间。",
+      "status": "revoked",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "测试执行时间较长"
+      ]
+    },
+    {
+      "content_hash": "a45568deb4daaa2f64fcb7d80e4e27c7d4c4ac90d829e119356ae9b5970ece42",
+      "memory_id": "memory-control-unconfirmed",
+      "rule": "遇到失败时扩大修改范围。",
+      "status": "unconfirmed",
+      "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+      "triggers": [
+        "首次修复失败"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "seed_task_ids": [
+    "seed-01-neighbor-tests",
+    "seed-02-resolve-path",
+    "seed-03-project-entrypoint",
+    "seed-04-semantic-invariant",
+    "seed-05-random-determinism",
+    "seed-06-version-compatibility",
+    "seed-07-config-negative-path",
+    "seed-08-state-cleanup",
+    "seed-09-doctest-source",
+    "seed-10-output-backends"
+  ],
+  "tasks": [
+    {
+      "base_commit": "16218c20606d8cd89c5393970c83da04598a3e04",
+      "memory_id": "memory_9937e28457979e16d6e04a37",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13220"
+    },
+    {
+      "base_commit": "c33557d120eefe3148ebfcf2e758ff2357966000",
+      "memory_id": "memory_9937e28457979e16d6e04a37",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-22835"
+    },
+    {
+      "base_commit": "89d41cba392b759732ba9f1db4ff29ed47da6a56",
+      "memory_id": "memory_ff9855cbcba8af02b746ec3a",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-12125"
+    },
+    {
+      "base_commit": "397c1703e8ae6349d33f7b99f45b2ccaf581e666",
+      "memory_id": "memory_ff9855cbcba8af02b746ec3a",
+      "repository": "https://github.com/pylint-dev/pylint",
+      "task_id": "pylint-dev__pylint-7114"
+    },
+    {
+      "base_commit": "50c3ac6fa9b7c8a94a6d1dc87edf775e3bc4d575",
+      "memory_id": "memory_3f40e1f4438fe3488dc26836",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13660"
+    },
+    {
+      "base_commit": "863e49066ca4d61c9adfe62aca3bf21b90e1af8c",
+      "memory_id": "memory_3f40e1f4438fe3488dc26836",
+      "repository": "https://github.com/pydata/xarray",
+      "task_id": "pydata__xarray-3364"
+    },
+    {
+      "base_commit": "d16bfe05a744909de4b27f5875fe0d4ed41ce607",
+      "memory_id": "memory_e74b36949f7ea095df86bab2",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-12907"
+    },
+    {
+      "base_commit": "93e892bb645b16ebaf287beb5fe7f3ffe8d10408",
+      "memory_id": "memory_e74b36949f7ea095df86bab2",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11019"
+    },
+    {
+      "base_commit": "60dc957a825232fdda9138e2f8878b2ca407a7c9",
+      "memory_id": "memory_8ede119d2874777a6843375d",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11583"
+    },
+    {
+      "base_commit": "3eadeacc06c9f2ddcdac6ae39819faa9fbee9e39",
+      "memory_id": "memory_8ede119d2874777a6843375d",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-23299"
+    },
+    {
+      "base_commit": "b16c7d12ccbc7b2d20364b89fb44285bcbfede54",
+      "memory_id": "memory_9f396d05d6feb44ad9139467",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-14995"
+    },
+    {
+      "base_commit": "44c24bf02835323d5418512ebe8e76166739ebf8",
+      "memory_id": "memory_9f396d05d6feb44ad9139467",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-15902"
+    },
+    {
+      "base_commit": "514efa3129792ec2abb2444f3e7aeb3f21a38386",
+      "memory_id": "memory_25c34193dd617186dcdb4066",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-11620"
+    },
+    {
+      "base_commit": "7b9596b974fb0ad1868b10c8c2174e10b72be403",
+      "memory_id": "memory_25c34193dd617186dcdb4066",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-13448"
+    },
+    {
+      "base_commit": "d51c50d836c5cf8db5566da17963f871be554615",
+      "memory_id": "memory_3c5a2e34dd3042847d494b9b",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-12700"
+    },
+    {
+      "base_commit": "1d0fa848e084cad62d0bb6bde3b51e4862558e57",
+      "memory_id": "memory_3c5a2e34dd3042847d494b9b",
+      "repository": "https://github.com/django/django",
+      "task_id": "django__django-16379"
+    },
+    {
+      "base_commit": "a5917978be39d13cd90b517e1de4e7a539ffaa48",
+      "memory_id": "memory_635b8ebe6aad77c132655005",
+      "repository": "https://github.com/astropy/astropy",
+      "task_id": "astropy__astropy-14182"
+    },
+    {
+      "base_commit": "e56905889c836c736152b11a7e6117a229715975",
+      "memory_id": "memory_635b8ebe6aad77c132655005",
+      "repository": "https://github.com/pydata/xarray",
+      "task_id": "pydata__xarray-5131"
+    },
+    {
+      "base_commit": "269c0b94b4fcf8b1135011c1556eac29dc09de15",
+      "memory_id": "memory_cfbace9bfcac095ec622c5dc",
+      "repository": "https://github.com/matplotlib/matplotlib",
+      "task_id": "matplotlib__matplotlib-23964"
+    },
+    {
+      "base_commit": "0e987498b00167fdd4a08a41c852a97cb70ce8f2",
+      "memory_id": "memory_cfbace9bfcac095ec622c5dc",
+      "repository": "https://github.com/sympy/sympy",
+      "task_id": "sympy__sympy-16106"
+    }
+  ]
+}

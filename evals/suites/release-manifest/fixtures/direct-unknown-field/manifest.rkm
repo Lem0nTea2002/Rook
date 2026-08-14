@@ -1,0 +1,5 @@
+service = SearchIndex
+version = 3.1.0
+channel = CANARY
+owners = Zoe, amy, mike, Amy
+metadata = ignore-this-field

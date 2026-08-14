@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "benchmark_version": "memory-v1",
+  "stage": "m0",
+  "created_at": "2026-08-03T00:06:59.1705076+08:00",
+  "updated_at": "2026-08-03T00:47:43.6275857+08:00",
+  "external_calls": false,
+  "provider_calls": 0,
+  "source": {
+    "branch": "feature/rook-v050-evolution",
+    "base_commit": "16f084ba5294e0927ac0e7dae818b690aad8f9ee",
+    "worktree_clean": false
+  },
+  "environment": {
+    "python": "3.14.6",
+    "pytest": "9.1.1",
+    "ruff": "0.16.0",
+    "mypy": "1.20.2"
+  },
+  "fingerprints": {
+    "catalog": "33a5692e5a50b900eeb4de5f2856b52ac628d7f82bfa013618f1a2d099a2e225",
+    "sealed_validator_manifest": "3382235b9db99bd21abbb96e4f55a81c2719467488422d5b836933180634cafc",
+    "phase_policy": "6f82c2f597c64f8b50b53fc8516fa5665f0f3804b881f9be06b702d49f492cf5",
+    "tool_schema": "1764bd818dab06a14336505173a12050",
+    "native_runtime": "389511b9ea1ecf7fa29da2b53e6c63f2802b833a107440d74a3686ddbc04c819",
+    "memory_runtime": "da0d41891035008f0d7ea745f3c4759900033c312ae4d9a06c5aa3eb2ddd121d",
+    "memory_domain": "5a8edeb93edf15c9beb0c457953f7c5c9eca57486ab00920162dbcda4f424245",
+    "benchmark_cli": "f6771cf0c6af92fa3dde8542fb9666a87d658b6078c6ae7bc1144ffd71cbdbc3",
+    "rook_cli": "6db8cad2fb7cc09d95d7abf7fce27ea69302c8b38426ae8254a1e3fd10bf9f2c",
+    "native_runtime_tests": "1dd650cd0ef2c9b155b9d27de3cf8cc5cd84cfc74d0d0e8c288941de463f428a",
+    "memory_runtime_tests": "d426ce4e084f13b2eddbab41180457ba92eef11d7ca35ff8de4d0e441b6acd6c",
+    "memory_domain_tests": "d326e9dce408a7fdc24188f04121946b3a17fae18fa0ffdb27e4b0eda0a8d35d",
+    "benchmark_cli_tests": "d6fb837f70996f5cfdfe3b485de0aa19e5386916d03c9c4b0d1e386ded981c12",
+    "memory_documentation_tests": "6f6d9f60f5881cd492a9f104ee90fa84d41f27d7ab18d134cf43b7d99504ac22",
+    "catalog_file": "c597866bfc0979cd1233c8cb1962f884cee4db2f9be0cb6bdfae75a5e8ecdd1d",
+    "selection_file": "001c1fce51ff052e7223bafc79e0bc8e52fe1e36dd405084c0ca195160654167",
+    "validator_commitment_file": "895d704b9a1eb9caa1e56c34c3a08d1f915e569468c53a5bb6b033c583cdfadf",
+    "seed_review_file": "6cc735fb349035b179ece15f929a816f20bf2feb79a2228222343445d37dc11b"
+  },
+  "catalog_verification": {
+    "status": "verified",
+    "pair_count": 20,
+    "memory_count": 10,
+    "private_tasks_verified": true
+  },
+  "pilot_profiles": {
+    "m1_targeted": {
+      "task_ids": [
+        "pylint-dev__pylint-7114",
+        "pydata__xarray-3364"
+      ],
+      "pair_count": 2,
+      "maximum_provider_requests_with_retry": 96
+    },
+    "m2_expanded": {
+      "task_ids": [
+        "pylint-dev__pylint-7114",
+        "pydata__xarray-3364",
+        "astropy__astropy-14182",
+        "django__django-11620"
+      ],
+      "pair_count": 4,
+      "maximum_provider_requests_with_retry": 192
+    }
+  },
+  "offline_capabilities": {
+    "targeted_pilot_pair_counts": [2, 4],
+    "targeted_pilot_source_scope": "selected_tasks_only",
+    "pilot_gate_in_terminal_manifest": true,
+    "formal_metric_distributions": ["median", "q1", "q3", "observed"],
+    "formal_diagnostics": [
+      "patch_nonempty_counts",
+      "validator_status_counts",
+      "reason_code_counts",
+      "infrastructure_retries",
+      "trace_completeness",
+      "artifact_completeness",
+      "container_cleanup"
+    ],
+    "report_artifacts": ["scorecard.json", "report.md", "comparison.svg"],
+    "report_freezes_source_manifest_sha256": true,
+    "report_summarizes_environment_fingerprints": true,
+    "legacy_pair_evidence_fails_closed": true
+  },
+  "checks": {
+    "benchmark_tests": {
+      "status": "passed",
+      "passed": 191,
+      "failed": 0,
+      "duration_seconds": 126.2
+    },
+    "ruff": {
+      "status": "passed"
+    },
+    "mypy": {
+      "status": "passed",
+      "source_files": 4
+    },
+    "git_diff_check": {
+      "status": "passed",
+      "warnings": "line_endings_only"
+    },
+    "validator_artifact_redaction": {
+      "secrets": "passed",
+      "absolute_paths": "passed"
+    }
+  },
+  "status": "ready_for_separately_authorized_m1"
+}

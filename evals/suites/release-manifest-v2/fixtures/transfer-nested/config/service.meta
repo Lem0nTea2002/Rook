@@ -1,0 +1,4 @@
+service = Image-Pipeline
+version = 7.2
+channel = STABLE
+owners = Vision, Core

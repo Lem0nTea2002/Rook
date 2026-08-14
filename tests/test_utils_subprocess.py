@@ -1,0 +1,205 @@
+"""utils/subprocess 模块测试：run_command。"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+import threading
+import time
+import signal
+
+import rook_agent.utils.subprocess as subprocess_utils
+
+from rook_agent.agent.cancellation import CancellationToken
+from rook_agent.utils.subprocess import CommandResult, run_command
+
+
+def _fake_completed(returncode=0, stdout="", stderr=""):
+    return subprocess.CompletedProcess(["test"], returncode, stdout, stderr)
+
+
+class TestRunCommand:
+    def test_successful_command(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **kw: _fake_completed(stdout="hello\n"),
+        )
+        result = run_command(["echo", "hello"], cwd=tmp_path)
+
+        assert result.ok is True
+        assert result.exit_code == 0
+        assert result.stdout == "hello\n"
+        assert result.stderr == ""
+
+    def test_failed_command(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **kw: _fake_completed(returncode=1, stderr="error\n"),
+        )
+        result = run_command(["false"], cwd=tmp_path)
+
+        assert result.ok is False
+        assert result.exit_code == 1
+        assert result.stderr == "error\n"
+
+    def test_timeout_expired(self, monkeypatch, tmp_path):
+        def _raise_timeout(*a, **kw):
+            raise subprocess.TimeoutExpired(["test"], timeout=30)
+
+        monkeypatch.setattr(subprocess, "run", _raise_timeout)
+        result = run_command(["sleep", "999"], cwd=tmp_path, timeout_seconds=30)
+
+        assert result.ok is False
+        assert result.error == "命令执行超时"
+
+    def test_os_error(self, monkeypatch, tmp_path):
+        def _raise_os_error(*a, **kw):
+            raise OSError("not found")
+
+        monkeypatch.setattr(subprocess, "run", _raise_os_error)
+        result = run_command(["missing_cmd"], cwd=tmp_path)
+
+        assert result.ok is False
+        assert "not found" in result.error
+
+    def test_stdout_truncation(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **kw: _fake_completed(stdout="abcdefghij"),
+        )
+        result = run_command(["echo"], cwd=tmp_path, max_output_chars=5)
+
+        assert result.ok is True
+        assert result.stdout == "abcde\n\n[输出已截断]"
+        assert result.stdout_truncated is True
+
+    def test_stderr_truncation(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **kw: _fake_completed(returncode=1, stderr="abcdefghij"),
+        )
+        result = run_command(["fail"], cwd=tmp_path, max_output_chars=5)
+
+        assert result.ok is False
+        assert result.stderr == "abcde\n\n[输出已截断]"
+        assert result.stderr_truncated is True
+
+    def test_result_is_command_result_type(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **kw: _fake_completed(stdout="ok"),
+        )
+        result = run_command(["echo"], cwd=tmp_path)
+
+        assert isinstance(result, CommandResult)
+
+    def test_custom_timeout(self, monkeypatch, tmp_path):
+        called = {}
+
+        def _capture_run(*a, **kw):
+            called["timeout"] = kw.get("timeout")
+            return _fake_completed(stdout="ok")
+
+        monkeypatch.setattr(subprocess, "run", _capture_run)
+        run_command(["echo"], cwd=tmp_path, timeout_seconds=60)
+
+        assert called["timeout"] == 60
+
+    def test_shell_mode(self, monkeypatch, tmp_path):
+        called = {}
+
+        def _capture_run(*a, **kw):
+            called["shell"] = kw.get("shell", False)
+            return _fake_completed(stdout="ok")
+
+        monkeypatch.setattr(subprocess, "run", _capture_run)
+        run_command(["echo hi"], cwd=tmp_path, shell=True)
+
+        assert called["shell"] is True
+
+    def test_passes_custom_environment(self, monkeypatch, tmp_path):
+        called = {}
+
+        def _capture_run(*a, **kw):
+            called["env"] = kw.get("env")
+            return _fake_completed(stdout="ok")
+
+        monkeypatch.setattr(subprocess, "run", _capture_run)
+        run_command(["echo"], cwd=tmp_path, env={"PATH": "/bin", "CUSTOM": "1"})
+
+        assert called["env"] == {"PATH": "/bin", "CUSTOM": "1"}
+
+    def test_cancellation_terminates_running_process(self, tmp_path):
+        token = CancellationToken()
+        thread = threading.Thread(
+            target=lambda: (time.sleep(0.2), token.cancel()),
+            daemon=True,
+        )
+        thread.start()
+
+        started_at = time.perf_counter()
+        result = run_command(
+            [sys.executable, "-c", "import time; time.sleep(5)"],
+            cwd=tmp_path,
+            timeout_seconds=10,
+            cancellation_token=token,
+        )
+        elapsed = time.perf_counter() - started_at
+
+        assert result.ok is False
+        assert result.error == "命令已中断"
+        assert elapsed < 2
+
+
+class _FakeTreeProcess:
+    def __init__(self, *, stopped_after_tree_kill: bool = True) -> None:
+        self.pid = 4321
+        self.stopped_after_tree_kill = stopped_after_tree_kill
+        self.terminated = False
+        self.killed = False
+
+    def poll(self):
+        return 1 if self.stopped_after_tree_kill else None
+
+    def wait(self, timeout=None):
+        if self.terminated or self.killed:
+            return 1
+        raise subprocess.TimeoutExpired(["fake"], timeout=timeout)
+
+    def terminate(self):
+        self.terminated = True
+
+    def kill(self):
+        self.killed = True
+
+
+def test_windows_cancellation_uses_taskkill_for_complete_tree(monkeypatch):
+    process = _FakeTreeProcess()
+    calls = []
+    monkeypatch.setattr(subprocess_utils, "_IS_WINDOWS", True)
+    monkeypatch.setattr(
+        subprocess_utils.subprocess,
+        "run",
+        lambda command, **kwargs: calls.append((command, kwargs)),
+    )
+
+    subprocess_utils._terminate_process(process)
+
+    assert calls[0][0] == ["taskkill", "/PID", "4321", "/T", "/F"]
+    assert process.terminated is False
+
+
+def test_posix_cancellation_uses_isolated_process_group(monkeypatch):
+    process = _FakeTreeProcess(stopped_after_tree_kill=False)
+    signals = []
+    monkeypatch.setattr(subprocess_utils, "_IS_WINDOWS", False)
+
+    def kill_group(pid, sig):
+        signals.append((pid, sig))
+        process.terminated = True
+
+    monkeypatch.setattr(subprocess_utils.os, "killpg", kill_group, raising=False)
+
+    subprocess_utils._terminate_process(process)
+
+    assert signals == [(4321, signal.SIGTERM)]

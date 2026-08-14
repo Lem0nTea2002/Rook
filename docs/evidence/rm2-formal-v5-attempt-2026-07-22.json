@@ -1,0 +1,104 @@
+{
+  "artifact_kind": "redacted_aborted_formal_attempt_summary",
+  "authorization": {
+    "allowed_calls": 72,
+    "calls_not_started": 40,
+    "calls_started": 32,
+    "external_calls": true,
+    "model_costs_acknowledged": true,
+    "new_authorization_required": true,
+    "usd_cost_observed": false
+  },
+  "candidate": {
+    "changed": false,
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "name": "release-manifest-v2-normalizer",
+    "version": 1
+  },
+  "execution": {
+    "evaluated_run_records": 30,
+    "evaluated_statuses": {
+      "passed": 14,
+      "timeout": 1,
+      "wrong_result": 15
+    },
+    "experiment_id": "exp-5362363eba0b425b96efa6500ba6c22e",
+    "forced_stop_inflight_calls": 1,
+    "orphan_terminal_process_artifacts": 1,
+    "paired_run_groups": 15,
+    "process_artifacts": 31,
+    "process_statuses": {
+      "succeeded": 30,
+      "timeout": 1
+    },
+    "terminal_events": 30,
+    "trace_complete_pairs": 14,
+    "trace_incomplete_pairs": 1
+  },
+  "failure": {
+    "agent_tool_command_failures": 5,
+    "case_id": "holdout-mobile",
+    "classification": "agent_constraint_timeout_with_incomplete_trace",
+    "duration_ms": 180140,
+    "evaluator_reason_code": "command_failed",
+    "evaluator_stderr_reason": "rm2-holdout:output_missing",
+    "pair_id": "pair-1a407a1a394546f3f754fa64",
+    "process_status": "timeout",
+    "repetition": 3,
+    "run_id": "codex-ce322624aefc7a7b4dbdeb50",
+    "terminal_event": false,
+    "trace_complete": false,
+    "treatment": "forced_skill"
+  },
+  "forced_stop": {
+    "inflight_case_id": "holdout-ml-service",
+    "inflight_pair_id": "pair-203930d9cbfaa1103ccdeb04",
+    "inflight_repetition": 1,
+    "inflight_treatment": "forced_skill",
+    "orphan_baseline_duration_ms": 50828,
+    "orphan_baseline_process_status": "succeeded",
+    "orphan_baseline_run_id": "codex-439b562fb547170bb2f87b9d",
+    "orphan_baseline_terminal_event": true,
+    "pair_finalized": false,
+    "reason": "The evaluator was stopped fail-closed after the preceding timeout made the strict 100% trace-completeness gate unattainable."
+  },
+  "provenance": {
+    "adapter_version": "codex-evalops-v5",
+    "codex_cli": "codex-cli 0.144.6",
+    "git_commit": "e8faad0396e2213af3670e3806a2a4e434a94705",
+    "model": "gpt-5.4-mini",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "policy_version": "rm2-formal-1",
+    "recorded_at": "2026-07-22",
+    "suite_fingerprint": "8f7f181e6803a6a606e78d963c185c72",
+    "suite_id": "release-manifest-v2-formal-holdout",
+    "suite_version": "5",
+    "target_fingerprint": "ba15667eca15e1febd2d00508bea7670"
+  },
+  "raw_evidence_sha256": {
+    "orphan_baseline_jsonl": "aa19b38614e0236595a8c9626ec6bb44092ad4939ae07c2bdf2ad4e9a9273958",
+    "orphan_baseline_process": "3ba042cbf352e571125d1007f18066b9a1eb2e2674dbe074f6fa6a09987f466b",
+    "orphan_baseline_stderr": "1e3531981ddb8ffdb258fc17a263a52ff145a4575c25e3741b828d7d66507e05",
+    "timeout_jsonl": "bd1858757fd072173ddc33a5ff81169b3423758afdf1b0af3a60ad6b501d243a",
+    "timeout_process": "4cb3f34a062871ccd44be0bb02532005d6e49f90e28c6693a00840fc200681ed",
+    "timeout_run_record": "80e76e9f182eab7d55ed5b8c9ba9170d96679719a6c7796b3160c8f64b5e4ae2",
+    "timeout_stderr": "929989daaabeae92e8cdb3e25c664f9934a79b8a715365829198c3d9ce5a792d"
+  },
+  "result": {
+    "automatic_decision": null,
+    "formal_completed": false,
+    "immutable_scorecard": null,
+    "partial_effect_metrics_publishable": false,
+    "reason_code": "formal_aborted_trace_incomplete",
+    "resume_eligible": false,
+    "status": "aborted"
+  },
+  "transport_and_security_audit": {
+    "http_only_provider_mismatches": 0,
+    "reconnect_events": 0,
+    "top_level_error_events": 0,
+    "web_search_markers": 0,
+    "websocket_fallback_events": 0,
+    "windows_sandbox_failure_markers": 0
+  }
+}

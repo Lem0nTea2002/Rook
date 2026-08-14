@@ -1,0 +1,8 @@
+{
+  "benchmark_version": "native-v1",
+  "catalog_fingerprint": "908943360292b54c0dea264ccfa0b6186b4ab6b5c8c2a5ee3f054f88c15358bf",
+  "revealed": false,
+  "schema_version": 1,
+  "validator_count": 30,
+  "validator_manifest_sha256": "abd2d0309c1adf1c36c9dd122c567419d09ea08e3d0f3f190a116ee94f20a946"
+}

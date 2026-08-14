@@ -1,0 +1,4 @@
+service = Mobile.API
+version = V6.1
+channel = stable
+owners = Android, iOS, android

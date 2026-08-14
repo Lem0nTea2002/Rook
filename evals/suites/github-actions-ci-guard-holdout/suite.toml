@@ -1,0 +1,28 @@
+id = "github-actions-ci-guard-real-repo-holdout"
+version = "1"
+policy = "../../policies/codex-only-mvp.toml"
+candidate_content_hash = "8ee402c62e30a4b54faca8976e8d730721ff7297b832602015dc1b32871dc8f3"
+
+[[cases]]
+id = "harden-rook-offline-ci"
+category = "direct"
+task = "tasks/harden-rook-ci.md"
+fixture = "fixtures/harden-rook-ci"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_ci_guard.py", "--case=harden-rook-ci"]
+timeout_seconds = 15
+
+[[cases]]
+id = "preserve-rook-dependabot"
+category = "regression"
+task = "tasks/preserve-dependabot.md"
+fixture = "fixtures/preserve-dependabot"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_ci_guard.py", "--case=preserve-dependabot"]
+timeout_seconds = 15

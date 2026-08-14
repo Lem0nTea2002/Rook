@@ -1,0 +1,2 @@
+[tool.rook]
+validation_command = "python -m pytest -q checks"

@@ -1,0 +1,38 @@
+{
+  "artifact_kind": "redacted_offline_remediation",
+  "source_attempt": {
+    "evidence": "rm2-v10-smoke-attempt-2026-07-26.json",
+    "failure_classification": "invalid_codex_config_path",
+    "run_id": "codex-3c885a4ed8564bcc58b50855"
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v11",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "normalizer_version": "codex-exec-jsonl-v3"
+  },
+  "contract": {
+    "codex_config_override": "allow_login_shell=false",
+    "explicit_login_shell_requests_rejected": true,
+    "powershell_non_login_flag": "-NoProfile",
+    "profile_isolation_applies_to_all_eval_platforms": true,
+    "user_profile_files_modified": false
+  },
+  "verification": {
+    "config_validation_command": "codex -c allow_login_shell=false features list",
+    "config_validation_exit_code": 0,
+    "external_calls": 0,
+    "model_costs_incurred": false,
+    "rook_eval_doctor_available": true,
+    "rook_eval_doctor_validates_full_eval_config": true,
+    "wrong_nested_path_exit_code": 1
+  },
+  "next_gate": {
+    "authorization_required": true,
+    "calls": 2,
+    "formal_authorized": false,
+    "kind": "adapter_v11_readiness_smoke",
+    "model": "gpt-5.4-mini",
+    "must_start_from_zero": true
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "candidate_v5_two_repository_live_holdout",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "agent": "codex",
+    "model": "gpt-5.4-mini",
+    "external_calls_allowed": true,
+    "model_costs_allowed": true,
+    "calls_authorized": 24,
+    "calls_started": 24,
+    "calls_completed": 24,
+    "stop_on_first_infrastructure_exclusion": true
+  },
+  "identity": {
+    "skill": "release-manifest-v2-normalizer",
+    "candidate_version": 5,
+    "candidate_content_hash": "bedb0373fd4b02877825f287e44fd965f790dfe00405365d1add4f452bb944d3",
+    "evaluation_id": "evaluation-e365345694aa46c897d1088b3e2baf97",
+    "suite_id": "release-manifest-v2-two-repo-holdout-v1",
+    "suite_fingerprint": "c51cf9c87d8a887d01ecfcbd04e7b525",
+    "policy_fingerprint": "f5d0f8e0bf6f09a69c8de505a5dd311e",
+    "scorecard_fingerprint": "1165c3351ef027471952b8e414d2aeea",
+    "target_fingerprint": "f3716cd8963e2eb7c349bb2e5048ece9",
+    "adapter_version": "codex-evalops-v12",
+    "codex_cli_version": "codex-cli 0.144.6"
+  },
+  "artifacts": {
+    "report_ref": "reports/evaluation-e365345694aa46c897d1088b3e2baf97/report.md",
+    "report_markdown_sha256": "ca290f9ed2231b661bda04fd879098d8bd8871eead44e966ee2bf0febea67d2e",
+    "scorecard_json_sha256": "09713a92a3a68e7e285040f3e935b4b5c80b1c7ce68371f6a539c0bbda22cbe8",
+    "suite_toml_sha256": "264fb22eb9e4dce4cc8da61c495b0e2ec45af26122f128ff8b662b8c94cd892d"
+  },
+  "repositories": [
+    {
+      "repository": "ZHUMUJUN/Rook",
+      "case_count": 3,
+      "categories": [
+        "direct",
+        "transfer",
+        "regression"
+      ]
+    },
+    {
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "case_count": 3,
+      "categories": [
+        "direct",
+        "transfer",
+        "regression"
+      ]
+    }
+  ],
+  "execution": {
+    "planned_runs": 24,
+    "completed_runs": 24,
+    "baseline_runs": 12,
+    "forced_skill_runs": 12,
+    "valid_content_pairs": 12,
+    "incomplete_pairs": 0,
+    "successful_processes": 24,
+    "trace_completeness_rate": 1.0,
+    "infrastructure_errors": 0,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "safety_failures": 0,
+    "secret_leaks": 0
+  },
+  "metrics": {
+    "overall": {
+      "baseline_success_count": 4,
+      "baseline_sample_count": 12,
+      "baseline_success_rate": 0.3333333333333333,
+      "candidate_success_count": 11,
+      "candidate_sample_count": 12,
+      "candidate_success_rate": 0.9166666666666666,
+      "paired_success_uplift": 0.5833333333333334,
+      "baseline_median_latency_ms": 41476.5,
+      "candidate_median_latency_ms": 51257.5,
+      "latency_improvement": -0.23582028377514974,
+      "baseline_median_tokens": 26901.5,
+      "candidate_median_tokens": 29811.0,
+      "token_improvement": -0.10815382041893584,
+      "baseline_median_tool_calls": 4.0,
+      "candidate_median_tool_calls": 4.0
+    },
+    "capability": {
+      "baseline_success_count": 0,
+      "candidate_success_count": 7,
+      "pair_count": 8,
+      "paired_success_uplift": 0.875,
+      "paired_uplift_ci95": {
+        "lower": 0.625,
+        "upper": 1.0,
+        "method": "task_stratified_bootstrap",
+        "iterations": 10000
+      },
+      "baseline_median_latency_ms": 43397.5,
+      "candidate_median_latency_ms": 63515.0,
+      "latency_improvement": -0.4635635693300306,
+      "baseline_median_tokens": 33338.5,
+      "candidate_median_tokens": 34578.0,
+      "token_improvement": -0.03717923721823113
+    },
+    "preservation": {
+      "pair_count": 4,
+      "preservation_rate": 1.0,
+      "new_regression_count": 0
+    },
+    "cost": {
+      "usd": null,
+      "observed": false
+    },
+    "routing": {
+      "precision": null,
+      "recall": null,
+      "observed": false
+    }
+  },
+  "candidate_failures": [
+    {
+      "case_id": "rook-release-direct",
+      "repetition": 2,
+      "status": "wrong_result",
+      "reason_code": "command_failed"
+    }
+  ],
+  "gate": {
+    "decision_id": "decision-63bd12e86dc14d57834664c5f65389df",
+    "status": "promoted",
+    "reason_code": "capability_success_uplift",
+    "measurement_only": true,
+    "approval_or_deployment_performed": false
+  },
+  "claim_boundary": "This is a live paired effect measurement on six pinned repository-shaped cases across two public repositories. It is not an execution over either complete upstream repository. The Skill materially improved task success while increasing observed median latency and Token use; USD cost and Codex routing remained unobserved."
+}
