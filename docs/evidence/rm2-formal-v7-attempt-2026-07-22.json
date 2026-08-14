@@ -1,0 +1,78 @@
+{
+  "artifact_kind": "redacted_aborted_formal_attempt",
+  "authorization": {
+    "formal_calls_authorized": 72,
+    "formal_calls_started": 30,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true,
+    "not_started": 42
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v7",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "experiment_id": "exp-1e1c359c31ea4cdc886c287767749352",
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "suite_fingerprint": "8f7f181e6803a6a606e78d963c185c72",
+    "suite_id": "release-manifest-v2-formal-holdout",
+    "suite_version": "5"
+  },
+  "execution": {
+    "evaluated_run_records": 28,
+    "experiment_record_written": false,
+    "formal_process_artifacts": 29,
+    "in_flight_call_force_stopped": 1,
+    "planned_runs": 72,
+    "report_written": false,
+    "scorecard_written": false
+  },
+  "evaluated_status_counts": {
+    "adapter_error": 3,
+    "passed": 11,
+    "timeout": 2,
+    "wrong_result": 12
+  },
+  "evaluated_error_counts": {
+    "codex_shell_fallback_exhausted": 3,
+    "codex_timeout": 2,
+    "command_failed": 12
+  },
+  "process_audit": {
+    "process_status_succeeded": 26,
+    "process_status_timeout": 3,
+    "recovered_reconnect_events": 7,
+    "shell_fallback_exhausted_markers": 3,
+    "terminal_turns": 26,
+    "top_level_generic_stream_errors": 0,
+    "web_search_events": 0,
+    "windows_sandbox_failure_markers": 0
+  },
+  "host_suspend_incident": {
+    "cleanup_error": "io_threads_timeout",
+    "long_run_duration_ms": 18983156,
+    "process_stderr_lines": 0,
+    "requested_timeout_ms": 180000,
+    "system_idle_sleep_event_local": "2026-07-22T03:45:44+08:00",
+    "system_resume_event_local_before_clock_sync": "2026-07-22T03:45:47+08:00",
+    "system_time_correction_local": "2026-07-22T09:01:44+08:00",
+    "system_time_increment_ms": 18957278,
+    "windows_event_sources": [
+      "Microsoft-Windows-Kernel-Power/42",
+      "Microsoft-Windows-Kernel-Power/107",
+      "Microsoft-Windows-Kernel-General/1"
+    ]
+  },
+  "stop_boundary": {
+    "candidate_changed": false,
+    "formal_process_descendants_remaining": 0,
+    "partial_results_may_be_combined_with_future_runs": false,
+    "reason": "Host idle sleep invalidated the wall-clock boundary and infrastructure exclusions made the strict Formal gate unattainable.",
+    "status": "aborted_fail_closed"
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "promotion_decision_produced": false,
+    "resume_metric_produced": false
+  }
+}

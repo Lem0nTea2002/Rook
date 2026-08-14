@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=83.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rook-agent"
+version = "0.5.0"
+description = "Rook is a local coding agent with Rook Forge Skill governance."
+readme = "README.md"
+requires-python = ">=3.11"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+dependencies = [
+    "textual",
+    "prompt_toolkit",
+    "openai",
+    "anthropic",
+    "anyio",
+    "keyring>=25,<26",
+    "python-dotenv",
+    "pydantic",
+]
+
+[project.urls]
+Repository = "https://github.com/Lem0nTea2002/Rook"
+Issues = "https://github.com/Lem0nTea2002/Rook/issues"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2,<2",
+    "mypy>=1.16,<2",
+    "pip-audit>=2.9,<3",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=6,<8",
+    "ruff>=0.12,<1",
+]
+scale = [
+    "opentelemetry-api>=1.35,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.35,<2",
+    "opentelemetry-sdk>=1.35,<2",
+    "prometheus-client>=0.22,<1",
+]
+im = [
+    "lark-oapi>=1.7,<2",
+    "qrcode>=8,<9",
+]
+
+[project.scripts]
+rook = "rook_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rook_agent*"]
+
+[tool.setuptools.package-data]
+rook_agent = [
+    "context/prompts/*.md",
+    "app/*.tcss",
+    "evalops/demo_assets/evals/policies/*.toml",
+    "evalops/demo_assets/evals/suites/offline-demo/*.toml",
+    "evalops/demo_assets/evals/suites/offline-demo/tasks/*.md",
+    "evalops/demo_assets/evals/suites/offline-demo/fixtures/*/*.txt",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+files = [
+    "rook_agent/evalops/models.py",
+    "rook_agent/evalops/policy.py",
+    "rook_agent/evalops/suites.py",
+    "rook_agent/evalops/service.py",
+    "rook_agent/evalops/trends.py",
+    "rook_agent/execution",
+    "rook_agent/channels",
+]
+follow_imports = "skip"
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+source = ["rook_agent.evalops"]
+
+[tool.coverage.report]
+fail_under = 85
+precision = 2
+show_missing = true
+skip_covered = true

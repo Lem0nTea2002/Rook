@@ -1,0 +1,60 @@
+name: Release install smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Git tag to install through the public README command
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pipx
+        run: python -m pip install --disable-pip-version-check pipx
+
+      - name: Install the tagged release
+        run: python -m pipx install "git+https://github.com/${{ github.repository }}.git@${{ inputs.release_tag }}"
+
+      - name: Verify the Linux installation
+        if: runner.os == 'Linux'
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          bin_dir="$(python -m pipx environment --value PIPX_BIN_DIR)"
+          "$bin_dir/rook" --help
+          package="$(python -m pipx runpip rook-agent show rook-agent)"
+          grep -F "Version: ${RELEASE_TAG#v}" <<<"$package"
+
+      - name: Verify the Windows installation
+        if: runner.os == 'Windows'
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: pwsh
+        run: |
+          $binDir = python -m pipx environment --value PIPX_BIN_DIR
+          & (Join-Path $binDir "rook.exe") --help
+          $package = python -m pipx runpip rook-agent show rook-agent
+          $expected = "Version: $($env:RELEASE_TAG.TrimStart('v'))"
+          if ($package -notcontains $expected) {
+            throw "Installed package version does not match $env:RELEASE_TAG."
+          }

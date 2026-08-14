@@ -1,0 +1,24 @@
+name = "github-actions-ci-guard"
+description = "Harden repository GitHub Actions workflows without weakening offline evaluation, credentials, or test coverage."
+triggers = [
+  "harden a GitHub Actions CI workflow",
+  "make repository CI least privilege and bounded",
+]
+procedure = [
+  "Read the complete workflow and identify its existing triggers, jobs, matrix, action pins, environment controls, and required test commands before editing.",
+  "Keep top-level permissions least privilege; use contents read unless the workflow has a documented need for a narrower explicit permission set.",
+  "Set persist-credentials to false on every checkout step so a job does not retain a write-capable Git credential after checkout.",
+  "Add a finite timeout-minutes value to every job while preserving the original runner matrix, fail-fast policy, and commands.",
+  "For Rook evaluation workflows, preserve ROOK_RUN_EXTERNAL_EVALS=0 and ROOK_ALLOW_MODEL_COSTS=0 so CI cannot launch paid live evaluation.",
+  "Change only the requested workflow; do not rewrite Dependabot, release, or unrelated repository configuration.",
+]
+verification = [
+  "Re-read the workflow and verify every checkout disables credential persistence, every job has a positive timeout, and top-level permissions remain read-only.",
+  "Verify action versions, Python versions, operating-system matrix entries, offline cost controls, and test commands are unchanged.",
+  "Verify no unrelated file was created or modified.",
+]
+pitfalls = [
+  "Do not add secrets, pull_request_target, write permissions, external model calls, or model-cost flags.",
+  "Do not replace pinned action majors or delete matrix entries merely to make the edit simpler.",
+  "Do not apply workflow rules to Dependabot or other non-workflow YAML files.",
+]

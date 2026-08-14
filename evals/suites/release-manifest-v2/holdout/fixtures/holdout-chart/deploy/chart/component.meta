@@ -1,0 +1,4 @@
+SERVICE = Data-Plane
+VERSION = v0.12
+CHANNEL = rc
+OWNERS = InfraB, InfraA

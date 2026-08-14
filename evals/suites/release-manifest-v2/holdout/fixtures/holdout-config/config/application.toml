@@ -1,0 +1,3 @@
+[application]
+name = "catalog-api"
+workers = 4

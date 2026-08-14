@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"thread-eval-unknown"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item-future-1","type":"future_observation","value":{"safe":"retained"}}}
+{"type":"item.completed","item":{"id":"item-message-1","type":"agent_message","text":"Completed despite a newer item type."}}
+{"type":"turn.completed","usage":{"input_tokens":10,"cached_input_tokens":0,"output_tokens":5}}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "benchmark": "rook-coding-dogfood-v2",
+  "task_count": 10,
+  "claim_boundary": "Isolated repository-shaped regression tasks derived from real Rook incidents and selected RAG report contracts; not unmodified upstream repositories and not live evidence until an authorized run is recorded.",
+  "repositories": [
+    {
+      "repository": "https://github.com/ZHUMUJUN/Rook",
+      "commit": "5fd97b7e1cc14e0a5d2c14ee191c19712f802aff",
+      "task_ids": [
+        "DF2-RK-001",
+        "DF2-RK-002",
+        "DF2-RK-003",
+        "DF2-RK-004",
+        "DF2-RK-005",
+        "DF2-RK-006",
+        "DF2-RK-009",
+        "DF2-RK-010"
+      ]
+    },
+    {
+      "repository": "https://github.com/ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "commit": "656c23d61a3324944a89736c82d5fba4dbea59e6",
+      "task_ids": [
+        "DF2-RAG-007",
+        "DF2-RAG-008"
+      ]
+    }
+  ]
+}

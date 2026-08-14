@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "rook_coding_agent_live_dogfood_v2",
+  "recorded_at": "2026-07-27",
+  "authorization": {
+    "requested_task_count": 10,
+    "external_model_calls_allowed": true,
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "max_provider_calls_per_task": 20,
+    "max_provider_calls_total": 200,
+    "provider_calls_observed": 106,
+    "budget_exceeded": false
+  },
+  "isolation": {
+    "workspace_root": ".rook/dogfood/2026-07-27-v2",
+    "task_definition_sha256": "0e83489308ccf49d5951e13ebd182fdd647e2db2ffebc5f4fea9a324a69412e9",
+    "provenance_sha256": "2dccf6ac69eaddcb810bc5f5131231712d73b78a4485e5d0c73053a65d9ee2cb",
+    "repository_count": 2,
+    "network_requested_by_tasks": false,
+    "deterministic_validators": true,
+    "raw_sessions_committed": false,
+    "reason_raw_sessions_not_committed": "Local session events may contain prompts and tool output. Only hashes and aggregate telemetry are public."
+  },
+  "aggregate": {
+    "coding_tasks": 10,
+    "tasks_passed": 9,
+    "tasks_failed": 1,
+    "task_success_rate": 0.9,
+    "provider_calls": 106,
+    "tool_results": 106,
+    "input_tokens": 718542,
+    "output_tokens": 20187,
+    "total_tokens": 738729,
+    "average_provider_calls_per_task": 10.6,
+    "average_tokens_per_task": 73872.9,
+    "tasks_with_unrelated_skill_selection": 0,
+    "tasks_with_loaded_skills": 0,
+    "usd_cost": null,
+    "usd_cost_observed": false
+  },
+  "tasks": [
+    {
+      "id": "DF2-RK-001",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 8,
+      "tool_results": 11,
+      "total_tokens": 51324,
+      "workspace_hash": "46e7b6c7a83430e46a8f3c92b4e00d87569b2ab78d6ba4189d0ee1a296340435",
+      "session_sha256": "2e39aca445827b19e80c7d2f6d108f9a7d4516deb08a5593280975362eee60d2"
+    },
+    {
+      "id": "DF2-RK-002",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 14,
+      "tool_results": 14,
+      "total_tokens": 108128,
+      "workspace_hash": "7d6ee0354f816cb0cecdbba5130bc5cbf35f97934b159fcbaa5f388d49ec5b1b",
+      "session_sha256": "a038091bf2cf65d154a9076a03893d2eadd0e5f475458ab44d2c0b8a93a741c1"
+    },
+    {
+      "id": "DF2-RK-003",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 8,
+      "tool_results": 8,
+      "total_tokens": 51902,
+      "workspace_hash": "085c1dace437671d2df25ced1e9fac4b5479dabf9eac6a642fbfc6b47ae81456",
+      "session_sha256": "8589a7726bd031aac14c835ce38db6a4cde4596527afff32ca549e3176bd9a60"
+    },
+    {
+      "id": "DF2-RK-004",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 9,
+      "tool_results": 8,
+      "total_tokens": 62167,
+      "workspace_hash": "d9da771bd704e88e66daa43ce906e8a4bc60ad1994a6139e6a0d10b1bb09f053",
+      "session_sha256": "d09231a1e9d600dfbebb7a30dfb4b84bb0f4c0b7768ef300b43db64498e4e544"
+    },
+    {
+      "id": "DF2-RK-005",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 10,
+      "tool_results": 9,
+      "total_tokens": 65939,
+      "workspace_hash": "314c92e11bd0666be6e77042b5346f8d37b3c6db7276af522b64d22baa8f7295",
+      "session_sha256": "07c65a7d26cd34bd37e25065ebe696bfcd83b7a9666f66749252ec76dc289a7b"
+    },
+    {
+      "id": "DF2-RK-006",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 9,
+      "tool_results": 8,
+      "total_tokens": 58376,
+      "workspace_hash": "830a4500d56e8f952014fed50fcb47e281f030d5cc8db9d2de8818cce65cdd80",
+      "session_sha256": "510e4780660e5db9a99f84904a3cf19fa00c519f9f1e688ba0fa00a68c6fc361"
+    },
+    {
+      "id": "DF2-RAG-007",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "passed",
+      "provider_calls": 9,
+      "tool_results": 9,
+      "total_tokens": 58666,
+      "workspace_hash": "b8922b7d92763639e4a61802d6af0f0cf907b015b879c5c659bf056b8abf7c20",
+      "session_sha256": "82a199b02082fef66a5a9d3edcdb3db461a2a99b321cabceda86c64b2b956d4e"
+    },
+    {
+      "id": "DF2-RAG-008",
+      "repository": "ZHUMUJUN/Multimodal-LLM-Agent-for-Scientific-Document-RAG",
+      "result": "failed",
+      "provider_calls": 20,
+      "tool_results": 22,
+      "total_tokens": 149078,
+      "validator_reason": "case_sensitive_error_contract",
+      "validator_detail": "Expected ValueError text to match lowercase 'dataset'; implementation returned 'Dataset mismatch'.",
+      "runner_boundary": "Todo self-check attempted a twenty-first provider call after the per-task limit and exposed a terminal-limit handling defect.",
+      "workspace_hash": "4afb09f5757a42f50525604dd15054fef665e749e137e02f5358cb2090926ec6",
+      "session_sha256": "d2efbf4f67a789402a4ae8176f97d8d9ea35c3ff812aada6b29dcfec633c8fd1"
+    },
+    {
+      "id": "DF2-RK-009",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 9,
+      "tool_results": 8,
+      "total_tokens": 57199,
+      "workspace_hash": "a891ece008da307a03e31b7ba973cd087195fda2314670600fa64dfad69c5c28",
+      "session_sha256": "7e1939cc9e68f1f794b1eb06cab3d95241f07e5f30f8e71f27ba2e5f82c2d213"
+    },
+    {
+      "id": "DF2-RK-010",
+      "repository": "ZHUMUJUN/Rook",
+      "result": "passed",
+      "provider_calls": 10,
+      "tool_results": 9,
+      "total_tokens": 75950,
+      "workspace_hash": "d2c62586c1cfc6b84535a8a1b429a81819729c0af727d58027c1710d60ff2bb4",
+      "session_sha256": "457a5cf31999fae016a415990c6be1602e78e96438348df9304984850783caa6"
+    }
+  ],
+  "comparison_to_prior_dogfood": {
+    "prior_task_count": 5,
+    "prior_success_rate": 0.6,
+    "prior_average_provider_calls_per_task": 13.2,
+    "prior_average_tokens_per_task": 205659.4,
+    "current_success_rate": 0.9,
+    "current_average_provider_calls_per_task": 10.6,
+    "current_average_tokens_per_task": 73872.9,
+    "directional_provider_call_change": -0.19696969696969696,
+    "directional_token_change": -0.6407997883879852,
+    "claim_boundary": "The v1 and v2 task sets differ, so these are directional non-paired observations, not a causal effect estimate."
+  },
+  "incident_and_remediation": {
+    "incident": "The Todo completion self-check escaped the Agent loop after the provider-call ceiling, so the first runner process ended before writing its aggregate summary.",
+    "model_calls_retried": 0,
+    "continuation": "Only tasks 9 and 10 were resumed; task 8 was not retried.",
+    "fixes": [
+      "Convert Todo self-check provider limits and cancellation into stable terminal responses in sync and async loops.",
+      "Write the benchmark summary atomically after every completed task.",
+      "Expose finish_reason and one-based continuation controls in the benchmark runner."
+    ],
+    "focused_verification": "82 passed; Ruff passed"
+  },
+  "claim_boundary": "This is honest live dogfood of the Rook Coding Agent on ten isolated repository-shaped tasks with deterministic validators. It is not a Skill-effect A/B result, not an execution over complete upstream repositories, and it preserves the one failing task."
+}

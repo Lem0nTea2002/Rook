@@ -1,0 +1,3327 @@
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+from rich.text import Text
+from textual.widgets import Markdown, MarkdownViewer, Static
+from textual.widgets import TextArea
+
+from rook_agent.agent.loop import ToolExecutionEvent
+from rook_agent.app.command_actions import (
+    InsertTextAction,
+    ModelChangedAction,
+    OpenPickerAction,
+    SubmitPromptAction,
+    SwitchPageAction,
+)
+from rook_agent.app.commands import CommandResult
+from rook_agent.app.commands import ContextCommandHandler
+from rook_agent.app.clipboard import ClipboardResult
+from rook_agent.app.command_registry import CommandRegistry, CommandSpec
+from rook_agent.app.file_references import ProjectFileReferenceService
+from rook_agent.app.external_editor import EditorResult
+from rook_agent.app.prompt_history import PromptHistoryStore
+from rook_agent.app.direct_shell import ShellExecutionOutcome, ShellExecutionStatus
+from rook_agent.agent.user_input import UserInputOption, UserInputRequest
+from rook_agent.app.router import CompositeCommandHandler
+from rook_agent.app.runtime import CurrentSessionState
+from rook_agent.app.session_commands import SessionCommandHandler
+from rook_agent.app.tui import RookApp, RookTuiConfig
+from rook_agent.app.tui import RookMarkdown
+from rook_agent.app.tui import _entry_renderable
+from rook_agent.app.tui import _provider_name_markup
+from rook_agent.app.tui import _provider_model_markup
+from rook_agent.app.tui import _plain_static
+from rook_agent.app.tui import _observe_markdown_update
+from rook_agent.app.picker import TuiPickerItem, TuiPickerState, render_picker
+from rook_agent.app.picker_adapters import render_picker_item
+from rook_agent.app.activity_view import tool_event_label, tool_event_status, turn_metrics_text
+from rook_agent.app.welcome import WELCOME_LOGO_PIXELS, welcome_renderable
+from rook_agent.app.transcript_view import entry_classes, tool_event_entry_kind
+from rook_agent.app.tui_state import (
+    TuiEntryKind,
+    TuiQueueKind,
+    TuiQueueStatus,
+    TuiTodoItem,
+    TuiTranscript,
+)
+from rook_agent.app.tui_state import TuiTranscriptEntry
+from rook_agent.app.widgets import ToolCard
+from rook_agent.app.viewer import ContentViewerScreen
+from rook_agent.context.models import SessionView
+from rook_agent.context.runtime_state import SessionRuntimeState
+from rook_agent.context.store import JsonlSessionStore
+from rook_agent.context.writer import SessionEventWriter
+from rook_agent.agent.session import AgentSession
+from rook_agent.session.catalog import SessionCatalog
+from rook_agent.session.new import NewSessionService
+from rook_agent.session.resume import ResumeService
+from rook_agent.providers.types import ChatResponse, ChatStreamEvent, TokenUsage, ToolCall
+from rook_agent.tools.types import ToolResult
+
+
+class FakeOutput:
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+        self.mounted: list[object] = []
+        self.scroll_end_calls = 0
+        self.scroll_y = 0
+        self.max_scroll_y = 0
+
+    def write(self, line: str) -> None:
+        if self.lines:
+            self.lines[-1] += line
+        else:
+            self.lines.append(line)
+
+    def write_line(self, line: str) -> None:
+        self.lines.append(line)
+
+    def mount(self, widget: object) -> None:
+        self.mounted.append(widget)
+        if isinstance(widget, Static):
+            self.lines.append(str(getattr(widget, "content", getattr(widget, "renderable", ""))))
+        if isinstance(widget, Markdown):
+            widget.updates = []  # type: ignore[attr-defined]
+
+            def update(markdown: str) -> None:
+                widget.updates.append(markdown)  # type: ignore[attr-defined]
+
+            widget.update = update  # type: ignore[method-assign]
+
+    def scroll_end(self, animate: bool = False) -> None:
+        self.scroll_end_calls += 1
+        return None
+
+
+class FakeClipboard:
+    def __init__(self, result: ClipboardResult | None = None) -> None:
+        self.result = result or ClipboardResult(ok=True, backend="fake")
+        self.values: list[str] = []
+        self.terminal_callbacks = []
+
+    def copy(self, text: str, *, terminal_copy=None) -> ClipboardResult:
+        self.values.append(text)
+        self.terminal_callbacks.append(terminal_copy)
+        return self.result
+
+
+class FakeDirectShell:
+    def __init__(self, outcome: ShellExecutionOutcome | None = None) -> None:
+        self.outcome = outcome or ShellExecutionOutcome(
+            ShellExecutionStatus.SUCCEEDED,
+            "working tree clean",
+            exit_code=0,
+        )
+        self.commands: list[str] = []
+        self.resumes: list[tuple[str, str]] = []
+        self.cancelled = False
+
+    def execute(self, command: str) -> ShellExecutionOutcome:
+        self.commands.append(command)
+        return self.outcome
+
+    def resume(self, request_id: str, choice: str) -> ShellExecutionOutcome:
+        self.resumes.append((request_id, choice))
+        return ShellExecutionOutcome(
+            ShellExecutionStatus.SUCCEEDED,
+            "resumed output",
+            exit_code=0,
+        )
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+
+class FakeExternalEditor:
+    def __init__(self, result: EditorResult) -> None:
+        self.result = result
+        self.inputs: list[str] = []
+
+    def edit(self, text: str) -> EditorResult:
+        self.inputs.append(text)
+        return self.result
+
+
+def _static_output_text(app: RookApp) -> str:
+    static_text = "\n".join(
+        str(getattr(widget, "content", getattr(widget, "renderable", "")))
+        for widget in app.query_one("#output").query("Static")
+    )
+    markdown_text = "\n".join(
+        str(getattr(widget, "source", "") or "\n".join(getattr(widget, "updates", []) or []))
+        for widget in app.query_one("#output").query("RookMarkdown")
+    )
+    return "\n".join(part for part in [static_text, markdown_text] if part)
+
+
+class FakeMarkdownUpdateResult:
+    def __init__(self, exception: BaseException | None) -> None:
+        self._exception = exception
+        self.exception_observed = False
+        self.callbacks = []
+        self._future = self
+
+    def add_done_callback(self, callback) -> None:
+        self.callbacks.append(callback)
+
+    def exception(self) -> BaseException | None:
+        self.exception_observed = True
+        return self._exception
+
+    def finish(self) -> None:
+        for callback in self.callbacks:
+            callback(self)
+
+
+class FakeActivity:
+    def __init__(self) -> None:
+        self.updates: list[str] = []
+        self.renderables: list[object] = []
+        self.size = type("Size", (), {"width": 60})()
+
+    def update(self, text: object) -> None:
+        self.renderables.append(text)
+        plain = getattr(text, "plain", None)
+        self.updates.append(str(plain if plain is not None else text))
+
+
+class FakeTopbar(FakeActivity):
+    pass
+
+
+class FakeTodoPanel(FakeActivity):
+    pass
+
+
+def test_skill_picker_item_renderer_keeps_name_path_and_description_separate() -> None:
+    picker = TuiPickerState(kind="skill", title="Select a skill:", items=[])
+    item = TuiPickerItem(
+        id="skills/very-long.md",
+        label="very-long",
+        detail=" ".join(["description"] * 30),
+        meta={"scope": "global", "path": "skills/very-long.md"},
+    )
+
+    rendered = render_picker_item(picker, item, 0)
+
+    assert rendered == "very-long\n    global · skills/very-long.md"
+
+
+def test_skill_picker_render_keeps_item_heights_stable_and_detail_in_footer() -> None:
+    picker = TuiPickerState(
+        kind="skill",
+        title="Select a skill:",
+        items=[
+            TuiPickerItem(
+                id="skills/brief.md",
+                label="brief",
+                detail="Write a brief.",
+                meta={"scope": "project", "path": "skills/brief.md"},
+            ),
+            TuiPickerItem(
+                id="skills/review.md",
+                label="review",
+                detail="",
+                meta={"scope": "project", "path": "skills/review.md"},
+            ),
+        ],
+        selected_index=0,
+    )
+
+    rendered = render_picker(
+        picker,
+        limit=20,
+        render_item=lambda item, index: render_picker_item(picker, item, index),
+    )
+
+    assert "Write a brief." not in rendered.splitlines()[1:5]
+    assert "Selected: Write a brief." in rendered
+    assert "> 1. brief\n    project · skills/brief.md" in rendered
+    assert "  2. review\n    project · skills/review.md" in rendered
+
+
+def test_command_picker_renderable_colors_selected_cursor() -> None:
+    entry = TuiTranscriptEntry(
+        id=1,
+        kind=TuiEntryKind.COMMAND,
+        label="command",
+        body="",
+    )
+
+    rendered = _entry_renderable(entry, "Select:\n> 1. first\n  2. second")
+
+    assert isinstance(rendered, Text)
+    assert rendered.plain == "▌ CMD\nSelect:\n> 1. first\n  2. second"
+    assert any(
+        rendered.plain[span.start : span.end] == "> 1. first"
+        and "on #79e6b3" in str(span.style).lower()
+        for span in rendered.spans
+    )
+
+
+def test_picker_rerender_updates_existing_command_widget_without_full_rerender(monkeypatch) -> None:
+    class FakeWidget:
+        def __init__(self) -> None:
+            self.updates: list[object] = []
+            self.classes: str | None = None
+
+        def update(self, renderable) -> None:
+            self.updates.append(renderable)
+
+    app = RookApp()
+    widget = FakeWidget()
+    entry = app.transcript.add(TuiEntryKind.COMMAND, "Select:\n> 1. first\n  2. second")
+    entry.widget = widget
+    app._picker = TuiPickerState(
+        kind="model",
+        title="Select a model:",
+        items=[
+            TuiPickerItem(id="old", label="old"),
+            TuiPickerItem(id="new", label="new"),
+        ],
+        selected_index=0,
+    )
+    rerendered = False
+
+    def fail_full_rerender() -> None:
+        nonlocal rerendered
+        rerendered = True
+
+    monkeypatch.setattr(app, "_rerender_transcript", fail_full_rerender)
+
+    app._picker.move(1)
+    app._render_picker()
+
+    assert rerendered is False
+    assert len(widget.updates) == 1
+    assert getattr(widget.updates[0], "plain", "") == (
+        "▌ CMD\nSelect a model:\n  1. old\n> 2. new\nUse up/down and enter to select."
+    )
+    assert app.transcript.entries[-1].body.startswith("Select a model:")
+    assert "> 2. new" in app.transcript.entries[-1].body
+
+
+class RecordingCommandHandler:
+    def __init__(self) -> None:
+        self.commands: list[str] = []
+
+    def handle(self, text: str) -> CommandResult:
+        self.commands.append(text)
+        if text == "/model":
+            return CommandResult(
+                handled=True,
+                output="Select a model:",
+                action=OpenPickerAction(
+                    kind="model",
+                    items=(
+                        {"provider": "fake", "model": "old"},
+                        {"provider": "fake", "model": "new"},
+                    ),
+                    selected_index=0,
+                ),
+            )
+        if text == "/model fake/new":
+            return CommandResult(
+                handled=True,
+                output="Model switched: fake/new",
+                action=ModelChangedAction(provider="fake", model="new"),
+            )
+        if text == "/skills":
+            return CommandResult(
+                handled=True,
+                output="Skills:",
+                action=OpenPickerAction(
+                    kind="skill",
+                    items=(
+                        {
+                            "name": "brief",
+                            "path": "skills/brief.md",
+                            "scope": "project",
+                            "description": "Write a brief.",
+                        },
+                        {
+                            "name": "review",
+                            "path": "skills/review.md",
+                            "scope": "project",
+                            "description": "Review work.",
+                        },
+                    ),
+                    selected_index=0,
+                ),
+            )
+        if text == "/skill-use skills/review.md":
+            return CommandResult(
+                handled=True,
+                output="Referenced skill: review skills/review.md",
+                action=InsertTextAction(text="请使用 skills/review.md "),
+            )
+        return CommandResult(handled=False)
+
+
+@pytest.mark.parametrize(
+    ("elapsed_seconds", "expected"),
+    [
+        (0, "0.0s · 0 tools"),
+        (59.9, "59.9s · 0 tools"),
+        (60, "1m 0s · 0 tools"),
+        (61, "1m 1s · 0 tools"),
+        (3599, "59m 59s · 0 tools"),
+        (3600, "1h 0m 0s · 0 tools"),
+        (3661, "1h 1m 1s · 0 tools"),
+    ],
+)
+def test_turn_metrics_time_units_appear_only_after_thresholds(elapsed_seconds, expected) -> None:
+    assert turn_metrics_text(elapsed_seconds, 0) == expected
+
+
+class FakeSession:
+    session_id = "sess_test"
+    mode = "standard"
+    runtime_state = SessionRuntimeState(session_id="sess_test")
+
+    def rebuild_view(self) -> SessionView:
+        return SessionView(session_id="sess_test")
+
+
+def test_rook_app_can_be_created_with_command_handler() -> None:
+    handler = ContextCommandHandler(session=FakeSession())
+
+    app = RookApp(command_handler=handler, config=RookTuiConfig(title="TestCoder"))
+
+    assert app.command_handler is handler
+    assert app.config.title == "TestCoder"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_uses_custom_chrome_instead_of_textual_header_footer() -> None:
+    app = RookApp(current_session=FakeSession())
+
+    async with app.run_test():
+        widget_types = [type(widget).__name__ for widget in app.query("*")]
+        widget_ids = [getattr(widget, "id", None) for widget in app.query("*")]
+
+    assert "Header" not in widget_types
+    assert "Footer" not in widget_types
+    assert "topbar" in widget_ids
+    assert "main" in widget_ids
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+@pytest.mark.parametrize(
+    ("terminal_size", "history_count"),
+    [
+        ((200, 60), 0),
+        ((60, 20), 30),
+    ],
+)
+async def test_permissions_command_reveals_picker_when_output_is_not_following(
+    terminal_size: tuple[int, int],
+    history_count: int,
+) -> None:
+    class PermissionPickerHandler:
+        def __init__(self) -> None:
+            self.commands: list[str] = []
+
+        def handle(self, text: str) -> CommandResult:
+            self.commands.append(text)
+            if text not in {"/permission", "/permissions"}:
+                if text == "/mode auto":
+                    return CommandResult(handled=True, output="Permission mode set to: auto")
+                return CommandResult(handled=False)
+            return CommandResult(
+                handled=True,
+                action=OpenPickerAction(
+                    kind="permission-mode",
+                    items=(
+                        {"id": "ask", "label": "ASK", "description": "所有动作都询问"},
+                        {"id": "auto", "label": "AUTO", "description": "普通操作自动执行"},
+                        {"id": "full", "label": "FULL", "description": "完全权限"},
+                    ),
+                ),
+            )
+
+    handler = PermissionPickerHandler()
+    app = RookApp(command_handler=handler)
+
+    async with app.run_test(size=terminal_size) as pilot:
+        output = app.query_one("#output")
+        if history_count:
+            removal = app._dismiss_welcome()
+            if removal is not None:
+                await removal
+            for index in range(history_count):
+                app._write_line(f"历史消息 {index}")
+            await pilot.pause()
+            output.scroll_home(animate=False)
+            await pilot.pause()
+            assert output.scroll_y < output.max_scroll_y - 1
+
+        await pilot.click("#input")
+        await pilot.press(*"/permissions")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        indicator = app.query_one("#new-messages")
+        assert app._picker is not None
+        assert app._picker.kind == "permission-mode"
+        picker_entries = [
+            entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.COMMAND
+        ]
+        assert len(picker_entries) == 1, [
+            (entry.kind, entry.body) for entry in app.transcript.entries
+        ]
+        assert "ASK" in picker_entries[0].body
+        assert "AUTO" in picker_entries[0].body
+        assert "FULL" in picker_entries[0].body
+        assert picker_entries[0].widget is not None
+        assert output.scroll_y >= output.max_scroll_y - 1
+        assert indicator.has_class("hidden") is True
+        assert app._new_message_count == 0
+
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert handler.commands[-1] == "/mode auto"
+        assert app._picker is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_opens_and_filters_live_slash_command_palette() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(CommandSpec("/status", "显示项目状态", "项目"), handler)
+    registry.register(CommandSpec("/sessions", "恢复历史会话", "会话"), handler)
+    registry.register(CommandSpec("/diff", "查看代码修改", "项目"), handler)
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("/")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        initial = str(palette.render())
+        assert palette.has_class("hidden") is False
+        assert "/status" in initial
+        assert "/sessions" in initial
+        assert "/diff" in initial
+        assert "内置" in initial
+
+        await pilot.press(*"代码")
+        await pilot.pause()
+        filtered = str(palette.render())
+        assert "/diff" in filtered
+        assert "/status" not in filtered
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_tab_completes_selected_slash_command() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(CommandSpec("/status", "显示项目状态", "项目"), handler)
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/st")
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "/status"
+        assert handler.commands == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_required_command_argument_is_prompted_before_execution() -> None:
+    handler = RecordingCommandHandler()
+    registry = CommandRegistry()
+    registry.register(
+        CommandSpec("/session", "查看会话", "会话", argument_hint="<session_id>"),
+        handler,
+    )
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/ses")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "/session "
+        assert handler.commands == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_completes_and_executes_second_level_command_argument() -> None:
+    class ModelHandler(RecordingCommandHandler):
+        def suggest_arguments(self, command_name: str, query: str):
+            assert command_name == "/model"
+            return (
+                ("openai/gpt-5.4-mini", "快速"),
+                ("openai/gpt-5.6", "强"),
+            )
+
+    handler = ModelHandler()
+    registry = CommandRegistry()
+    registry.register(
+        CommandSpec(
+            "/model",
+            "切换模型",
+            "模型",
+            argument_hint="[model|provider/model]",
+        ),
+        handler,
+    )
+    app = RookApp(command_handler=CompositeCommandHandler([handler], registry=registry))
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/model 5.4")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        assert "openai/gpt-5.4-mini" in str(palette.render())
+
+        await pilot.press("tab")
+        assert app.query_one("#input", TextArea).text == "/model openai/gpt-5.4-mini"
+        assert handler.commands == []
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert handler.commands == ["/model openai/gpt-5.4-mini"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_opens_diff_in_separate_selectable_viewer() -> None:
+    class DiffHandler:
+        def handle(self, text: str) -> CommandResult:
+            if text.strip() != "/diff":
+                return CommandResult(handled=False)
+            content = "diff --git a/a.py b/a.py\n-old\n+new"
+            return CommandResult(
+                handled=True,
+                output=content,
+                action=SwitchPageAction(page="diff", content=content),
+            )
+
+    app = RookApp(command_handler=DiffHandler())
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/diff")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ContentViewerScreen)
+        viewer = app.screen.query_one("#viewer-content", TextArea)
+        assert viewer.read_only is True
+        assert "diff --git a/a.py b/a.py" in viewer.text
+        assert all("diff --git" not in entry.body for entry in app.transcript.entries)
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, ContentViewerScreen)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_opens_learning_review_without_polluting_chat() -> None:
+    class LearningHandler:
+        def handle(self, text: str) -> CommandResult:
+            if text.strip() != "/learn last":
+                return CommandResult(handled=False)
+            content = "# LEARN\n\n**问题**：工具参数错误\n\n- 使用正确字段"
+            return CommandResult(
+                handled=True,
+                output=content,
+                action=SwitchPageAction(page="learn-review", content=content),
+            )
+
+    app = RookApp(command_handler=LearningHandler())
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/learn last")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ContentViewerScreen)
+        viewer = app.screen.query_one("#help-content", MarkdownViewer)
+        assert "工具参数错误" in viewer.document.source
+        assert all("工具参数错误" not in entry.body for entry in app.transcript.entries)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_at_reference_palette_completes_project_file(tmp_path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("print('ok')", encoding="utf-8")
+    service = ProjectFileReferenceService(
+        tmp_path,
+        file_lister=lambda root: ("src/app.py",),
+    )
+    app = RookApp(file_references=service)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"检查 @app")
+        await pilot.pause()
+        palette = app.query_one("#command-palette")
+        assert "src/app.py" in str(palette.render())
+
+        await pilot.press("tab")
+        await pilot.pause()
+        assert app.query_one("#input", TextArea).text == "检查 @src/app.py "
+        assert palette.has_class("hidden") is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_submits_bounded_at_reference_content_to_agent(tmp_path) -> None:
+    (tmp_path / "app.py").write_text("VALUE = 42\n", encoding="utf-8")
+    service = ProjectFileReferenceService(
+        tmp_path,
+        file_lister=lambda root: ("app.py",),
+    )
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner, file_references=service)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"解释 @app.py")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert len(runner.inputs) == 1
+    assert runner.inputs[0].startswith("解释 @app.py\n\n<rook-file-references>")
+    assert 'path="app.py"' in runner.inputs[0]
+    assert "VALUE = 42" in runner.inputs[0]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_bang_executes_direct_shell_without_model_call() -> None:
+    shell = FakeDirectShell()
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner, direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"!git status")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert shell.commands == ["git status"]
+        assert runner.inputs == []
+        tool_entries = [
+            entry
+            for entry in app.transcript.entries
+            if entry.kind == TuiEntryKind.TOOL
+        ]
+        assert len(tool_entries) == 1
+        assert tool_entries[0].body == "working tree clean"
+        assert isinstance(tool_entries[0].widget, ToolCard)
+        assert tool_entries[0].widget.expanded is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_bang_toggles_persistent_shell_mode() -> None:
+    shell = FakeDirectShell()
+    app = RookApp(direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("!")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._shell_mode is True
+        assert app.query_one("#composer").has_class("shell-mode") is True
+
+        await pilot.press(*"git status")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert shell.commands == ["git status"]
+
+        await pilot.press("!")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._shell_mode is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_direct_shell_resumes_permission_confirmation() -> None:
+    pending = UserInputRequest(
+        id="perm_shell",
+        kind="permission_confirmation",
+        question="允许执行 Shell 吗？",
+        options=[
+            UserInputOption(id="deny", label="Deny"),
+            UserInputOption(id="allow_once", label="Allow once"),
+        ],
+        payload={
+            "action": "execute_shell",
+            "target": "git status",
+            "allow_always": False,
+        },
+    )
+    shell = FakeDirectShell(
+        ShellExecutionOutcome(
+            ShellExecutionStatus.WAITING_PERMISSION,
+            pending.question,
+            pending_input=pending,
+        )
+    )
+    app = RookApp(direct_shell=shell)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"!git status")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app._pending_shell_input is pending
+        assert app._picker is not None
+        assert app._picker.kind == "permission-shell"
+        assert app._picker.selected_item is not None
+        assert app._picker.selected_item.id == "allow_once"
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert shell.resumes == [("perm_shell", "allow_once")]
+    assert app._pending_shell_input is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_c_clears_input_without_exiting() -> None:
+    app = RookApp()
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"draft prompt")
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == ""
+        assert app.is_running is True
+
+
+def test_rook_app_ctrl_c_copies_selection_before_interrupting(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    interrupted = False
+
+    def interrupt() -> None:
+        nonlocal interrupted
+        interrupted = True
+
+    app._chat_busy = True
+    monkeypatch.setattr(app, "_selected_text", lambda: "selected")
+    monkeypatch.setattr(app, "_interrupt_chat_turn", interrupt)
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    app.action_smart_cancel()
+
+    assert clipboard.values == ["selected"]
+    assert interrupted is False
+
+
+def test_rook_app_ctrl_shift_c_copies_selection(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    monkeypatch.setattr(app, "_selected_text", lambda: "selected")
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    app.action_copy_selection()
+
+    assert clipboard.values == ["selected"]
+
+
+def test_rook_app_shift_tab_cycles_safe_permission_modes(monkeypatch) -> None:
+    class ModeSession(FakeSession):
+        mode = "standard"
+
+        def set_permission_mode(self, mode):
+            self.mode = str(getattr(mode, "value", mode))
+            return mode
+
+    session = ModeSession()
+    app = RookApp(current_session=session)
+    monkeypatch.setattr(app, "_set_activity", lambda *args, **kwargs: None)
+
+    app.action_cycle_permission_mode()
+    assert session.mode == "auto"
+    app.action_cycle_permission_mode()
+    assert session.mode == "ask"
+    assert session.mode != "full"
+
+
+@pytest.mark.parametrize(
+    ("mode", "color"),
+    [
+        ("ask", "#38CFE0"),
+        ("auto", "#79E6B3"),
+    ],
+)
+def test_rook_app_topbar_colors_each_permission_mode(mode, color) -> None:
+    class ModeSession(FakeSession):
+        pass
+
+    session = ModeSession()
+    session.mode = mode
+    app = RookApp(current_session=session)
+
+    topbar = app._topbar_text()
+
+    assert "[#F2F7F5 bold]ROOK[/]" in topbar
+    assert f"[{color}]{mode.upper()}[/]" in topbar
+    assert "idle · ready" not in topbar
+    assert "sess_test" not in topbar
+
+
+def test_rook_app_topbar_shows_provider_and_hides_session_id() -> None:
+    app = RookApp(
+        current_session=FakeSession(),
+        config=RookTuiConfig(
+            provider_name="yurenapi",
+            provider_model="gpt-5.5",
+            project_name="Rook",
+        ),
+    )
+
+    topbar = app._topbar_text()
+
+    assert "[#B5C3C9]@ Rook[/]" in topbar
+    assert "[#38CFE0]yurenapi[/][#8798A1]/gpt-5.5[/]" in topbar
+    assert "[#38CFE0]ASK[/]" in topbar
+    assert "sess_test" not in topbar
+
+
+def test_yuren_provider_and_model_use_one_moving_colour_band() -> None:
+    first = _provider_model_markup("Yuren", "gpt-5.6-terra", glow_frame=0)
+    next_frame = _provider_model_markup("Yuren", "gpt-5.6-terra", glow_frame=1)
+
+    assert Text.from_markup(first).plain == "Yuren/gpt-5.6-terra"
+    assert first != next_frame
+    assert "[#38CFE0]" in first
+    assert "[#79E6B3]" in first
+    assert "[#8798A1]/[/]" in first
+
+
+def test_other_provider_names_use_the_secondary_cyan() -> None:
+    assert _provider_name_markup("OpenAI", glow_frame=4) == "[#38CFE0]OpenAI[/]"
+    assert _provider_model_markup("OpenAI", "gpt-5.6", glow_frame=4) == (
+        "[#38CFE0]OpenAI[/][#8798A1]/gpt-5.6[/]"
+    )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_yuren_provider_glow_animates_and_stops_when_the_app_unmounts() -> None:
+    app = RookApp(config=RookTuiConfig(provider_name="Yuren", provider_model="gpt-5.6-terra"))
+
+    async with app.run_test():
+        timer = app._provider_glow_timer
+        assert timer is not None
+        before = app._topbar_text()
+        app._advance_provider_glow()
+        after = app._topbar_text()
+        assert before != after
+
+    assert timer is not None
+    assert app._provider_glow_timer is None
+
+
+def test_observe_markdown_update_consumes_cancelled_update_result() -> None:
+    result = FakeMarkdownUpdateResult(asyncio.CancelledError())
+
+    _observe_markdown_update(result)
+    result.finish()
+
+    assert result.exception_observed is True
+
+
+def test_observe_markdown_update_does_not_consume_unexpected_update_errors() -> None:
+    result = FakeMarkdownUpdateResult(RuntimeError("markdown failed"))
+
+    _observe_markdown_update(result)
+    with pytest.raises(RuntimeError, match="markdown failed"):
+        result.finish()
+
+
+def test_rook_markdown_does_not_enter_textual_selection_path() -> None:
+    markdown = RookMarkdown()
+
+    assert markdown.allow_select is True
+
+
+def test_rook_markdown_blocks_do_not_enter_textual_selection_path() -> None:
+    assert RookMarkdown.BLOCKS
+    assert all(block.ALLOW_SELECT is True for block in RookMarkdown.BLOCKS.values())
+
+
+def test_welcome_renderable_uses_colored_full_block_pixels() -> None:
+    renderable = welcome_renderable()
+    text = renderable.renderable
+    next_text = welcome_renderable(particle_frame=1).renderable
+
+    assert renderable.align == "center"
+    assert "██" in text.plain
+    assert "▀" not in text.plain
+    assert "ROOKIE // your tiny coding teammate" in text.plain
+    assert "Commands:" not in text.plain
+    assert any(span.style == "#79E6B3" for span in text.spans)
+    assert any(span.style == "#F2C14E" for span in text.spans)
+    assert any(span.style == "#F2F7F5" for span in text.spans)
+    assert any(span.style == "#2A4B5F" for span in text.spans)
+    assert any(span.style == "#1A2B3B" for span in text.spans)
+    assert text.spans != next_text.spans
+
+
+def test_welcome_mascot_keeps_a_side_profile_bird_and_hoodie() -> None:
+    head = WELCOME_LOGO_PIXELS[:9]
+    body = WELCOME_LOGO_PIXELS[9:]
+
+    assert {len(row) for row in WELCOME_LOGO_PIXELS} == {24}
+    assert sum(row.count("W") for row in head) >= 5
+    assert sum(row.count("Y") for row in head) >= 7
+    assert any(row.startswith("BBBBB") for row in body)
+    assert WELCOME_LOGO_PIXELS[-1].count("Y") == 4
+    assert any("DD" in row for row in body)
+    assert sum(row.count("M") for row in body) > 60
+
+
+def test_compact_welcome_identifies_the_rookie_mascot() -> None:
+    text = welcome_renderable(compact=True).renderable
+
+    assert "██" in text.plain
+    assert "ROOK\nROOKIE // local coding agent" in text.plain
+    assert any("bold" in str(span.style) for span in text.spans)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_shows_welcome_until_first_input() -> None:
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        welcome = app.query_one("#welcome")
+        content = welcome.content
+        plain = getattr(getattr(content, "renderable", content), "plain", str(content))
+        assert "██" in plain
+        assert "Commands:" not in plain
+
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert not app.query("#welcome")
+        assert app._welcome_particle_timer is None
+
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_welcome_particles_animate_between_frames() -> None:
+    app = RookApp()
+
+    async with app.run_test(size=(120, 40)):
+        welcome = app.query_one("#welcome")
+        before = welcome.content
+        app._advance_welcome_particles()
+        after = welcome.content
+
+    assert before != after
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_uses_compact_welcome_in_an_80_by_24_terminal() -> None:
+    app = RookApp()
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        welcome = app.query_one("#welcome")
+        plain = getattr(getattr(welcome.content, "renderable", welcome.content), "plain", str(welcome.content))
+
+        assert "ROOK" in plain
+        assert "██" in plain
+        assert app._welcome_particle_timer is None
+        assert app.query_one("#input").display is True
+
+        await pilot.resize_terminal(120, 40)
+        await pilot.pause(0.2)
+
+        full_welcome = app.query_one("#welcome")
+        full_plain = getattr(
+            getattr(full_welcome.content, "renderable", full_welcome.content), "plain", str(full_welcome.content)
+        )
+        assert "██" in full_plain
+        assert app._welcome_particle_timer is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+@pytest.mark.parametrize("width", [80, 120, 160])
+async def test_rook_app_layout_remains_usable_at_supported_widths(width: int) -> None:
+    app = RookApp(
+        config=RookTuiConfig(
+            provider_name="fake",
+            provider_model="model",
+            project_name="Rook",
+        )
+    )
+
+    async with app.run_test(size=(width, 30)):
+        assert app.query_one("#input").region.width > 20
+        topbar = Text.from_markup(app._topbar_text(width=width - 4)).plain
+        assert "Rook" in topbar
+        assert "fake/model" in topbar
+
+
+def test_rook_app_topbar_uses_spacious_two_sided_layout_when_width_is_known() -> None:
+    app = RookApp(
+        current_session=FakeSession(),
+        config=RookTuiConfig(
+            provider_name="yurenapi",
+            provider_model="gpt-5.5",
+            project_name="Rook",
+        ),
+    )
+
+    text = app._topbar_text(width=120)
+
+    assert text.startswith("[#79E6B3 bold](')[/]")
+    assert "idle · ready" not in text
+    assert "sess_test" not in text
+    assert "[#38CFE0]yurenapi[/][#8798A1]/gpt-5.5[/]" in text
+    assert "[#B5C3C9]@ Rook[/]" in text
+    assert " " * 20 in text
+
+
+def test_rook_app_topbar_highlights_bypass_mode_and_truncates_long_session() -> None:
+    class BypassSession(FakeSession):
+        session_id = "sess_c8d401e2124f"
+        mode = "bypass"
+
+    app = RookApp(current_session=BypassSession())
+
+    assert "[#F2F7F5 on #B32736 bold] FULL [/]" in app._topbar_text()
+    assert "idle · ready" not in app._topbar_text()
+
+
+def test_rook_app_topbar_excludes_live_activity_status() -> None:
+    app = RookApp(current_session=FakeSession())
+
+    app._activity_text = "thinking [.. ] planning next step..."
+
+    assert "thinking" not in app._topbar_text(width=120)
+
+
+def test_rook_app_topbar_ignores_long_activity_and_preserves_metadata() -> None:
+    app = RookApp(
+        current_session=FakeSession(),
+        config=RookTuiConfig(
+            provider_name="yurenapi",
+            provider_model="very-long-model-name",
+            project_name="Rook",
+        ),
+    )
+    app._activity_text = "thinking [...] " + "reading think tool result " * 8
+
+    text = app._topbar_text(width=150)
+
+    assert "yurenapi/very-long" in Text.from_markup(text).plain
+    assert "@ Rook" in Text.from_markup(text).plain
+    assert "reading think tool result reading think tool result" not in text
+    assert "thinking" not in Text.from_markup(text).plain
+
+
+def test_rook_app_topbar_fits_narrow_width_with_long_activity_and_metadata() -> None:
+    app = RookApp(
+        current_session=FakeSession(),
+        config=RookTuiConfig(
+            provider_name="yurenapi",
+            provider_model="very-long-model-name",
+            project_name="Rook",
+        ),
+    )
+    app._activity_text = "thinking [...] " + "reading think tool result " * 8
+
+    text = app._topbar_text(width=80)
+    plain = Text.from_markup(text).plain
+
+    assert "sess_test" not in plain
+    assert "yurenapi/very-long" in plain
+    assert "@ Rook" in plain
+    assert len(plain.splitlines()) <= 2
+
+    narrow_plain = Text.from_markup(app._topbar_text(width=60)).plain
+
+    assert "sess_test" not in narrow_plain
+    assert "yurenapi/very-long" in narrow_plain
+    assert "@ Rook" in narrow_plain
+    assert len(narrow_plain.splitlines()) <= 2
+
+
+def test_rook_app_topbar_wraps_narrow_metadata_with_each_row_right_aligned() -> None:
+    app = RookApp(
+        current_session=FakeSession(),
+        config=RookTuiConfig(
+            provider_name="yurenapi",
+            provider_model="very-long-model-name",
+            project_name="Rook",
+        ),
+    )
+
+    plain_rows = Text.from_markup(app._topbar_text(width=60)).plain.splitlines()
+
+    assert "ROOK" in plain_rows[0]
+    assert "sess_test" not in "\n".join(plain_rows)
+    assert not any("idle · ready" in row for row in plain_rows)
+    assert any("yurenapi/very-long" in row for row in plain_rows)
+    assert any("@ Rook" in row for row in plain_rows)
+    assert len(plain_rows) <= 2
+
+
+def test_tui_transcript_records_structured_entries_with_stable_labels() -> None:
+    transcript = TuiTranscript()
+
+    user = transcript.add(TuiEntryKind.USER, "hello")
+    assistant = transcript.add(TuiEntryKind.ASSISTANT, "hi")
+    tool = transcript.add(
+        TuiEntryKind.TOOL,
+        "rg -n Permission rook_agent",
+        label="tool exec_command running",
+        status="running",
+    )
+
+    assert [entry.id for entry in transcript.entries] == [user.id, assistant.id, tool.id]
+    assert [entry.label for entry in transcript.entries] == ["you", "Rook", "tool exec_command running"]
+    assert transcript.entries[-1].status == "running"
+
+
+def test_tui_transcript_tracks_active_tool_until_terminal_status() -> None:
+    transcript = TuiTranscript()
+
+    transcript.record_tool_activity("exec_command", "running", "rg -n Permission rook_agent")
+
+    assert transcript.active_tool is not None
+    assert transcript.active_tool.name == "exec_command"
+    assert transcript.active_tool.status == "running"
+    assert transcript.active_tool.summary == "rg -n Permission rook_agent"
+
+    transcript.record_tool_activity("exec_command", "success", "12 matches")
+
+    assert transcript.active_tool is None
+    assert transcript.recent_tools[-1].name == "exec_command"
+    assert transcript.recent_tools[-1].status == "success"
+
+
+def test_tui_transcript_updates_persistent_todos_from_tool_data() -> None:
+    transcript = TuiTranscript()
+
+    transcript.update_todos(
+        [
+            {"id": "todo_1", "content": "读代码", "status": "done"},
+            {"id": "todo_2", "content": "跑测试", "status": "in_progress"},
+        ]
+    )
+
+    assert transcript.todos == [
+        TuiTodoItem(id="todo_1", content="读代码", status="done"),
+        TuiTodoItem(id="todo_2", content="跑测试", status="in_progress"),
+    ]
+
+
+def test_rook_app_records_rendered_messages_in_transcript(monkeypatch) -> None:
+    output = FakeOutput()
+    app = RookApp()
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    app._write_line("> hello", kind=TuiEntryKind.USER)
+    app._write_markdown_message("**hi**")
+
+    assert [(entry.kind, entry.label, entry.body) for entry in app.transcript.entries] == [
+        (TuiEntryKind.USER, "you", "> hello"),
+        (TuiEntryKind.ASSISTANT, "Rook", "**hi**"),
+    ]
+
+
+class FakeChatRunner:
+    def __init__(self) -> None:
+        self.inputs = []
+        self.last_display_lines = []
+        self.closed = False
+
+    def run_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        return ChatResponse(provider="fake", model="fake", content=f"reply:{content}")
+
+    def close(self) -> None:
+        self.closed = True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_closes_candidate_lifecycle_on_unmount() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test():
+        pass
+
+    assert runner.closed is True
+
+
+class FakeDisplayChatRunner(FakeChatRunner):
+    def run_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.last_display_lines = ["Tool call: echo {}", "Tool result: echo success: ok", "done"]
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class FakeAsyncChatRunner(FakeChatRunner):
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.last_display_lines = ["async reply"]
+        return ChatResponse(provider="fake", model="fake", content="async reply")
+
+
+class FailingAsyncChatRunner(FakeChatRunner):
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        raise RuntimeError("provider down")
+
+
+class FakeStreamingAsyncChatRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.seen = []
+        self.stream_event_handler = self.seen.append
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.stream_event_handler(ChatStreamEvent(kind="reasoning_delta", text="thinking"))
+        self.last_display_lines = ["done"]
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class FakeStreamingTextAsyncChatRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.stream_event_handler = lambda event: None
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.stream_event_handler(ChatStreamEvent(kind="text_delta", text="he"))
+        self.stream_event_handler(ChatStreamEvent(kind="text_delta", text="llo"))
+        self.last_display_lines = ["hello"]
+        return ChatResponse(provider="fake", model="fake", content="hello")
+
+
+class FakeToolEventAsyncChatRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.tool_event_handler = lambda event: None
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        tool_call = ToolCall(id="call_echo", name="echo", arguments={"text": "hello"})
+        self.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=tool_call))
+        self.tool_event_handler(
+            ToolExecutionEvent(
+                kind="finished",
+                tool_call=tool_call,
+                result=ToolResult(name="echo", ok=True, content="hello"),
+            )
+        )
+        self.last_display_lines = [
+            'Tool call: echo {"text": "hello"}',
+            "Tool result: echo success: hello",
+            "done",
+        ]
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class FakePermissionResumeRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_pending_input = UserInputRequest(
+            id="perm_write",
+            kind="permission_confirmation",
+            question="允许写 README 吗？",
+            options=[
+                UserInputOption(id="deny", label="Deny"),
+                UserInputOption(id="allow_once", label="Allow once"),
+            ],
+        )
+        self.resumes: list[tuple[str, str]] = []
+
+    async def aresume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
+        self.resumes.append((request_id, answer))
+        self.last_pending_input = None
+        self.last_display_lines = ["Tool result: write success: ok", "done"]
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class FakePermissionMidTurnRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_pending_input = None
+        self.resumes: list[tuple[str, str]] = []
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.last_pending_input = UserInputRequest(
+            id="perm_write",
+            kind="permission_confirmation",
+            question="允许写 README 吗？",
+            options=[
+                UserInputOption(id="deny", label="Deny"),
+                UserInputOption(id="allow_once", label="Allow once"),
+            ],
+        )
+        return ChatResponse(provider="fake", model="fake", content="等待权限确认。")
+
+    async def aresume_with_user_input(self, request_id: str, answer: str) -> ChatResponse:
+        self.resumes.append((request_id, answer))
+        self.last_pending_input = None
+        self.last_display_lines = ["done"]
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class FakePermissionWaitingRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cancelled = False
+        self.last_pending_input = UserInputRequest(
+            id="perm_write",
+            kind="permission_confirmation",
+            question="允许写 README 吗？",
+            options=[
+                UserInputOption(id="deny", label="Deny"),
+                UserInputOption(id="allow_once", label="Allow once"),
+                UserInputOption(id="allow_always_same_scope", label="Allow always"),
+            ],
+            payload={
+                "action": "write_path",
+                "target": "README.md",
+                "reason": "写入文件需要用户确认。",
+            },
+        )
+
+    def cancel_current_turn(self) -> None:
+        self.cancelled = True
+        self.last_pending_input = None
+
+
+class BlockingAsyncChatRunner(FakeChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        import anyio
+
+        self.started = anyio.Event()
+        self.release = anyio.Event()
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        self.started.set()
+        await self.release.wait()
+        return ChatResponse(provider="fake", model="fake", content="done")
+
+
+class BlockingGuidanceAsyncChatRunner(BlockingAsyncChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.guidance: list[str] = []
+
+    def add_guidance(self, content: str) -> None:
+        self.guidance.append(content)
+
+
+class FollowUpQueueAsyncChatRunner(FakeChatRunner):
+    def __init__(self, *, fail_follow_up: bool = False) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.fail_follow_up = fail_follow_up
+        self.last_pending_input = None
+
+    async def arun_user_turn(self, content: str) -> ChatResponse:
+        self.inputs.append(content)
+        if len(self.inputs) == 1:
+            self.started.set()
+            await self.release.wait()
+        elif self.fail_follow_up:
+            raise RuntimeError("provider down")
+        return ChatResponse(provider="fake", model="fake", content=f"done:{content}")
+
+
+class LateGuidanceAsyncChatRunner(FollowUpQueueAsyncChatRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.guidance: list[str] = []
+
+    def add_guidance(self, content: str) -> None:
+        self.guidance.append(content)
+
+    def take_pending_guidance(self) -> list[str]:
+        values = list(self.guidance)
+        self.guidance.clear()
+        return values
+
+
+class RecallableGuidanceAsyncChatRunner(BlockingGuidanceAsyncChatRunner):
+    def pop_pending_guidance(self) -> str | None:
+        if not self.guidance:
+            return None
+        return self.guidance.pop()
+
+
+class UnhandledCommandHandler:
+    def handle(self, text: str) -> CommandResult:
+        return CommandResult(handled=False)
+
+
+class SubmitChatCommandHandler:
+    def handle(self, text: str) -> CommandResult:
+        return CommandResult(
+            handled=True,
+            output="Using skill: brief",
+            action=SubmitPromptAction(text="请使用 skills/brief.md 写日报"),
+        )
+
+
+def test_rook_app_can_be_created_with_composite_handler_and_chat_runner() -> None:
+    context_handler = ContextCommandHandler(session=FakeSession())
+    composite = CompositeCommandHandler(
+        [
+            SessionCommandHandler(catalog=object()),  # constructor storage only; not used by this test
+            context_handler,
+        ]
+    )
+    runner = FakeChatRunner()
+
+    app = RookApp(command_handler=composite, chat_runner=runner)
+
+    assert app.command_handler is composite
+    assert app.chat_runner is runner
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_runs_plain_chat_when_only_chat_runner_is_configured() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_submits_multiline_composer_text() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        input_widget = app.query_one("#input", TextArea)
+        input_widget.load_text("第一句\n第二句\n第三句")
+        await pilot.click("#input")
+        await pilot.press("enter")
+
+    assert runner.inputs == ["第一句\n第二句\n第三句"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_shift_enter_inserts_newline_without_submitting() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("shift+enter")
+        await pilot.press(*"world")
+        input_widget = app.query_one("#input", TextArea)
+
+    assert input_widget.text == "hello\nworld"
+    assert runner.inputs == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_does_not_send_unhandled_slash_command_to_chat_runner() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(command_handler=UnhandledCommandHandler(), chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/unknown")
+        await pilot.press("enter")
+
+    assert runner.inputs == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_submits_chat_from_command_action() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(command_handler=SubmitChatCommandHandler(), chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/brief 写日报")
+        await pilot.press("enter")
+
+    assert runner.inputs == ["请使用 skills/brief.md 写日报"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_displays_session_id_and_runner_display_lines() -> None:
+    runner = FakeDisplayChatRunner()
+    app = RookApp(chat_runner=runner, current_session=FakeSession())
+
+    async with app.run_test() as pilot:
+        assert app.sub_title == "Session: sess_test"
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_awaits_async_chat_runner_when_available() -> None:
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+
+    assert runner.inputs == ["hello"]
+    assert runner.last_display_lines == ["async reply"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_queues_guidance_while_chat_is_running() -> None:
+    runner = BlockingGuidanceAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"先别总结")
+        await pilot.press("enter")
+        await pilot.pause()
+        runner.release.set()
+
+    assert runner.inputs == ["start"]
+    assert runner.guidance == ["先别总结"]
+    assert app._queued_messages[0].kind == TuiQueueKind.STEERING
+    assert app._queued_messages[0].status == TuiQueueStatus.CONSUMED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_help_does_not_call_chat_runner() -> None:
+    from rook_agent.app.help_commands import HelpCommandHandler
+
+    runner = FakeChatRunner()
+    app = RookApp(command_handler=HelpCommandHandler(), chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/help")
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+
+    assert runner.inputs == []
+    assert len(app.transcript.entries) == 1
+    assert app.transcript.entries[0].kind == TuiEntryKind.COMMAND
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_runs_alt_enter_follow_up_after_current_turn() -> None:
+    runner = FollowUpQueueAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"下一任务")
+        await pilot.press("alt+enter")
+        await pilot.pause()
+
+        assert runner.inputs == ["start"]
+        assert app._follow_up_queue[0].status == TuiQueueStatus.QUEUED
+
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if runner.inputs == ["start", "下一任务"] and not app._chat_busy:
+                break
+
+    assert runner.inputs == ["start", "下一任务"]
+    assert app._queued_messages[0].status == TuiQueueStatus.DONE
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_converts_late_guidance_to_next_turn() -> None:
+    runner = LateGuidanceAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"来不及的引导")
+        await pilot.press("enter")
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if runner.inputs == ["start", "来不及的引导"] and not app._chat_busy:
+                break
+
+    assert runner.inputs == ["start", "来不及的引导"]
+    assert app._queued_messages[0].kind == TuiQueueKind.FOLLOW_UP
+    assert app._queued_messages[0].status == TuiQueueStatus.DONE
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_alt_up_recalls_latest_queued_message() -> None:
+    runner = RecallableGuidanceAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"撤回我")
+        await pilot.press("enter")
+        await pilot.press("alt+up")
+        await pilot.pause()
+
+        assert app.query_one("#input", TextArea).text == "撤回我"
+        assert runner.guidance == []
+        assert app._queued_messages[0].status == TuiQueueStatus.CANCELLED
+        runner.release.set()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_queues_follow_up_while_permission_is_waiting() -> None:
+    runner = FakePermissionWaitingRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"审批后再运行测试")
+        await pilot.press("alt+enter")
+        await pilot.pause()
+
+        assert runner.inputs == []
+        assert len(app._follow_up_queue) == 1
+        assert app._follow_up_queue[0].status == TuiQueueStatus.QUEUED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_pauses_follow_up_queue_after_provider_error() -> None:
+    runner = FollowUpQueueAsyncChatRunner(fail_follow_up=True)
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"会失败的后续")
+        await pilot.press("alt+enter")
+        runner.release.set()
+        for _ in range(20):
+            await pilot.pause(0.01)
+            if app._queue_paused:
+                break
+
+    assert runner.inputs == ["start", "会失败的后续"]
+    assert app._queue_paused is True
+    assert app._follow_up_queue[0].status == TuiQueueStatus.PAUSED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_interrupt_pauses_follow_up_queue() -> None:
+    runner = FollowUpQueueAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.press(*"中断后不要自动运行")
+        await pilot.press("alt+enter")
+        app._interrupt_chat_turn()
+        await pilot.pause()
+
+    assert runner.inputs == ["start"]
+    assert app._queue_paused is True
+    assert app._follow_up_queue[0].status == TuiQueueStatus.PAUSED
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_resume_picker_replays_selected_session_history(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer_one = SessionEventWriter(store=store, session_id="sess_one")
+    writer_one.append_session_created(title="第一个")
+    writer_one.append_user_message("旧问题")
+    writer_one.append_assistant_response(ChatResponse(provider="fake", model="fake", content="旧回答"))
+    writer_two = SessionEventWriter(store=store, session_id="sess_two")
+    writer_two.append_session_created(title="第二个")
+    writer_two.append_user_message("新问题")
+    current = AgentSession.resume(store=store, session_id="sess_one", agents_md="")
+    state = CurrentSessionState(current)
+    handler = SessionCommandHandler(
+        catalog=SessionCatalog(tmp_path),
+        current_session=state.session,
+        resume_service=ResumeService(store=store, project_root=tmp_path),
+        on_resume=state.set_session,
+    )
+    app = RookApp(command_handler=handler, current_session=state)
+    markdown_rendered = False
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/resume")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        assert "选择会话" in output_text
+        assert "第二个" in output_text
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        markdown_rendered = bool(app.query_one("#output").query("RookMarkdown"))
+
+    assert state.session.session_id == "sess_one"
+    assert "旧问题" in output_text
+    assert any(entry.body == "旧回答" for entry in app.transcript.entries)
+    assert markdown_rendered
+    assert "Select a session" not in output_text
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_resume_picker_renders_twenty_visible_rows_and_scrolls(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    for index in range(25):
+        writer = SessionEventWriter(store=store, session_id=f"sess_{index:02d}")
+        writer.append_session_created(title=f"标题{index:02d}")
+        writer.append_user_message(f"问题{index:02d}")
+    current = AgentSession.resume(store=store, session_id="sess_00", agents_md="")
+    state = CurrentSessionState(current)
+    handler = SessionCommandHandler(
+        catalog=SessionCatalog(tmp_path),
+        current_session=state.session,
+        resume_service=ResumeService(store=store, project_root=tmp_path),
+        on_resume=state.set_session,
+    )
+    app = RookApp(command_handler=handler, current_session=state)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/resume")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        assert "Showing 1-20 of 25 sessions" in output_text
+        assert "sess_24" in output_text
+        assert "sess_05" in output_text
+        assert "sess_04" not in output_text
+
+        for _ in range(20):
+            await pilot.press("down")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        assert "Showing 2-21 of 25 sessions" in output_text
+        assert "sess_24" not in output_text
+        assert "sess_04" in output_text
+        assert "> 21. sess_04" in output_text
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert state.session.session_id == "sess_04"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_model_picker_switches_selected_model() -> None:
+    handler = RecordingCommandHandler()
+    app = RookApp(
+        command_handler=handler,
+        config=RookTuiConfig(provider_name="fake", provider_model="old"),
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/model")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        assert "选择模型：" in output_text
+        assert "> 1. fake/old" in output_text
+
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert handler.commands == ["/model", "/model fake/new"]
+    assert app.config.provider_name == "fake"
+    assert app.config.provider_model == "new"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_skill_picker_references_selected_skill_in_input() -> None:
+    handler = RecordingCommandHandler()
+    app = RookApp(command_handler=handler)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"/skills")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+        assert "选择 Skill：" in output_text
+        assert "> 1. brief\n    project · skills/brief.md" in output_text
+        assert "Selected: Write a brief." in output_text
+
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+        input_widget = app.query_one("#input")
+
+    assert handler.commands == ["/skills", "/skill-use skills/review.md"]
+    assert input_widget.text == "请使用 skills/review.md "
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_new_command_clears_previous_output(tmp_path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    writer = SessionEventWriter(store=store, session_id="sess_old")
+    writer.append_session_created(title="旧会话")
+    writer.append_user_message("旧问题")
+    current = AgentSession.resume(store=store, session_id="sess_old", agents_md="")
+    state = CurrentSessionState(current)
+    handler = SessionCommandHandler(
+        catalog=SessionCatalog(tmp_path),
+        current_session=state.session,
+        new_service=NewSessionService(store=store, project_root=tmp_path),
+        on_resume=state.set_session,
+    )
+    app = RookApp(command_handler=handler, current_session=state)
+
+    async with app.run_test() as pilot:
+        app._write_line("> 旧问题", kind=TuiEntryKind.USER)
+        app._write_markdown_message("旧回答")
+        await pilot.click("#input")
+        await pilot.press(*"/new 新会话")
+        await pilot.press("enter")
+        await pilot.pause()
+        output_text = _static_output_text(app)
+
+    assert state.session.session_id != "sess_old"
+    assert "New session:" in output_text
+    assert "新会话" in output_text
+    assert "旧问题" not in output_text
+    assert "旧回答" not in output_text
+    assert [entry.kind for entry in app.transcript.entries] == [TuiEntryKind.COMMAND]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_double_escape_interrupts_running_chat() -> None:
+    runner = BlockingAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"start")
+        await pilot.press("enter")
+        await runner.started.wait()
+        app.transcript.update_todos(
+            [{"id": "old_task", "content": "旧任务", "status": "in_progress"}]
+        )
+        app._render_todo_panel()
+        await pilot.press("escape")
+        assert app._chat_busy is True
+        await pilot.press("escape")
+        await pilot.pause()
+        output_text = "\n".join(
+            str(getattr(widget, "content", getattr(widget, "renderable", "")))
+            for widget in app.query_one("#output").query("Static")
+        )
+        todo_hidden = app.query_one("#todo-panel").has_class("hidden")
+
+    assert runner.inputs == ["start"]
+    assert app._chat_busy is False
+    assert app._activity_text == "interrupted"
+    assert "Interrupted current turn." in output_text
+    assert app.transcript.todos == []
+    assert todo_hidden is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_streaming_tui_does_not_render_duplicate_final_markdown() -> None:
+    runner = FakeStreamingTextAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+        output = app.query_one("#output")
+        markdown_widgets = output.query("Markdown")
+        assert len(markdown_widgets) == 1
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_right_clicking_markdown_output_does_not_crash_selection_path() -> None:
+    runner = FakeChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+        markdown = app.query_one("RookMarkdown")
+        assert markdown.allow_select is True
+        await pilot.click(markdown, button=3)
+        await pilot.pause()
+
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_right_clicking_markdown_code_block_does_not_crash_selection_path() -> None:
+    app = RookApp()
+
+    async with app.run_test() as pilot:
+        app._write_markdown_message("```text\nIt was the best of times\n```")
+        assert app.ALLOW_SELECT is True
+        await pilot.click("RookMarkdown", button=3)
+        await pilot.pause()
+
+
+def test_rook_app_installs_and_restores_stream_event_handler() -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    original_handler = runner.stream_event_handler
+    app = RookApp(chat_runner=runner)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="message_started"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert runner.seen == [ChatStreamEvent(kind="message_started")]
+    assert runner.stream_event_handler is original_handler
+
+
+def test_rook_app_streams_text_delta_without_repeating_final_text(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    runner.last_display_lines = ["hello"]
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="he"))
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="llo"))
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="hello"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
+    assert output.mounted[0].allow_select is True
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\nhello"
+    assert app._stream_text_buffer == "hello"
+    assert runner.seen == [
+        ChatStreamEvent(kind="text_delta", text="he"),
+        ChatStreamEvent(kind="text_delta", text="llo"),
+    ]
+
+
+def test_rook_app_streaming_skips_normalized_duplicate_assistant_line(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    runner.last_display_lines = ["hello\n"]
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_stream_event_handler()
+    app._start_turn_metrics()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="hello"))
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="hello"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
+    assert output.mounted[0].allow_select is True
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\nhello"
+
+
+def test_rook_app_streaming_skips_replaying_intermediate_assistant_lines(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    runner.last_display_lines = [
+        "先看详情：",
+        'Tool call: shell {"command": "pytest"}',
+        "Tool result: shell success: ok",
+        "问题找到了：",
+        "最终结论",
+    ]
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="最终"))
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="结论"))
+    app._live_tool_events_seen = True
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="最终结论"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\n最终结论"
+    assert [entry.body for entry in app.transcript.entries if entry.kind == TuiEntryKind.ASSISTANT] == ["最终结论"]
+
+
+def test_rook_app_paces_stream_markdown_updates(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+    monkeypatch.setattr(app, "set_timer", lambda *args, **kwargs: object())
+
+    app._append_stream_text("我")
+    app._append_stream_text("在")
+    app._append_stream_text("这里")
+
+    markdown = output.mounted[0]
+    assert type(markdown).__name__ == "RookMarkdown"
+    assert markdown.allow_select is True
+    assert markdown.updates == ["**ROOK**\n\n我"]
+    assert app._stream_text_buffer == "我在这里"
+
+    app._flush_stream_text()
+
+    assert markdown.updates[-1] == "**ROOK**\n\n我在这里"
+
+
+def test_rook_app_does_not_scroll_stream_when_render_is_deferred(monkeypatch) -> None:
+    output = FakeOutput()
+    app = RookApp()
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_timer", lambda *args, **kwargs: object())
+
+    app._append_stream_text("我")
+    after_initial_render = output.scroll_end_calls
+    app._append_stream_text("在")
+    app._append_stream_text("这里")
+
+    assert after_initial_render == 1
+    assert output.scroll_end_calls == after_initial_render
+
+
+def test_rook_app_does_not_auto_scroll_stream_when_user_is_reading_history(monkeypatch) -> None:
+    output = FakeOutput()
+    output.scroll_y = 1
+    output.max_scroll_y = 10
+    app = RookApp()
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    app._append_stream_text("hello")
+    app._flush_stream_text()
+
+    assert output.scroll_end_calls == 0
+
+
+def test_rook_app_keeps_following_when_new_entry_grows_output(monkeypatch) -> None:
+    class GrowingOutput(FakeOutput):
+        def __init__(self) -> None:
+            super().__init__()
+            self.scroll_y = 10
+            self.max_scroll_y = 10
+
+        def mount(self, widget: object) -> None:
+            super().mount(widget)
+            self.max_scroll_y = 20
+
+        def scroll_end(self, animate: bool = False) -> None:
+            super().scroll_end(animate=animate)
+            self.scroll_y = self.max_scroll_y
+
+    output = GrowingOutput()
+    app = RookApp()
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    app._write_line("选择权限模式：", kind=TuiEntryKind.COMMAND)
+
+    assert output.scroll_end_calls == 1
+    assert output.scroll_y == output.max_scroll_y
+    assert app._new_message_count == 0
+
+
+def test_rook_app_records_streaming_assistant_text_in_transcript(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    app._append_stream_text("你")
+    app._append_stream_text("好")
+
+    assistant_entries = [entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.ASSISTANT]
+    assert len(assistant_entries) == 1
+    assert assistant_entries[0].body == "你好"
+
+
+def test_rook_app_copies_selected_text_before_last_response(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "last response")
+    monkeypatch.setattr(app, "_selected_text", lambda: "selected text")
+    messages: list[tuple[str, TuiEntryKind]] = []
+    monkeypatch.setattr(
+        app,
+        "_write_line",
+        lambda text, **kwargs: messages.append((text, kwargs.get("kind", TuiEntryKind.SYSTEM))),
+    )
+
+    result = app._copy_target("selection")
+
+    assert result.ok is True
+    assert clipboard.values == ["selected text"]
+    assert messages == [("已复制所选文本（fake）。", TuiEntryKind.COMMAND)]
+
+
+def test_rook_app_copy_code_uses_latest_fenced_code_block(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "```python\nprint('old')\n```")
+    app.transcript.add(
+        TuiEntryKind.ASSISTANT,
+        "结果：\n\n```powershell\nGet-ChildItem\n```\n",
+    )
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    result = app._copy_target("code")
+
+    assert result.ok is True
+    assert clipboard.values == ["Get-ChildItem"]
+
+
+def test_rook_app_copy_transcript_exports_structured_markdown(monkeypatch) -> None:
+    clipboard = FakeClipboard()
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.USER, "> 修复测试")
+    app.transcript.add(TuiEntryKind.ASSISTANT, "已经修复。")
+    monkeypatch.setattr(app, "_write_line", lambda *args, **kwargs: None)
+
+    result = app._copy_target("transcript")
+
+    assert result.ok is True
+    assert clipboard.values == ["you\n\n> 修复测试\n\nRook\n\n已经修复。"]
+
+
+def test_rook_app_copy_failure_is_reported_truthfully(monkeypatch) -> None:
+    clipboard = FakeClipboard(ClipboardResult(ok=False, error="clipboard unavailable"))
+    app = RookApp(clipboard=clipboard)
+    app.transcript.add(TuiEntryKind.ASSISTANT, "answer")
+    messages: list[tuple[str, TuiEntryKind]] = []
+    monkeypatch.setattr(
+        app,
+        "_write_line",
+        lambda text, **kwargs: messages.append((text, kwargs.get("kind", TuiEntryKind.SYSTEM))),
+    )
+
+    result = app._copy_target("last")
+
+    assert result.ok is False
+    assert messages == [("复制失败：clipboard unavailable", TuiEntryKind.ERROR)]
+
+
+def test_rook_app_shows_reasoning_delta_in_activity_line(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    app._append_reasoning_text("planning ")
+    app._append_reasoning_text("tools")
+
+    reasoning_entries = [entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.REASONING]
+    assert reasoning_entries == []
+    assert output.mounted == []
+    assert activity.updates[0].startswith("thinking [.  ] planning ")
+    assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
+    assert activity.updates[1].startswith("thinking [.  ] planning tools")
+    assert activity.updates[1].rstrip().endswith("0.0s · 0 tools")
+
+
+def test_rook_app_shows_working_indicator_without_reasoning_delta(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    app._show_working_indicator("planning next step...")
+    app._complete_working_indicator()
+
+    reasoning_entries = [entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.REASONING]
+    assert reasoning_entries == []
+    assert output.mounted == []
+    assert activity.updates[0].startswith("thinking [.  ] planning next step...")
+    assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
+    assert activity.updates[1].startswith("streaming [>   ] · response")
+    assert activity.updates[1].rstrip().endswith("0.0s · 0 tools")
+
+
+def test_rook_app_animates_working_indicator(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    app._show_working_indicator("planning next step...")
+    app._advance_working_animation()
+
+    reasoning_entries = [entry for entry in app.transcript.entries if entry.kind == TuiEntryKind.REASONING]
+    assert reasoning_entries == []
+    assert activity.updates[-1].startswith("thinking [.. ] planning next step...")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 0 tools")
+    assert app._working_timer is timer
+
+    app._complete_working_indicator()
+
+    assert activity.updates[-1].startswith("streaming [>   ] · response")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 0 tools")
+    assert timer.stopped is True
+    assert app._working_timer is None
+
+
+def test_rook_app_streaming_final_response_skips_assistant_display_line(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    runner.last_display_lines = ["hello", "Tool result: echo success: ok"]
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="h"))
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="hello"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert sum(isinstance(widget, Markdown) for widget in output.mounted) == 1
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown", "ToolCard"]
+    assert output.mounted[0].allow_select is True
+
+
+def test_rook_app_replaces_partial_stream_when_final_response_differs(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    runner.last_display_lines = ["complete ok"]
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="partial"))
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="complete ok"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert [type(widget).__name__ for widget in output.mounted] == ["RookMarkdown"]
+    assert output.mounted[0].updates[-1] == "**ROOK**\n\ncomplete ok"
+    assert app._stream_text_buffer == "complete ok"
+
+
+def test_rook_app_stops_streaming_status_after_final_response(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="hello"))
+    app._write_chat_response(
+        ChatResponse(
+            provider="fake",
+            model="fake",
+            content="hello",
+            usage=TokenUsage(input_tokens=3, output_tokens=5, total_tokens=8),
+        )
+    )
+    app._restore_stream_event_handler(previous_handler)
+
+    assert activity.updates[-1].startswith("done")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 0 tools")
+    assert "tok" not in activity.updates[-1]
+    assert timer.stopped is True
+    assert app._activity_timer is None
+
+
+def test_rook_app_stops_reasoning_status_after_final_response(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type(
+        "FakeTimer",
+        (),
+        {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)},
+    )()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    app._append_reasoning_text("The user wants:")
+    assert app._working_timer is timer
+
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="done"))
+
+    assert timer.stopped is True
+    assert app._working_timer is None
+    assert activity.updates[-1].startswith("done")
+
+
+def test_rook_app_stream_event_handler_schedules_ui_updates_on_app_thread(monkeypatch) -> None:
+    runner = FakeStreamingAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+    calls: list[tuple[str, str]] = []
+    scheduled: list[object] = []
+
+    monkeypatch.setattr(app, "_append_stream_text", lambda text: calls.append(("text", text)))
+    monkeypatch.setattr(app, "_append_stream_line", lambda label, text, include_label: calls.append((label, text)))
+    monkeypatch.setattr(app, "_call_ui_thread", lambda callback, *args, **kwargs: scheduled.append((callback, args, kwargs)))
+
+    previous_handler = app._install_stream_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="hello"))
+    app._restore_stream_event_handler(previous_handler)
+
+    assert calls == []
+    assert len(scheduled) == 2
+    callback, args, kwargs = scheduled[1]
+    callback(*args, **kwargs)
+    assert calls == [("text", "hello")]
+
+
+def test_rook_app_tool_event_handler_schedules_live_status_on_app_thread(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+    calls: list[str] = []
+    scheduled: list[object] = []
+
+    monkeypatch.setattr(app, "_write_line", lambda text, **kwargs: calls.append(text))
+    monkeypatch.setattr(app, "_call_ui_thread", lambda callback, *args, **kwargs: scheduled.append((callback, args, kwargs)))
+
+    previous_handler = app._install_tool_event_handler()
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=ToolCall(id="call_echo", name="echo", arguments={})))
+    app._restore_tool_event_handler(previous_handler)
+
+    assert calls == []
+    assert len(scheduled) == 3
+    callback, args, kwargs = scheduled[2]
+    callback(*args, **kwargs)
+    assert calls == ["正在调用工具：echo"]
+
+
+def test_rook_app_updates_activity_line_for_tool_events(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    previous_handler = app._install_tool_event_handler()
+    tool_call = ToolCall(id="call_echo", name="echo", arguments={"text": "hello"})
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=tool_call))
+    runner.tool_event_handler(
+        ToolExecutionEvent(
+            kind="finished",
+            tool_call=tool_call,
+            result=ToolResult(name="echo", ok=True, content="hello"),
+        )
+    )
+    app._restore_tool_event_handler(previous_handler)
+
+    assert activity.updates[0].startswith("running [=   ] · echo")
+    assert activity.updates[0].rstrip().endswith("0.0s · 1 tool")
+    assert activity.updates[1].startswith("thinking [.  ] reading echo result")
+    assert activity.updates[1].rstrip().endswith("0.0s · 1 tool")
+    assert app._working_timer is timer
+
+    app._advance_working_animation()
+
+    assert activity.updates[-1].startswith("thinking [.. ] reading echo result")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 1 tool")
+
+
+def test_rook_app_stops_post_tool_animation_when_next_tool_starts(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    previous_handler = app._install_tool_event_handler()
+    first_call = ToolCall(id="call_echo", name="echo", arguments={})
+    runner.tool_event_handler(
+        ToolExecutionEvent(
+            kind="finished",
+            tool_call=first_call,
+            result=ToolResult(name="echo", ok=True, content="hello"),
+        )
+    )
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=ToolCall(id="call_ls", name="ls", arguments={})))
+    app._restore_tool_event_handler(previous_handler)
+
+    assert timer.stopped is True
+    assert app._working_timer is None
+    assert activity.updates[-1].startswith("running [=   ] · ls")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 1 tool")
+
+
+def test_rook_app_activity_line_summarizes_parallel_tool_events(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stop": lambda self: None})()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    previous_handler = app._install_tool_event_handler()
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=ToolCall(id="call_view_1", name="view", arguments={})))
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=ToolCall(id="call_view_2", name="view", arguments={})))
+    app._restore_tool_event_handler(previous_handler)
+
+    assert activity.updates[-1].startswith("running [=   ] · 2 tools running")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 2 tools")
+
+
+def test_rook_app_animates_running_tool_status(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    app._start_turn_metrics()
+    app._show_activity_animation("running", "echo")
+    app._advance_activity_animation()
+
+    assert activity.updates[0].startswith("running [=   ] · echo")
+    assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
+    assert activity.updates[1].startswith("running [==  ] · echo")
+    assert activity.updates[1].rstrip().endswith("0.0s · 0 tools")
+    app._advance_activity_animation()
+    assert activity.updates[-1].startswith("running [=== ] · echo")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 0 tools")
+    assert app._activity_timer is timer
+
+    app._stop_activity_animation()
+
+    assert timer.stopped is True
+    assert app._activity_timer is None
+
+
+def test_rook_app_keeps_elapsed_time_live_after_tool_failure(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp()
+    clock = {"now": 100.0}
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+    monkeypatch.setattr("rook_agent.app.tui.time.monotonic", lambda: clock["now"])
+
+    tool_call = ToolCall(id="call_echo", name="echo", arguments={})
+    app._start_turn_metrics()
+    app._record_tool_activity(ToolExecutionEvent(kind="started", tool_call=tool_call))
+    app._record_tool_activity(
+        ToolExecutionEvent(
+            kind="finished",
+            tool_call=tool_call,
+            result=ToolResult(name="echo", ok=False, content="boom"),
+        )
+    )
+
+    assert activity.updates[-1].startswith("error · echo")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 1 tool")
+    assert app._activity_timer is timer
+
+    clock["now"] = 102.5
+    app._advance_activity_animation()
+
+    assert activity.updates[-1].startswith("error · echo")
+    assert activity.updates[-1].rstrip().endswith("2.5s · 1 tool")
+
+
+def test_rook_app_activity_line_uses_plain_status_text(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    app._set_activity("running [=   ] · echo")
+
+    renderable = activity.renderables[-1]
+    assert getattr(renderable, "plain", "").startswith("running [=   ] · echo")
+    assert getattr(renderable, "plain", "").rstrip().endswith("0.0s · 0 tools")
+    assert renderable.spans == []
+
+
+def test_rook_app_activity_metrics_are_pinned_right(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    activity.size = type("Size", (), {"width": 42})()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    app._start_turn_metrics()
+    app._set_activity("running [=   ] · echo")
+    first = activity.updates[-1]
+    app._set_activity("streaming [>   ] · response")
+    second = activity.updates[-1]
+
+    assert first.endswith("0.0s · 0 tools")
+    assert second.endswith("0.0s · 0 tools")
+    assert first.rfind("0.0s · 0 tools") == second.rfind("0.0s · 0 tools")
+
+
+def test_rook_app_animates_streaming_status(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    app._start_turn_metrics()
+    app._complete_working_indicator()
+    app._advance_activity_animation()
+
+    assert activity.updates[0].startswith("streaming [>   ] · response")
+    assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
+    assert activity.updates[1].startswith("streaming [>>  ] · response")
+    assert activity.updates[1].rstrip().endswith("0.0s · 0 tools")
+    app._advance_activity_animation()
+    assert activity.updates[-1].startswith("streaming [>>> ] · response")
+    assert activity.updates[-1].rstrip().endswith("0.0s · 0 tools")
+    assert app._activity_timer is timer
+
+
+def test_rook_app_does_not_restart_streaming_status_for_every_token(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    timer = type("FakeTimer", (), {"stopped": False, "stop": lambda self: setattr(self, "stopped", True)})()
+    app = RookApp()
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+    monkeypatch.setattr(app, "_loop", object())
+    monkeypatch.setattr(app, "set_interval", lambda *args, **kwargs: timer)
+
+    app._start_turn_metrics()
+    app._complete_working_indicator()
+    after_first_token = len(activity.updates)
+    app._complete_working_indicator()
+    app._complete_working_indicator()
+
+    assert after_first_token == 1
+    assert len(activity.updates) == after_first_token
+    assert app._activity_timer is timer
+
+
+def test_rook_app_updates_persistent_todo_panel_for_todo_events(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    output = FakeOutput()
+    activity = FakeActivity()
+    todo_panel = FakeTodoPanel()
+    app = RookApp(chat_runner=runner)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        if selector == "#todo-panel":
+            return todo_panel
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    previous_handler = app._install_tool_event_handler()
+    runner.tool_event_handler(
+        ToolExecutionEvent(
+            kind="finished",
+            tool_call=ToolCall(id="call_todo", name="todo", arguments={"action": "set"}),
+            result=ToolResult(
+                name="todo",
+                ok=True,
+                content="已设置任务清单",
+                data={
+                    "todos": [
+                        {"id": "todo_1", "content": "读代码", "status": "completed"},
+                        {"id": "todo_2", "content": "跑测试", "status": "in_progress"},
+                    ]
+                },
+            ),
+        )
+    )
+    app._restore_tool_event_handler(previous_handler)
+
+    assert app.transcript.todos == [
+        TuiTodoItem(id="todo_1", content="读代码", status="completed"),
+        TuiTodoItem(id="todo_2", content="跑测试", status="in_progress"),
+    ]
+    assert todo_panel.updates[-1] == "Todo\n[✓] 读代码\n[~] 跑测试"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_todo_panel_preserves_status_markers_as_plain_text() -> None:
+    app = RookApp()
+
+    async with app.run_test():
+        panel = app.query_one("#todo-panel")
+        app.transcript.update_todos(
+            [
+                {"id": "todo_1", "content": "已完成", "status": "completed"},
+                {"id": "todo_2", "content": "进行中", "status": "in_progress"},
+                {"id": "todo_3", "content": "未完成", "status": "pending"},
+            ]
+        )
+        app._render_todo_panel()
+
+        assert panel.content == "Todo\n[✓] 已完成\n[~] 进行中\n[ ] 未完成"
+        assert str(panel.render()) == "Todo\n[✓] 已完成\n[~] 进行中\n[ ] 未完成"
+
+
+def test_rook_app_keeps_activity_in_dedicated_line(monkeypatch) -> None:
+    output = FakeOutput()
+    activity = FakeActivity()
+    topbar = FakeTopbar()
+    app = RookApp(current_session=FakeSession())
+    monkeypatch.setattr(app, "is_mounted", True)
+    monkeypatch.setattr(app, "_topbar_width", lambda: 120)
+
+    def query_one(selector, *args, **kwargs):
+        if selector == "#activity":
+            return activity
+        if selector == "#topbar":
+            return topbar
+        return output
+
+    monkeypatch.setattr(app, "query_one", query_one)
+
+    app._set_activity("waiting · permission")
+
+    assert activity.updates[0].startswith("waiting · permission")
+    assert activity.updates[0].rstrip().endswith("0.0s · 0 tools")
+    assert app._activity_text == "waiting · permission"
+    assert topbar.updates == []
+
+
+def test_rook_app_live_tool_events_filter_final_tool_summary(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_handler = app._install_tool_event_handler()
+    runner.tool_event_handler(ToolExecutionEvent(kind="started", tool_call=ToolCall(id="call_echo", name="echo", arguments={})))
+    runner.last_display_lines = [
+        'Tool call: echo {"text": "hello"}',
+        "Tool result: echo success: hello",
+        "done",
+    ]
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="done"))
+    app._restore_tool_event_handler(previous_handler)
+
+    rendered = "\n".join(output.lines)
+    assert "正在调用工具：echo" in rendered
+    assert "Tool call:" not in rendered
+    assert "Tool result:" not in rendered
+    assert [type(widget).__name__ for widget in output.mounted] == ["ToolCard", "RookMarkdown"]
+    assert output.mounted[1].allow_select is True
+
+
+def test_rook_app_starts_new_stream_block_after_tool_event(monkeypatch) -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    runner.stream_event_handler = lambda event: None
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    previous_stream_handler = app._install_stream_event_handler()
+    previous_tool_handler = app._install_tool_event_handler()
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="我先看看。"))
+    runner.tool_event_handler(
+        ToolExecutionEvent(
+            kind="started",
+            tool_call=ToolCall(id="call_echo", name="echo", arguments={}),
+        )
+    )
+    runner.stream_event_handler(ChatStreamEvent(kind="text_delta", text="看完了。"))
+    app._restore_tool_event_handler(previous_tool_handler)
+    app._restore_stream_event_handler(previous_stream_handler)
+
+    mounted_types = [type(widget).__name__ for widget in output.mounted]
+    assert mounted_types == ["RookMarkdown", "ToolCard", "RookMarkdown"]
+    first_markdown, _, second_markdown = output.mounted
+    assert first_markdown.allow_select is True
+    assert second_markdown.allow_select is True
+    assert first_markdown.updates[-1] == "**ROOK**\n\n我先看看。"
+    assert second_markdown.updates[-1] == "**ROOK**\n\n看完了。"
+
+
+def test_permission_requested_tool_event_uses_permission_style() -> None:
+    event = ToolExecutionEvent(
+        kind="permission_requested",
+        tool_call=ToolCall(id="call_write", name="apply_patch", arguments={}),
+    )
+
+    assert tool_event_entry_kind(event) == TuiEntryKind.PERMISSION
+    assert tool_event_status(event) == "permission_requested"
+    assert tool_event_label(event) == "permission requested"
+    assert (
+        entry_classes(
+            TuiTranscriptEntry(
+                id=1,
+                kind=TuiEntryKind.PERMISSION,
+                body="apply_patch wants to edit rook_agent/app/tui.py",
+                label="permission requested",
+                status="permission_requested",
+            )
+        )
+        == "message permission-message permission-requested"
+    )
+
+
+def test_tool_skipped_has_stable_gray_tool_class() -> None:
+    assert (
+        entry_classes(
+            TuiTranscriptEntry(
+                id=1,
+                kind=TuiEntryKind.TOOL,
+                body="已暂停等待用户输入，跳过同批次后续工具调用。",
+                label="tool shell skipped",
+                status="skipped",
+            )
+        )
+        == "message tool-message tool-skipped"
+    )
+
+
+def test_plain_static_renders_tool_arguments_with_markup_characters_as_text() -> None:
+    content = (
+        'tool shell running\n'
+        '  正在调用工具：shell {"cmd": "python -m pytest tests/test_app_tui.py -q", "args": ["-q"]}'
+    )
+    widget = _plain_static(content, classes="message tool-message tool-running")
+
+    rendered = widget.render()
+    plain = rendered.plain if isinstance(rendered, Text) else str(rendered)
+
+    assert plain == content
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_displays_live_tool_status_during_turn() -> None:
+    runner = FakeToolEventAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+        tool_entries = [
+            entry
+            for entry in app.transcript.entries
+            if entry.kind == TuiEntryKind.TOOL
+        ]
+
+    assert len(tool_entries) == 1
+    assert tool_entries[0].body == "工具完成：echo"
+    assert tool_entries[0].status == "success"
+    assert isinstance(tool_entries[0].widget, ToolCard)
+    assert tool_entries[0].widget.expanded is False
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_groups_repeated_tool_failures_into_one_card() -> None:
+    app = RookApp()
+    fingerprint = "web_search:invalid_tool_arguments:abc"
+
+    async with app.run_test() as pilot:
+        app._dismiss_welcome()
+        for count in (1, 2, 3):
+            tool_call = ToolCall(
+                id=f"call_search_{count}",
+                name="web_search",
+                arguments={"max_chars": 6000},
+            )
+            app._write_or_update_tool_event(
+                ToolExecutionEvent(
+                    kind="finished",
+                    tool_call=tool_call,
+                    result=ToolResult(
+                        name="web_search",
+                        ok=False,
+                        content="未知字段：max_chars",
+                        data={
+                            "failure_fingerprint": fingerprint,
+                            "repeated_count": count,
+                        },
+                    ),
+                ),
+                "工具失败：web_search：未知字段：max_chars",
+            )
+        await pilot.pause()
+
+    tool_entries = [
+        entry
+        for entry in app.transcript.entries
+        if entry.kind == TuiEntryKind.TOOL
+    ]
+    assert len(tool_entries) == 1
+    assert tool_entries[0].label == "tool web_search failed ×3"
+    assert tool_entries[0].status == "error"
+    assert isinstance(tool_entries[0].widget, ToolCard)
+    assert tool_entries[0].widget.expanded is True
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_writes_recovery_opportunity_as_learn_card() -> None:
+    runner = FakeAsyncChatRunner()
+    runner.last_recovery_opportunities = (
+        SimpleNamespace(
+            trigger_kind=SimpleNamespace(value="tool_recovery"),
+            failure_fingerprints=("failure-1",),
+            verification_refs=("verification-1",),
+        ),
+    )
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    learn_entries = [
+        entry
+        for entry in app.transcript.entries
+        if entry.kind == TuiEntryKind.LEARN
+    ]
+    assert len(learn_entries) == 1
+    assert learn_entries[0].status == "detected"
+    assert "失败证据 1 条 · 验证证据 1 条" in learn_entries[0].body
+    assert "/learn last" in learn_entries[0].body
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_tool_card_is_visible_in_terminal_render() -> None:
+    app = RookApp()
+
+    async with app.run_test(size=(120, 38)) as pilot:
+        app._dismiss_welcome()
+        app._write_line(
+            "git status · success\n工作树 clean",
+            kind=TuiEntryKind.TOOL,
+            label="git status success",
+            status="success",
+        )
+        await pilot.pause()
+        screenshot = app.export_screenshot(title="tool-card")
+
+    assert "git&#160;status" in screenshot
+    assert "工作树&#160;clean" not in screenshot
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_recalls_input_history_with_arrow_keys() -> None:
+    runner = FakeAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"first")
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.press(*"second")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        await pilot.press("up")
+        input_widget = app.query_one("#input")
+        assert input_widget.text == "second"
+
+        await pilot.press("up")
+        assert input_widget.text == "first"
+
+        await pilot.press("down")
+        assert input_widget.text == "second"
+
+        await pilot.press("down")
+        assert input_widget.text == ""
+
+    assert runner.inputs == ["first", "second"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_r_selects_project_prompt_history(tmp_path) -> None:
+    history = PromptHistoryStore(tmp_path)
+    history.append("review the current diff")
+    app = RookApp(prompt_history=history)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        assert app._picker is not None
+        assert app._picker.kind == "history"
+        await pilot.press("enter")
+        assert app.query_one("#input", TextArea).text == "review the current diff"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_applies_configured_keybinding_by_binding_id(tmp_path) -> None:
+    history = PromptHistoryStore(tmp_path)
+    history.append("review the current diff")
+    app = RookApp(
+        prompt_history=history,
+        config=RookTuiConfig(keybindings={"search_history": "ctrl+h"}),
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        assert app._picker is None
+
+        await pilot.press("ctrl+h")
+        await pilot.pause()
+        assert app._picker is not None
+        assert app._picker.kind == "history"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_ctrl_x_ctrl_e_edits_current_prompt() -> None:
+    editor = FakeExternalEditor(EditorResult(ok=True, text="edited prompt"))
+    app = RookApp(external_editor=editor)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"initial")
+        await pilot.press("ctrl+x")
+        await pilot.press("ctrl+e")
+        await pilot.pause()
+
+        assert editor.inputs == ["initial"]
+        assert app.query_one("#input", TextArea).text == "edited prompt"
+
+
+def test_rook_app_displays_pending_permission_prompt_immediately(monkeypatch) -> None:
+    runner = FakePermissionWaitingRunner()
+    output = FakeOutput()
+    app = RookApp(chat_runner=runner)
+    monkeypatch.setattr(app, "query_one", lambda *args, **kwargs: output)
+
+    app._write_chat_response(ChatResponse(provider="fake", model="fake", content="等待权限确认。"))
+
+    rendered = "\n".join(
+        [*output.lines, *(str(getattr(widget, "content", "")) for widget in output.mounted)]
+    )
+    assert "permission requested  write_path README.md" in rendered
+    assert "写入文件需要用户确认。" in rendered
+    assert "1. Deny" in rendered
+    assert "> 2. Allow once" in rendered
+    assert "3. Allow always" in rendered
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_displays_chat_errors_from_worker() -> None:
+    runner = FailingAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"hello")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert runner.inputs == ["hello"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_rejects_chat_input_while_turn_is_running() -> None:
+    runner = BlockingAsyncChatRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"first")
+        await pilot.press("enter")
+        await runner.started.wait()
+        await pilot.click("#input")
+        await pilot.press(*"second")
+        await pilot.press("enter")
+        await pilot.pause()
+        runner.release.set()
+        await pilot.pause()
+
+    assert runner.inputs == ["first"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_routes_permission_answer_to_resume() -> None:
+    runner = FakePermissionResumeRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        assert app._picker is not None
+        assert app._picker.kind == "permission-chat"
+        assert app._picker.selected_item is not None
+        assert app._picker.selected_item.id == "allow_once"
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert runner.inputs == []
+    assert runner.resumes == [("perm_write", "allow_once")]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_permission_picker_still_accepts_explicit_deny_text() -> None:
+    runner = FakePermissionResumeRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"deny")
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert runner.inputs == []
+    assert runner.resumes == [("perm_write", "deny")]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_escape_cancels_pending_permission_turn() -> None:
+    runner = FakePermissionWaitingRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        app.transcript.update_todos(
+            [{"id": "old_task", "content": "旧任务", "status": "in_progress"}]
+        )
+        app._render_todo_panel()
+        assert app._picker is not None
+        assert app._picker.kind == "permission-chat"
+
+        await pilot.press("escape")
+        await pilot.pause()
+
+        input_widget = app.query_one("#input", TextArea)
+        todo_hidden = app.query_one("#todo-panel").has_class("hidden")
+
+    assert runner.cancelled is True
+    assert runner.last_pending_input is None
+    assert app._picker is None
+    assert app._activity_text == "interrupted"
+    assert app.transcript.todos == []
+    assert todo_hidden is True
+    assert input_widget.placeholder == "输入消息，Enter 发送，Shift+Enter 换行"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_rook_app_permission_resume_keeps_same_active_turn_metrics(monkeypatch) -> None:
+    runner = FakePermissionMidTurnRunner()
+    app = RookApp(chat_runner=runner)
+
+    async with app.run_test() as pilot:
+        await pilot.click("#input")
+        await pilot.press(*"write readme")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        active_turn = app._active_chat_turn
+        assert active_turn is not None
+        assert app._chat_busy is False
+        started_at = app._turn_started_at
+        assert started_at > 0
+
+        app._turn_tool_count = 2
+        assert app._picker is not None
+        assert app._picker.kind == "permission-chat"
+        await pilot.press("enter")
+        await pilot.pause()
+
+    assert runner.inputs == ["write readme"]
+    assert runner.resumes == [("perm_write", "allow_once")]
+    assert app._active_chat_turn is None
+    assert app._turn_started_at == started_at
+    assert app._turn_tool_count == 2

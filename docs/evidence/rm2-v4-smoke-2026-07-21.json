@@ -1,0 +1,72 @@
+{
+  "artifact_kind": "redacted_live_smoke_summary",
+  "authorization": {
+    "allowed_calls": 2,
+    "completed_calls": 2,
+    "external_calls": true,
+    "formal_authorized": false,
+    "model_costs_acknowledged": true,
+    "usd_cost_observed": false
+  },
+  "candidate": {
+    "changed": false,
+    "content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "name": "release-manifest-v2-normalizer",
+    "version": 1
+  },
+  "decision": {
+    "reason_code": "trace_incomplete",
+    "resume_eligible": false,
+    "status": "quarantined"
+  },
+  "diagnostics": {
+    "baseline": {
+      "duration_ms": 180094,
+      "https_fallback_event": true,
+      "reconnect_events": 4,
+      "status": "timeout",
+      "terminal_event": false,
+      "windows_sandbox_failure": false
+    },
+    "forced_skill": {
+      "duration_ms": 180265,
+      "https_fallback_event": true,
+      "reconnect_events": 4,
+      "status": "timeout",
+      "terminal_event": false,
+      "windows_sandbox_failure": false
+    }
+  },
+  "evaluation_id": "evaluation-c3d92efe8cc749c48f81fa7c8dab94a8",
+  "metrics": {
+    "baseline_success_rate": 0.0,
+    "candidate_success_rate": 0.0,
+    "infra_exclusion_count": 0,
+    "new_regression_count": 0,
+    "paired_success_improvement": 0.0,
+    "trace_completeness_rate": 0.0,
+    "valid_content_pair_count": 1
+  },
+  "provenance": {
+    "adapter_version": "codex-evalops-v4",
+    "codex_cli": "codex-cli 0.144.6",
+    "model": "gpt-5.4-mini",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "recorded_at": "2026-07-21",
+    "scorecard_sha256": "372e09663e17f902d46e4d500ebc0240b3c44ef8a3517f5c447e1cfd95b1459e",
+    "suite_fingerprint": "d00abb6eddaa7a96cb359d686ed618de",
+    "suite_id": "release-manifest-v2-windows-path-smoke-v2",
+    "target_fingerprint": "8a984fa4db404b58df1a3dd5224a836f"
+  },
+  "root_cause": {
+    "reason_code": "websocket_retry_budget_exhausted",
+    "summary": "Both arms spent four retries before falling back from WebSockets to HTTPS, leaving insufficient time to reach a terminal turn event within the 180-second boundary."
+  },
+  "superseding_boundary": {
+    "adapter_version": "codex-evalops-v5",
+    "formal_authorization_required_after_smoke": true,
+    "http_only_provider": true,
+    "new_live_smoke_authorization_required": true,
+    "supports_websockets": false
+  }
+}

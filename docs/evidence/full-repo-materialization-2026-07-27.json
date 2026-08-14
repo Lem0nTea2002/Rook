@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "full_repository_materialization",
+  "status": "passed",
+  "task_id": "pytest-dev__pytest-11143",
+  "catalog_fingerprint": "d0876391086d09c040b927c516ab07426f93acd188327a4c71b56617882ab2c8",
+  "repository": "https://github.com/pytest-dev/pytest",
+  "source_issue": "https://github.com/pytest-dev/pytest/issues/11140",
+  "base_commit": "6995257cf470d2143ad1683824962de4071c0eb7",
+  "observed_head": "6995257cf470d2143ad1683824962de4071c0eb7",
+  "git_clean": true,
+  "checkout_file_count": 606,
+  "checkout_size_bytes": 51654903,
+  "git_hooks_path": ".rook-disabled-hooks",
+  "submodule_recurse": false,
+  "network_clone_authorized": true,
+  "external_model_calls": false,
+  "model_costs": false,
+  "validation_scope": "clone, exact detached checkout, clean tree, and local Git policy",
+  "test_suite_executed": false,
+  "cleanup_status": "retained_local_after_host_cleanup_policy_block"
+}

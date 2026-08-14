@@ -1,0 +1,79 @@
+{
+  "artifact_kind": "redacted_live_readiness_smoke",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "formal_calls_authorized_separately": 72,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v7",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-1611cc03d158454c8121b016f1c94f2c",
+    "experiment_id": "exp-1a0a3512454442a4b8ec1d3024ada875",
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "suite_fingerprint": "d00abb6eddaa7a96cb359d686ed618de",
+    "suite_id": "release-manifest-v2-windows-path-smoke-v2",
+    "target_fingerprint": "466e5980add4ab59e9f22a9942a69c56"
+  },
+  "execution": {
+    "completed_runs": 2,
+    "planned_runs": 2,
+    "process_artifacts_after": 124,
+    "process_artifacts_before": 122,
+    "repetitions": 1,
+    "treatment_family": "content"
+  },
+  "runs": [
+    {
+      "error_code": "command_failed",
+      "input_tokens": 35212,
+      "latency_ms": 88735,
+      "output_tokens": 3976,
+      "process_exit_code": 0,
+      "run_id": "codex-d11cadd3154308f80c7d364d",
+      "status": "wrong_result",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "baseline"
+    },
+    {
+      "error_code": null,
+      "input_tokens": 55086,
+      "latency_ms": 101577,
+      "output_tokens": 3674,
+      "process_exit_code": 0,
+      "run_id": "codex-7befb31246e4dddae18a3f2d",
+      "status": "passed",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "forced_skill"
+    }
+  ],
+  "audit": {
+    "cost_usd": null,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "reconnect_event_count": 0,
+    "safety_failures": 0,
+    "shell_fallback_exhausted_markers": 0,
+    "top_level_stream_error_count": 0,
+    "trace_completeness_rate": 1.0,
+    "web_search_event_count": 0,
+    "windows_sandbox_failure_count": 0
+  },
+  "gate": {
+    "reason_code": "insufficient_valid_pairs",
+    "status": "quarantined",
+    "valid_content_pair_count": 1
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "readiness_passed": true,
+    "resume_metric_produced": false,
+    "status": "live_readiness_passed_formal_precondition_satisfied"
+  }
+}

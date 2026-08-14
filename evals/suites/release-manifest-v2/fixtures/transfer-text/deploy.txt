@@ -1,0 +1,4 @@
+service = Worker Pool
+version = V5
+channel = INTERNAL
+owners = Ops, platform, OPS

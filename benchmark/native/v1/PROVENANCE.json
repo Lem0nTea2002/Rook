@@ -1,0 +1,62 @@
+{
+  "agent_data_boundary": {
+    "excluded": [
+      "gold patch",
+      "hidden test patch",
+      "validator command",
+      "expected output"
+    ],
+    "included": [
+      "issue title and body",
+      "repository",
+      "base commit"
+    ]
+  },
+  "benchmark_version": "native-v1",
+  "catalog_fingerprint": "908943360292b54c0dea264ccfa0b6186b4ab6b5c8c2a5ee3f054f88c15358bf",
+  "dataset": "princeton-nlp/SWE-bench",
+  "dataset_revision": "e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6",
+  "dataset_snapshot_sha256": "77da7d43a200bbf6a1f976d996288bc5efd228835b58dfa6bd5156203c9a7ca4",
+  "schema_version": 1,
+  "selection_sha256": "04de4a58a87be137f131ec7db91c0f83559a6a0204277cb2702978678e2daf35",
+  "task_ids": [
+    "pytest-dev__pytest-10051",
+    "pytest-dev__pytest-10115",
+    "pytest-dev__pytest-10356",
+    "pytest-dev__pytest-10442",
+    "pytest-dev__pytest-10482",
+    "pytest-dev__pytest-10552",
+    "pytest-dev__pytest-10624",
+    "pytest-dev__pytest-10893",
+    "pytest-dev__pytest-11160",
+    "pytest-dev__pytest-6680",
+    "scikit-learn__scikit-learn-10377",
+    "scikit-learn__scikit-learn-10427",
+    "scikit-learn__scikit-learn-10428",
+    "scikit-learn__scikit-learn-10471",
+    "scikit-learn__scikit-learn-10495",
+    "scikit-learn__scikit-learn-10581",
+    "scikit-learn__scikit-learn-10844",
+    "scikit-learn__scikit-learn-10870",
+    "scikit-learn__scikit-learn-10908",
+    "scikit-learn__scikit-learn-12827",
+    "sphinx-doc__sphinx-10048",
+    "sphinx-doc__sphinx-10067",
+    "sphinx-doc__sphinx-10321",
+    "sphinx-doc__sphinx-10360",
+    "sphinx-doc__sphinx-10427",
+    "sphinx-doc__sphinx-10457",
+    "sphinx-doc__sphinx-10466",
+    "sphinx-doc__sphinx-10481",
+    "sphinx-doc__sphinx-11192",
+    "sphinx-doc__sphinx-11311"
+  ],
+  "validator_commitment": {
+    "benchmark_version": "native-v1",
+    "catalog_fingerprint": "908943360292b54c0dea264ccfa0b6186b4ab6b5c8c2a5ee3f054f88c15358bf",
+    "revealed": false,
+    "schema_version": 1,
+    "validator_count": 30,
+    "validator_manifest_sha256": "abd2d0309c1adf1c36c9dd122c567419d09ea08e3d0f3f190a116ee94f20a946"
+  }
+}

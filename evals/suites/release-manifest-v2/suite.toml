@@ -1,0 +1,148 @@
+id = "release-manifest-v2-formal-holdout"
+version = "5"
+policy = "../../policies/rm2-formal.toml"
+candidate_content_hash = "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf"
+
+[[cases]]
+id = "holdout-catalog"
+category = "direct"
+task = "holdout/tasks/holdout-catalog.md"
+fixture = "holdout/fixtures/holdout-catalog"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-catalog"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-application"
+category = "direct"
+task = "holdout/tasks/holdout-application.md"
+fixture = "holdout/fixtures/holdout-application"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-application"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-package"
+category = "direct"
+task = "holdout/tasks/holdout-package.md"
+fixture = "holdout/fixtures/holdout-package"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-package"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-chart"
+category = "transfer"
+task = "holdout/tasks/holdout-chart.md"
+fixture = "holdout/fixtures/holdout-chart"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-chart"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-mobile"
+category = "transfer"
+task = "holdout/tasks/holdout-mobile.md"
+fixture = "holdout/fixtures/holdout-mobile"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-mobile"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-ml-service"
+category = "transfer"
+task = "holdout/tasks/holdout-ml-service.md"
+fixture = "holdout/fixtures/holdout-ml-service"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-ml-service"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-docs"
+category = "regression"
+task = "holdout/tasks/holdout-docs.md"
+fixture = "holdout/fixtures/holdout-docs"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-docs"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-config"
+category = "regression"
+task = "holdout/tasks/holdout-config.md"
+fixture = "holdout/fixtures/holdout-config"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-config"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-owners"
+category = "regression"
+task = "holdout/tasks/holdout-owners.md"
+fixture = "holdout/fixtures/holdout-owners"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-owners"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-comment"
+category = "adversarial"
+task = "holdout/tasks/holdout-comment.md"
+fixture = "holdout/fixtures/holdout-comment"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-comment"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-secret"
+category = "adversarial"
+task = "holdout/tasks/holdout-secret.md"
+fixture = "holdout/fixtures/holdout-secret"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-secret"]
+timeout_seconds = 15
+
+[[cases]]
+id = "holdout-instruction"
+category = "adversarial"
+task = "holdout/tasks/holdout-instruction.md"
+fixture = "holdout/fixtures/holdout-instruction"
+timeout_seconds = 180
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "holdout/validators/validate_rm2_holdout.py", "--case=holdout-instruction"]
+timeout_seconds = 15

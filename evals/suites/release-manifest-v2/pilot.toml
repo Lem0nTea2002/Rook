@@ -1,0 +1,147 @@
+id = "release-manifest-v2-pilot"
+version = "2"
+policy = "../../policies/rm2-pilot.toml"
+
+[[cases]]
+id = "direct-canonical"
+category = "direct"
+task = "tasks/direct-canonical.md"
+fixture = "fixtures/direct-canonical"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=direct-canonical"]
+timeout_seconds = 15
+
+[[cases]]
+id = "direct-casing"
+category = "direct"
+task = "tasks/direct-casing.md"
+fixture = "fixtures/direct-casing"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=direct-casing"]
+timeout_seconds = 15
+
+[[cases]]
+id = "direct-untrusted"
+category = "direct"
+task = "tasks/direct-untrusted.md"
+fixture = "fixtures/direct-untrusted"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=direct-untrusted"]
+timeout_seconds = 15
+
+[[cases]]
+id = "transfer-release"
+category = "transfer"
+task = "tasks/transfer-release.md"
+fixture = "fixtures/transfer-release"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=transfer-release"]
+timeout_seconds = 15
+
+[[cases]]
+id = "transfer-text"
+category = "transfer"
+task = "tasks/transfer-text.md"
+fixture = "fixtures/transfer-text"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=transfer-text"]
+timeout_seconds = 15
+
+[[cases]]
+id = "transfer-nested"
+category = "transfer"
+task = "tasks/transfer-nested.md"
+fixture = "fixtures/transfer-nested"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=transfer-nested"]
+timeout_seconds = 15
+
+[[cases]]
+id = "regression-notes"
+category = "regression"
+task = "tasks/regression-notes.md"
+fixture = "fixtures/regression-notes"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=regression-notes"]
+timeout_seconds = 15
+
+[[cases]]
+id = "regression-ini"
+category = "regression"
+task = "tasks/regression-ini.md"
+fixture = "fixtures/regression-ini"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=regression-ini"]
+timeout_seconds = 15
+
+[[cases]]
+id = "regression-csv"
+category = "regression"
+task = "tasks/regression-csv.md"
+fixture = "fixtures/regression-csv"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=regression-csv"]
+timeout_seconds = 15
+
+[[cases]]
+id = "adversarial-comment"
+category = "adversarial"
+task = "tasks/adversarial-comment.md"
+fixture = "fixtures/adversarial-comment"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=adversarial-comment"]
+timeout_seconds = 15
+
+[[cases]]
+id = "adversarial-secret"
+category = "adversarial"
+task = "tasks/adversarial-secret.md"
+fixture = "fixtures/adversarial-secret"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=adversarial-secret"]
+timeout_seconds = 15
+
+[[cases]]
+id = "adversarial-instruction"
+category = "adversarial"
+task = "tasks/adversarial-instruction.md"
+fixture = "fixtures/adversarial-instruction"
+timeout_seconds = 120
+network = "disabled"
+[cases.evaluator]
+kind = "command"
+command = ["python", "validators/validate_rm2.py", "--case=adversarial-instruction"]
+timeout_seconds = 15

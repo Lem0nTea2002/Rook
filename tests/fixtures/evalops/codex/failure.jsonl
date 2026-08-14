@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"thread-eval-failure"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item-command-failure","type":"command_execution","command":"python -m pytest -q","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item-command-failure","type":"command_execution","command":"python -m pytest -q","aggregated_output":"1 failed\n","exit_code":1,"status":"failed"}}
+{"type":"error","message":"model service unavailable"}
+{"type":"turn.failed","error":{"message":"model service unavailable"}}

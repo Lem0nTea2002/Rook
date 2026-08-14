@@ -1,0 +1,71 @@
+{
+  "agent_data_boundary": {
+    "excluded": [
+      "gold patch",
+      "test patch",
+      "FAIL_TO_PASS test names",
+      "PASS_TO_PASS test names"
+    ],
+    "included": [
+      "issue title and problem statement",
+      "repository URL",
+      "base commit"
+    ]
+  },
+  "catalog_sha256": "a7532b253dfe1d82e4ddf7f81166cb9a2b6b58e6558dbc8c43c48f6a00e230e0",
+  "config": "default",
+  "dataset": "princeton-nlp/SWE-bench_Lite",
+  "dataset_revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+  "dataset_viewer": "https://datasets-server.huggingface.co/rows?dataset=princeton-nlp/SWE-bench_Lite&config=default&split=test",
+  "github_issues_verified": true,
+  "schema_version": 1,
+  "selection": {
+    "repositories": [
+      {
+        "license": "MIT",
+        "repository": "pytest-dev/pytest",
+        "task_count": 8
+      },
+      {
+        "license": "BSD-3-Clause",
+        "repository": "scikit-learn/scikit-learn",
+        "task_count": 8
+      },
+      {
+        "license": "BSD-2-Clause",
+        "repository": "sphinx-doc/sphinx",
+        "task_count": 8
+      }
+    ],
+    "rule": "lexicographically first 8 instance_ids per repository; use a linked Issue when present, otherwise the merged PR as an explicit maintenance task",
+    "total_tasks": 24
+  },
+  "snapshot_kind": "swebench_lite_full_repository_issue_catalog",
+  "split": "test",
+  "task_ids": [
+    "pytest-dev__pytest-11143",
+    "pytest-dev__pytest-11148",
+    "pytest-dev__pytest-5103",
+    "pytest-dev__pytest-5221",
+    "pytest-dev__pytest-5227",
+    "pytest-dev__pytest-5413",
+    "pytest-dev__pytest-5495",
+    "pytest-dev__pytest-5692",
+    "scikit-learn__scikit-learn-10297",
+    "scikit-learn__scikit-learn-10508",
+    "scikit-learn__scikit-learn-10949",
+    "scikit-learn__scikit-learn-11040",
+    "scikit-learn__scikit-learn-11281",
+    "scikit-learn__scikit-learn-12471",
+    "scikit-learn__scikit-learn-13142",
+    "scikit-learn__scikit-learn-13241",
+    "sphinx-doc__sphinx-10325",
+    "sphinx-doc__sphinx-10451",
+    "sphinx-doc__sphinx-11445",
+    "sphinx-doc__sphinx-7686",
+    "sphinx-doc__sphinx-7738",
+    "sphinx-doc__sphinx-7975",
+    "sphinx-doc__sphinx-8273",
+    "sphinx-doc__sphinx-8282"
+  ]
+}

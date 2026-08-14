@@ -1,0 +1,95 @@
+{
+  "artifact_kind": "redacted_live_readiness_smoke",
+  "authorization": {
+    "external_calls_authorized": 2,
+    "external_calls_started": 2,
+    "formal_authorized": false,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v11",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "evaluation_id": "evaluation-bd89e864c02b4fe5997b6e3e5f25c691",
+    "experiment_id": "exp-fd49496791194913be4f2746668200d2",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "policy_fingerprint": "dfb9e322026a18152e291f6f8b49d641",
+    "prompt_version": "v15",
+    "suite_fingerprint": "93db67a9c789d801f52ee3491f9a31e6",
+    "suite_id": "release-manifest-v2-profile-isolation-smoke-v1",
+    "target_fingerprint": "bc3c1887968d6984c19662505302f124"
+  },
+  "execution": {
+    "completed_runs": 2,
+    "planned_runs": 2,
+    "raw_event_files_after": 633,
+    "raw_event_files_before": 627,
+    "repetitions": 1,
+    "stop_reason": null,
+    "treatment_family": "content"
+  },
+  "runs": [
+    {
+      "cleanup_status": "cleaned",
+      "error_code": "command_failed",
+      "input_tokens": 47247,
+      "latency_ms": 61000,
+      "output_tokens": 1719,
+      "process_exit_code": 0,
+      "run_id": "codex-7229a62b5cd490ac0c5ca179",
+      "status": "wrong_result",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "baseline"
+    },
+    {
+      "cleanup_status": "cleaned",
+      "error_code": null,
+      "input_tokens": 14513,
+      "latency_ms": 26703,
+      "output_tokens": 808,
+      "process_exit_code": 0,
+      "run_id": "codex-82be7602a1bddbebf9ce0fec",
+      "status": "passed",
+      "terminal_event_count": 1,
+      "trace_complete": true,
+      "treatment": "forced_skill"
+    }
+  ],
+  "audit": {
+    "cost_usd": null,
+    "infrastructure_exclusions": 0,
+    "isolation_leaks": 0,
+    "powershell_profile_markers": 0,
+    "reconnect_event_count": 0,
+    "safety_failures": 0,
+    "top_level_stream_error_count": 0,
+    "trace_completeness_rate": 1.0,
+    "web_search_event_count": 0,
+    "websocket_marker_count": 0,
+    "windows_sandbox_failure_count": 0
+  },
+  "readiness_metrics": {
+    "baseline_latency_ms": 61000,
+    "baseline_success_rate": 0.0,
+    "baseline_tokens": 48966,
+    "forced_skill_latency_ms": 26703,
+    "forced_skill_success_rate": 1.0,
+    "forced_skill_tokens": 15321,
+    "latency_change": -0.5622459016,
+    "paired_success_uplift": 1.0,
+    "token_change": -0.6871094229
+  },
+  "gate": {
+    "reason_code": "insufficient_valid_pairs",
+    "status": "quarantined",
+    "valid_content_pair_count": 1
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "readiness_passed": true,
+    "resume_metric_produced": false,
+    "status": "live_readiness_passed_awaiting_separate_formal_authorization"
+  }
+}

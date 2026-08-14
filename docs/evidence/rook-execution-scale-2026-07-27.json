@@ -1,0 +1,59 @@
+{
+  "benchmark": "rook_execution_scale",
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor_count": 28,
+    "python": "3.12.7"
+  },
+  "external_calls": false,
+  "fault_every": 17,
+  "fingerprint": "14f8c1a8147aec51be78a1719f84b141a217a2ec47b2fed12288350878a41f02",
+  "job_count_per_profile": 300,
+  "model_costs": false,
+  "profiles": [
+    {
+      "claimed_attempts": 317,
+      "duration_seconds": 7.86,
+      "failed": 0,
+      "injected_faults": 17,
+      "p50_job_duration_ms": 250.0,
+      "p95_job_duration_ms": 266.0,
+      "recovered_faults": 17,
+      "recovery_rate": 1.0,
+      "retries": 17,
+      "succeeded": 300,
+      "throughput_jobs_per_second": 38.168,
+      "workers": 10
+    },
+    {
+      "claimed_attempts": 317,
+      "duration_seconds": 3.734,
+      "failed": 0,
+      "injected_faults": 17,
+      "p50_job_duration_ms": 250.0,
+      "p95_job_duration_ms": 297.0,
+      "recovered_faults": 17,
+      "recovery_rate": 1.0,
+      "retries": 17,
+      "succeeded": 300,
+      "throughput_jobs_per_second": 80.343,
+      "workers": 25
+    },
+    {
+      "claimed_attempts": 317,
+      "duration_seconds": 2.813,
+      "failed": 0,
+      "injected_faults": 17,
+      "p50_job_duration_ms": 265.0,
+      "p95_job_duration_ms": 844.0,
+      "recovered_faults": 17,
+      "recovery_rate": 1.0,
+      "retries": 17,
+      "succeeded": 300,
+      "throughput_jobs_per_second": 106.648,
+      "workers": 50
+    }
+  ],
+  "schema_version": 1,
+  "work_milliseconds": 250.0
+}

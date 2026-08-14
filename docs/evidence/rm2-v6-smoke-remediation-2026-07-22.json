@@ -1,0 +1,59 @@
+{
+  "artifact_kind": "redacted_live_smoke_followup_remediation",
+  "authorization": {
+    "external_calls_used_for_remediation": 0,
+    "live_retest_authorized": false,
+    "model_costs_incurred_for_remediation": false,
+    "new_readiness_authorization_required": true
+  },
+  "source_incident": {
+    "evaluation_id": "evaluation-0b193738a0bc4b8cbbd5fbd8807b55b9",
+    "evidence": "rm2-v6-smoke-2026-07-22.json",
+    "infra_exclusion_count": 2,
+    "status": "quarantined"
+  },
+  "root_causes": [
+    {
+      "code": "model_supplied_windows_tool_cwd_escape",
+      "summary": "The model overrode the tool working directory with a copied absolute Windows path; a backslash-b segment was decoded as a backspace and CreateProcessAsUserW returned error 267."
+    },
+    {
+      "code": "multiline_python_c_command_quoting",
+      "summary": "The direct py fallback embedded escaped newlines in python -c source, so Python received literal continuation characters and raised SyntaxError."
+    },
+    {
+      "code": "restricted_language_marker_gap",
+      "summary": "The live Constrained Language message 'Cannot create type. Only core types are supported' was not included in the restricted-PowerShell classifier."
+    }
+  ],
+  "remediation": {
+    "adapter_version": "codex-evalops-v7",
+    "candidate_changed": false,
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "prompt_version": "v14",
+    "rules": [
+      "Do not set or override the EvalOps shell tool working directory.",
+      "Use relative paths with forward slashes inside tool arguments.",
+      "Use only a single physical shell-safe line for direct py -c fallback.",
+      "Do not pass multiline source, escaped newline sequences, or a PowerShell here-string to py -c."
+    ],
+    "stable_error_code": "codex_windows_tool_cwd_escape_error"
+  },
+  "offline_verification": {
+    "live_forced_trace_shape_replayed": true,
+    "new_external_calls": 0,
+    "targeted_result": "103 passed",
+    "tests_cover": [
+      "EvalOps prompt forbids explicit cwd override",
+      "EvalOps prompt requires relative forward-slash paths",
+      "shared fallback prompt forbids multiline py -c",
+      "CreateProcessAsUserW error 267 plus escaped cwd gets a specific code",
+      "live restricted-language and multiline-fallback event shape normalizes with an explicit exhaustion diagnostic"
+    ]
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "live_claim": false,
+    "status": "offline_remediation_complete_pending_new_live_readiness_smoke"
+  }
+}

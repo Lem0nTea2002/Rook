@@ -1,0 +1,35 @@
+{
+  "artifact_kind": "redacted_offline_remediation",
+  "source_attempt": {
+    "evidence": "rm2-formal-v8-attempt-2026-07-22.json",
+    "failure_classification": "post_write_verification_assertion_failed",
+    "run_id": "codex-841ca2af2fbd7bef272ccc2b"
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v9",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "normalizer_version": "codex-exec-jsonl-v3",
+    "prompt_version": "v15"
+  },
+  "contract": {
+    "auxiliary_verification_marker": "ROOK_POST_WRITE_VERIFICATION_INCONCLUSIVE",
+    "mutation_failure_marker": "ROOK_SHELL_FALLBACK_EXHAUSTED",
+    "post_write_result_authority": "deterministic_evaluator",
+    "required_mutation_and_auxiliary_verification_are_separate": true,
+    "true_mutation_failure_fails_closed": true
+  },
+  "verification": {
+    "external_calls": 0,
+    "model_costs_incurred": false,
+    "targeted_tests": {
+      "passed": 105,
+      "skipped": 0
+    }
+  },
+  "next_gate": {
+    "authorization_required": true,
+    "calls": 2,
+    "kind": "adapter_v9_readiness_smoke",
+    "formal_authorized": false
+  }
+}

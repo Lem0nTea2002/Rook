@@ -1,0 +1,4 @@
+service = Scientific.RAG
+version = v1.4
+channel = stable
+owners = Retrieval, Research, retrieval

@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "upstream_contribution_batch",
+  "batch_id": "upstream-batch-1",
+  "observed_at": "2026-07-27",
+  "status": "submitted",
+  "external_model_calls": false,
+  "model_costs": false,
+  "selection_policy": {
+    "repository_count": 3,
+    "initial_issue_count": 3,
+    "requires_open_issue": true,
+    "requires_no_assignee": true,
+    "requires_no_open_pull_request": true,
+    "requires_no_unresolved_architecture_decision": true,
+    "requires_human_claim_and_review": true,
+    "expand_only_after_first_batch_validated": true
+  },
+  "repositories": [
+    {
+      "repository": "pytest-dev/pytest",
+      "default_branch": "main",
+      "observed_head": "70f8650a624c92f91c94dd26b391326df2ea4143",
+      "issue": 14771,
+      "issue_url": "https://github.com/pytest-dev/pytest/issues/14771",
+      "title": "--pyargs test discovery still fails in frozen application",
+      "assignees": [],
+      "linked_open_pull_requests": [],
+      "selection_status": "submitted",
+      "proposed_scope": "Clarify the frozen-application documentation and add a filesystem-backed test-data example; do not claim that pytest can collect tests stored only inside a PyInstaller PYZ archive.",
+      "blocking_reason": "Current pytest collection is Path-based and the PyInstaller code archive does not expose test modules as filesystem paths. A new archive collector would be an architectural change, so only a documentation scope is eligible without maintainer design approval.",
+      "reviewed_commit": "dc5731148730fb5aed15c3795507fff32affe3c0",
+      "pull_request_url": "https://github.com/pytest-dev/pytest/pull/14789",
+      "human_action_required": "Monitor CI and respond personally to maintainer review."
+    },
+    {
+      "repository": "scikit-learn/scikit-learn",
+      "default_branch": "main",
+      "observed_head": "e5f607658ace73fef757b52ad65a2f74011a4a5f",
+      "issue": 13762,
+      "issue_url": "https://github.com/scikit-learn/scikit-learn/issues/13762",
+      "title": "doctest SpectralCoclustering fails on Ubuntu arm64",
+      "labels": [
+        "help wanted",
+        "module:cluster",
+        "arch:arm",
+        "module:test-suite"
+      ],
+      "assignees": [],
+      "linked_open_pull_requests": [],
+      "selection_status": "submitted",
+      "proposed_scope": "Replace the skipped, numerically unstable doctest expectation with an architecture-stable example and validate it on the project test matrix.",
+      "blocking_reason": null,
+      "reviewed_commit": "dd73a22cb25a48a04e121e9f50b752f9d424ab18",
+      "pull_request_url": "https://github.com/scikit-learn/scikit-learn/pull/34587",
+      "human_action_required": "Monitor CI, respond personally to maintainer review, and add a PR-numbered changelog fragment if a reviewer requires one."
+    },
+    {
+      "repository": "sphinx-doc/sphinx",
+      "default_branch": "master",
+      "observed_head": "9af5b469df42c810c62453661c1974c0f254e674",
+      "issue": 6689,
+      "issue_url": "https://github.com/sphinx-doc/sphinx/issues/6689",
+      "title": "Support todo roles in the sphinx.ext.todo extension",
+      "labels": [
+        "type:enhancement",
+        "help wanted",
+        "awaiting:response",
+        "extensions:todo"
+      ],
+      "assignees": [],
+      "linked_open_pull_requests": [],
+      "selection_status": "submitted",
+      "proposed_scope": "Add an inline todo role with deterministic rendering, todo-domain collection, todolist integration, tests, documentation, and a change note.",
+      "blocking_reason": null,
+      "reviewed_commit": "0ff71a365a07fc399398b0d24932834c527f9c1e",
+      "pull_request_url": "https://github.com/sphinx-doc/sphinx/pull/14558",
+      "human_action_required": "Monitor CI and personally handle all maintainer interaction, revisions, and final ready-for-review transition."
+    }
+  ],
+  "screening_rejections": [
+    {
+      "repository": "pytest-dev/pytest",
+      "issue": 14737,
+      "reason_code": "existing_patch",
+      "evidence": "https://github.com/pytest-dev/pytest/pull/14740"
+    },
+    {
+      "repository": "scikit-learn/scikit-learn",
+      "issue": 20032,
+      "reason_code": "open_pull_request",
+      "evidence": "https://github.com/scikit-learn/scikit-learn/pull/33363"
+    },
+    {
+      "repository": "sphinx-doc/sphinx",
+      "issue": 13180,
+      "reason_code": "open_pull_request",
+      "evidence": "https://github.com/sphinx-doc/sphinx/pull/14188"
+    }
+  ],
+  "infrastructure_failures": [
+    {
+      "operation": "clone scikit-learn/scikit-learn",
+      "attempts": 2,
+      "reason_code": "github_tls_connection_reset",
+      "recovery": "Retried through a reachable GitHub frontend; the complete working tree was materialized."
+    },
+    {
+      "operation": "clone sphinx-doc/sphinx",
+      "attempts": 1,
+      "reason_code": "github_early_eof",
+      "recovery": "Retried with a blob-filtered history and a complete current working tree."
+    }
+  ],
+  "withdrawals": [],
+  "review_packet": "docs/evidence/upstream-contribution-review-packet-2026-07-27.md",
+  "event_ledger": "docs/evidence/upstream-contribution-ledger-2026-07-27.jsonl",
+  "event_count": 26,
+  "claim_boundary": "Three human-authored claim comments, three locally validated patches, three completed human reviews with immutable local commit hashes, and three submitted Draft PRs are recorded. The Sphinx PR was created manually by the human contributor. No upstream approval or merge is claimed."
+}

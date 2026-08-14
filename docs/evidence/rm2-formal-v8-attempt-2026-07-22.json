@@ -1,0 +1,72 @@
+{
+  "artifact_kind": "redacted_aborted_formal_attempt",
+  "authorization": {
+    "formal_calls_authorized": 72,
+    "formal_calls_started": 13,
+    "model": "gpt-5.4-mini",
+    "model_costs_allowed": true,
+    "not_started": 59
+  },
+  "identity": {
+    "adapter_version": "codex-evalops-v8",
+    "candidate_content_hash": "bb69239c1388c5d6ec4fe44d97dc1e2f7ab13544baeeeb7d73a842c3a2a5bbcf",
+    "codex_cli_version": "codex-cli 0.144.6",
+    "experiment_id": "exp-e01d6b5eea5440d1963eaf02b5bd803e",
+    "normalizer_version": "codex-exec-jsonl-v2",
+    "policy_fingerprint": "7c8fa84d44dff4bb4633fc5aabc49ad9",
+    "suite_fingerprint": "8f7f181e6803a6a606e78d963c185c72",
+    "suite_id": "release-manifest-v2-formal-holdout",
+    "suite_version": "5",
+    "target_fingerprint": "71891cfb3234deb6dd195403323487ec"
+  },
+  "execution": {
+    "completed_process_artifacts": 12,
+    "evaluated_run_records": 12,
+    "experiment_record_written": false,
+    "in_flight_call_force_stopped": 1,
+    "planned_runs": 72,
+    "report_written": false,
+    "scorecard_written": false
+  },
+  "evaluated_status_counts": {
+    "adapter_error": 1,
+    "passed": 5,
+    "wrong_result": 6
+  },
+  "evaluated_error_counts": {
+    "codex_shell_fallback_exhausted": 1,
+    "command_failed": 6
+  },
+  "process_audit": {
+    "process_status_succeeded": 12,
+    "reconnect_events": 0,
+    "shell_fallback_exhausted_markers": 1,
+    "terminal_turns": 12,
+    "timeout_deadline_overrun_markers": 0,
+    "top_level_stream_errors": 0,
+    "web_search_events": 0,
+    "windows_sandbox_failure_markers": 0
+  },
+  "failure": {
+    "case_id": "holdout-application",
+    "classification": "post_write_verification_assertion_failed",
+    "completed_command_count": 5,
+    "error_code": "codex_shell_fallback_exhausted",
+    "repetition": 3,
+    "run_id": "codex-841ca2af2fbd7bef272ccc2b",
+    "summary": "The direct Python fallback wrote release.json, then an auxiliary assertion for source-line normalization failed. The Agent emitted the stable exhaustion marker, so the Adapter failed closed before the deterministic evaluator ran.",
+    "treatment": "forced_skill"
+  },
+  "stop_boundary": {
+    "candidate_changed": false,
+    "formal_process_descendants_remaining": 0,
+    "partial_results_may_be_combined_with_future_runs": false,
+    "reason": "One Adapter error makes the zero-infrastructure-exclusion Formal contract unattainable.",
+    "status": "aborted_fail_closed"
+  },
+  "result": {
+    "formal_metric_produced": false,
+    "promotion_decision_produced": false,
+    "resume_metric_produced": false
+  }
+}

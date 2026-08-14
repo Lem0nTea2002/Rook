@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"thread-eval-1"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item-message-1","type":"agent_message","text":"I will inspect the repository."}}
+{"type":"item.started","item":{"id":"item-command-1","type":"command_execution","command":"python -m pytest -q","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item-command-1","type":"command_execution","command":"python -m pytest -q","aggregated_output":"1 passed\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item-change-1","type":"file_change","changes":[{"path":"result.txt","kind":"add"}],"status":"completed"}}
+{"type":"item.completed","item":{"id":"item-message-2","type":"agent_message","text":"All tests pass."}}
+{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":20,"cache_write_input_tokens":0,"output_tokens":30,"reasoning_output_tokens":10}}

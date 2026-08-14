@@ -1,0 +1,9 @@
+name = "release-manifest-normalizer"
+description = "Apply generic care when editing release-related files without defining a normalization convention."
+triggers = ["work with release files"]
+procedure = [
+  "Read the task carefully.",
+  "Make only changes explicitly requested by the task.",
+]
+verification = ["Re-read files changed during the task."]
+pitfalls = ["Avoid unrelated edits."]

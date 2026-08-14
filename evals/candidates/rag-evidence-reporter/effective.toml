@@ -1,0 +1,24 @@
+name = "rag-evidence-reporter"
+description = "Produce auditable RAG evaluation summaries without mixing datasets or inventing unavailable metrics."
+triggers = [
+  "summarize RAG benchmark evidence",
+  "compare retrieval benchmark reports",
+]
+procedure = [
+  "Read the named report files and use only their summary objects as measurement evidence.",
+  "Before comparing runs, require the same dataset identity and case count; keep incompatible runs separate instead of averaging them.",
+  "Record each mode, case count, source hit rate, MRR, average latency, and P95 latency exactly as observed.",
+  "Choose a quality winner only from comparable quality metrics and a latency winner only from comparable latency metrics; report ties explicitly.",
+  "Represent disabled, unavailable, skipped, or failed Ragas measurements as not_observed with the original reason, never as zero or success.",
+  "Write a deterministic JSON summary and preserve all source reports byte-for-byte.",
+]
+verification = [
+  "Parse the generated JSON again and verify schema, dataset compatibility, case count, per-mode metrics, deltas, winners, and caveats.",
+  "Verify missing metrics remain null or not_observed and no source report changed.",
+  "Verify no prompt, answer text, credential, or unrelated repository file is copied into the summary.",
+]
+pitfalls = [
+  "Do not average metrics across different dataset paths or sample sizes.",
+  "Do not claim Ragas quality when evaluated_cases is zero or the report says unavailable or skipped.",
+  "Do not infer cost or statistical significance from latency and retrieval metrics.",
+]

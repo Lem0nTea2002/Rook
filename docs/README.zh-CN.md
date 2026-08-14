@@ -1,0 +1,60 @@
+# Rook 技术文档
+
+这里是 Rook 的实现说明书。它和仓库根目录 README 分工不同：README 告诉使用者怎样启动；本目录解释按下回车后系统实际做了什么、代码在哪、以及怎样验证改动没有“看着能跑，实际翻车”。
+
+这套文档坚持一个原则：运行时结论必须落到真实实现边界。工具描述和 JSON Schema 通过 provider 请求的原生 `tools` 字段发送，不会复制塞进 system prompt；权限安全由程序侧代码保证，不是靠 prompt 里写一句“请谨慎”。
+
+## 推荐学习路径
+
+第一次读代码，按下面顺序走最省力：
+
+1. [代码阅读指南](CODEBASE_READING_GUIDE.zh-CN.md)：先得到目录地图和一条完整执行链。
+2. [CLI / TUI 设计](CLI_TUI_DESIGN.zh-CN.md)：理解启动、装配、命令、流式输出和界面状态。
+3. [手机渠道](MOBILE_CHANNELS.zh-CN.md)：理解飞书/微信配对、项目白名单、持久队列和 IM 权限审批。
+4. [Agent 主循环护栏](AGENT_LOOP_GUARDRAILS.zh-CN.md)：理解一条用户消息如何变成模型调用与工具结果。
+5. [工具设计](TOOLS_DESIGN.zh-CN.md) 与 [权限设计](PERMISSIONS_DESIGN.zh-CN.md)：理解模型的请求怎样变成受控的本地操作。
+6. [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md)：理解会话事实、投影、压缩与任务边界。
+7. [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) 与 [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md)：理解两个主要扩展点。
+8. [Rook Forge Skill 治理](EVALOPS.md)：理解隔离配对考试、自动门禁、人工审批、双目标部署与回滚。
+9. [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md)：查看可复现控制案例、Calibration 观测、贡献边界和仍需 Formal 测量的指标。
+10. [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)：查看两个公开仓库、四个隐藏 Validator 案例及其隔离边界。
+
+如果想先用一条命令、零模型费用体验完整链路，请运行 `rook eval demo`，并查看 [Rook Forge 离线演示](DEMO.md)。
+如果想演示面向应用的交付链路，请运行
+`rook repo issue-pr-demo --approver "your-name" --output .rook/issue-pr-demo`，
+并查看 [Issue → 人工审阅 Draft PR](ISSUE_TO_PR_DEMO.md)。
+
+每篇设计文档都提供可观察的小实验和相关测试。建议边读边开源码；目标不是背文件名，而是建立能实际排障的运行模型。
+
+## 核心设计文档
+
+| 想回答的问题 | 文档 |
+| --- | --- |
+| 终端应用怎样被装配和刷新？ | [CLI / TUI 设计](CLI_TUI_DESIGN.zh-CN.md) / [English](CLI_TUI_DESIGN.md) |
+| 手机怎样安全控制本地 Rook？ | [手机渠道](MOBILE_CHANNELS.zh-CN.md) / [English](MOBILE_CHANNELS.md) |
+| 一轮任务何时停止、暂停、继续？ | [Agent 主循环护栏](AGENT_LOOP_GUARDRAILS.zh-CN.md) / [English](AGENT_LOOP_GUARDRAILS.md) |
+| 长对话怎样放进模型上下文窗口？ | [上下文管理](CONTEXT_MANAGEMENT_DESIGN.zh-CN.md) / [English](CONTEXT_MANAGEMENT_DESIGN.md) |
+| 为什么写文件、执行 shell 要确认？ | [权限设计](PERMISSIONS_DESIGN.zh-CN.md) / [English](PERMISSIONS_DESIGN.md) |
+| 函数 schema 和本地执行器怎样对应？ | [工具设计](TOOLS_DESIGN.zh-CN.md) / [English](TOOLS_DESIGN.md) |
+| 多家模型协议怎样被统一？ | [Provider 设计](PROVIDERS_DESIGN.zh-CN.md) / [English](PROVIDERS_DESIGN.md) |
+| 本地 Skill 怎样发现、路由和安全加载？ | [Skill 系统设计](SKILL_SYSTEM_DESIGN.zh-CN.md) / [English](SKILL_SYSTEM_DESIGN.md) |
+
+## 评测与运行手册
+
+这几篇是可操作流程，不是架构承诺。请从仓库根目录执行，并在相信分数前检查生成的运行产物。
+
+- [本地 Pytest 基准](LOCAL_PYTEST_BENCHMARK.zh-CN.md) / [English](LOCAL_PYTEST_BENCHMARK.md)
+- [SWE-bench 快速手册](SWE_BENCH_FAST_RUNBOOK.zh-CN.md) / [English](SWE_BENCH_FAST_RUNBOOK.md)
+- [SWE-bench Lite 手册](SWE_LITE_RUNBOOK.zh-CN.md) / [English](SWE_LITE_RUNBOOK.md)
+- [简历证据说明](PORTFOLIO_EVIDENCE.zh-CN.md) / [English](PORTFOLIO_EVIDENCE.md)
+- [Rook Forge 离线演示](DEMO.md)
+- [Issue → 人工审阅 Draft PR](ISSUE_TO_PR_DEMO.md)
+- [真实仓库 Skill Holdout](REAL_REPO_HOLDOUTS.md)
+- [项目记忆 M0 离线就绪](benchmarks/MEMORY_M0_READINESS_2026-08-03.zh-CN.md)
+- [项目记忆 A/B 冻结与 Pilot 时间线](benchmarks/MEMORY_AB_FREEZE_V1.zh-CN.md) / [Pilot 报告](benchmarks/MEMORY_PILOT_V1_2026-08-01.zh-CN.md)
+- [Codex Formal 加固时间线](incidents/CODEX_FORMAL_HARDENING.md)
+- [技术文章：把 Skill 当成软件发布](articles/ROOK_FORGE_FROM_SKILL_TO_RELEASE.zh-CN.md)
+
+## 维护约定
+
+改动运行时边界时，同一个 PR 里同步更新相应设计文档：写清新调用链、受影响状态、一个失败场景和聚焦测试命令。不要把“以后可能做”写成“已经可用”。一条准确的限制说明，比一篇精致的空气文档更有价值。

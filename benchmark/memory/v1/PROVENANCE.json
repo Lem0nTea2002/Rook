@@ -1,0 +1,66 @@
+{
+  "agent_data_boundary": {
+    "excluded": [
+      "gold patch",
+      "hidden test patch",
+      "validator command",
+      "expected output",
+      "negative-control memory content"
+    ],
+    "included": [
+      "issue title and body",
+      "repository and base commit",
+      "one matching confirmed project memory in memory arm"
+    ]
+  },
+  "benchmark_version": "memory-v1",
+  "catalog_fingerprint": "33a5692e5a50b900eeb4de5f2856b52ac628d7f82bfa013618f1a2d099a2e225",
+  "dataset": "princeton-nlp/SWE-bench_Lite",
+  "dataset_revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+  "dataset_snapshot_sha256": "311c90a7a28038402ff17fcfc09d7b866d5c60cfa0909d70163fb0f4b40fb299",
+  "memory_content_hashes": {
+    "memory_25c34193dd617186dcdb4066": "0f89afcb2f6947d605fe06a6b34e33ee847d15b4efbc341774cdf66bd5c333d3",
+    "memory_3c5a2e34dd3042847d494b9b": "aa98dc6a67a953535f730741e979010fe5bb75de4c9f153a7517f8ce27b69781",
+    "memory_3f40e1f4438fe3488dc26836": "60770f14b0103de284cb557cb28925aeaaaa59e569349f94bbc6e0893914dcad",
+    "memory_635b8ebe6aad77c132655005": "8a031a82d0e34007af7f462b8872a9d91ae995a30a84b7e86aa999215ef1c7ab",
+    "memory_8ede119d2874777a6843375d": "10b181e5e746352a2837968182c20da2ef0ec765f012810e528738da2dcf009e",
+    "memory_9937e28457979e16d6e04a37": "dd09fdfe4ba4b1c22db394a7599b222f0a96a8ad83f6bf2485d4255958d39387",
+    "memory_9f396d05d6feb44ad9139467": "0dadc125d21dadc575b797a00aecec03c4fc4ab45bac457fefc083d2bdfb9b34",
+    "memory_cfbace9bfcac095ec622c5dc": "7202d72f783a3f7c96186cc2a85f98d361383832eaf3caeac3c70bdd34b75332",
+    "memory_e74b36949f7ea095df86bab2": "f044e1bf411d514437fc7cac136d1d7dedef9a6890b027e431dfe4f685b1ea8d",
+    "memory_ff9855cbcba8af02b746ec3a": "96f715bffc624fd01764800f66a8e3a24b6939062dfcee9dd70e4f709e3874a4"
+  },
+  "schema_version": 1,
+  "selection_sha256": "001c1fce51ff052e7223bafc79e0bc8e52fe1e36dd405084c0ca195160654167",
+  "task_ids": [
+    "django__django-13220",
+    "matplotlib__matplotlib-22835",
+    "django__django-12125",
+    "pylint-dev__pylint-7114",
+    "django__django-13660",
+    "pydata__xarray-3364",
+    "astropy__astropy-12907",
+    "django__django-11019",
+    "django__django-11583",
+    "matplotlib__matplotlib-23299",
+    "astropy__astropy-14995",
+    "django__django-15902",
+    "django__django-11620",
+    "django__django-13448",
+    "django__django-12700",
+    "django__django-16379",
+    "astropy__astropy-14182",
+    "pydata__xarray-5131",
+    "matplotlib__matplotlib-23964",
+    "sympy__sympy-16106"
+  ],
+  "tool_schema_fingerprint": "1764bd818dab06a14336505173a12050",
+  "validator_commitment": {
+    "benchmark_version": "memory-v1",
+    "catalog_fingerprint": "33a5692e5a50b900eeb4de5f2856b52ac628d7f82bfa013618f1a2d099a2e225",
+    "revealed": false,
+    "schema_version": 1,
+    "validator_count": 20,
+    "validator_manifest_sha256": "3382235b9db99bd21abbb96e4f55a81c2719467488422d5b836933180634cafc"
+  }
+}

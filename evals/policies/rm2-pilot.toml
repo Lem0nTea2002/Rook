@@ -1,0 +1,14 @@
+version = "rm2-pilot-1"
+min_valid_pairs = 1
+min_trace_completeness = 1.0
+min_success_uplift = 0.0
+success_noninferiority_margin = 0.0
+min_efficiency_improvement = 0.0
+min_routing_precision = 0.0
+min_routing_recall = 0.0
+min_capability_pairs = 6
+min_candidate_capability_success_rate = 0.85
+min_capability_success_uplift = 0.25
+max_infra_exclusion_rate = 0.0
+require_positive_capability_uplift_ci = true
+require_success_uplift = true
