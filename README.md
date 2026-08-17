@@ -203,8 +203,8 @@ negative controls; loading one invalidates the evidence.
 | Stage | Current evidence |
 | --- | --- |
 | M0 offline readiness | Runtime, redaction, paired orchestration, ScoreCard, and stable reports verified with 0 Provider calls |
-| Latest Pylint/Xarray Pilot | Baseline 0% / Memory 0%; the Xarray Memory patch regressed existing behavior; no Validator success |
-| 20-pair Formal | Pending; no memory-effect resume metric is claimed |
+| Latest Pylint/Xarray Pilot | `pylint-dev__pylint-7114` and `pydata__xarray-3364`: Baseline 0% / Memory 0%; the Xarray Memory patch regressed existing behavior; no Validator success |
+| 20-pair Formal | Pending; the 0% / 0% Pilot is not a resume metric |
 
 Verify the public catalog without a model call:
 

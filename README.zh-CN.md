@@ -193,8 +193,8 @@ rook channel serve --channels feishu,weixin
 | 阶段 | 当前证据 |
 | --- | --- |
 | M0 离线就绪 | 已验证运行时、脱敏、配对编排、ScoreCard 与稳定报告；Provider 调用为 0 |
-| 最新 Pylint/Xarray Pilot | Baseline 0% / Memory 0%；Xarray Memory Patch 破坏既有行为；Validator 成功臂为 0 |
-| 20-pair Formal | 待执行；当前不形成记忆效果简历指标 |
+| 最新 Pylint/Xarray Pilot | `pylint-dev__pylint-7114` 与 `pydata__xarray-3364`：Baseline 0% / Memory 0%；Xarray Memory Patch 破坏既有行为；Validator 成功臂为 0 |
+| 20-pair Formal | 待执行；0% / 0% Pilot 不能作为简历指标 |
 
 零模型调用验证公开目录：
 

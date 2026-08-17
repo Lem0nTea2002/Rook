@@ -88,31 +88,46 @@ def test_public_pilot_evidence_is_redacted_bounded_and_not_formal() -> None:
     assert f"git+{repository}.git@v{version}" in english_readme
 
 
-def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None:
+def test_readme_leads_with_evidence_story_and_embeds_current_assets() -> None:
     english = (_ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (_ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     top = english[: english.index("## Configuration")]
+    normalized_top = " ".join(top.split())
 
     headings = (
-        "## Demo",
+        "## Verified evidence",
+        "## See the product loop",
+        "## How it works",
         "## Quickstart",
-        "## Features",
-        "## How Rook Forge works",
-        "## TUI",
-        "## Verified results",
+        "## What ships in Rook",
+        "## TUI coding workbench",
+        "## Project-memory benchmark",
     )
     assert [top.index(heading) for heading in headings] == sorted(
         top.index(heading) for heading in headings
     )
-    assert "`gpt-5.4-mini` Formal" in top
-    assert "Baseline 25% → Forced 94.4% (+69.4pp)" in top
+    assert "Candidate v5, the `release-manifest-v2-normalizer` Skill" in top
+    assert "72/72 calls completed; 36 comparable pairs" in top
+    assert "Baseline 25.0% → Forced 94.4% (+69.4pp)" in top
+    assert "Median latency -5.8%; median fully observed tokens -15.2%" in top
+    assert "0 new regressions; 100% trace completeness" in top
+    assert "Dollar cost and Codex routing activation were unobserved" in normalized_top
+    assert 'srcset="assets/readme/hero-mobile.svg"' in top
+    assert 'src="assets/readme/hero.svg"' in top
     assert "docs/images/rook-demo.gif" in top
-    assert "docs/images/rook-tui-welcome.png" in top
+    assert "docs/images/rook-tui-workbench.png" in top
+    assert "## 已验证证据" in chinese
     assert "## 快速开始" in chinese
-    assert "`gpt-5.4-mini` Formal" in chinese
-    assert "Baseline 25% → Forced 94.4%（+69.4pp）" in chinese
+    assert "`release-manifest-v2-normalizer`" in chinese
+    assert "72/72 次调用完成，形成 36 个可比配对" in chinese
+    assert "Baseline 25.0% → Forced 94.4%（+69.4pp）" in chinese
+    assert "中位时延 -5.8%，完整观测 Token 中位数 -15.2%" in chinese
+    assert "新增回归 0，轨迹完整度 100%" in chinese
 
     demo = _ROOT / "docs" / "images" / "rook-demo.gif"
+    workbench = _ROOT / "docs" / "images" / "rook-tui-workbench.png"
+    hero = _ROOT / "assets" / "readme" / "hero.svg"
+    mobile_hero = _ROOT / "assets" / "readme" / "hero-mobile.svg"
     article = (
         _ROOT
         / "docs"
@@ -122,6 +137,9 @@ def test_readme_leads_with_portfolio_story_and_embeds_published_assets() -> None
     incident = _ROOT / "docs" / "incidents" / "CODEX_FORMAL_HARDENING.md"
     assert demo.stat().st_size > 100_000
     assert demo.read_bytes()[:6] in {b"GIF87a", b"GIF89a"}
+    assert workbench.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert hero.read_text(encoding="utf-8").startswith("<svg ")
+    assert mobile_hero.read_text(encoding="utf-8").startswith("<svg ")
     assert article.exists()
     assert incident.exists()
 

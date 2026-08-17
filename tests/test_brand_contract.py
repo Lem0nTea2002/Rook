@@ -68,25 +68,38 @@ def test_filenames_and_text_have_no_legacy_identifier() -> None:
     assert not unique_violations, "Legacy identifiers remain:\n" + "\n".join(unique_violations)
 
 
-def test_readmes_use_current_rook_tui_assets() -> None:
+def test_readmes_use_current_hero_demo_and_workbench_assets() -> None:
     legacy_tui_assets = {
         "docs/images/rook-ready.png",
+        "docs/images/rook-tui-welcome.png",
+        "docs/images/rook-tui-welcome.svg",
         "docs/images/tui-chat.png",
         "docs/images/tui-empty.png",
     }
     for readme_name in ("README.md", "README.zh-CN.md"):
         text = (ROOT / readme_name).read_text(encoding="utf-8")
+        assert '<source media="(max-width: 600px)" srcset="assets/readme/hero-mobile.svg">' in text
+        assert '<img src="assets/readme/hero.svg"' in text
         assert "docs/images/rook-demo.gif" in text
         assert "docs/images/rook-mobile-demo.gif" in text
-        assert "docs/images/rook-tui-welcome.png" in text
-        assert "docs/images/rook-tui-welcome.svg" not in text
+        assert "docs/images/rook-tui-workbench.png" in text
         assert "docs/video/rook-forge-demo.mp4" not in text
         assert not any(asset in text for asset in legacy_tui_assets)
-    assert (ROOT / "docs" / "images" / "rook-demo.gif").is_file()
+
+    for hero_name in ("hero.svg", "hero-mobile.svg"):
+        hero = ROOT / "assets" / "readme" / hero_name
+        assert hero.is_file()
+        assert hero.read_text(encoding="utf-8").startswith("<svg ")
+
+    demo = ROOT / "docs" / "images" / "rook-demo.gif"
+    assert demo.is_file()
+    assert demo.read_bytes()[:6] in {b"GIF87a", b"GIF89a"}
     mobile_demo = ROOT / "docs" / "images" / "rook-mobile-demo.gif"
     assert mobile_demo.stat().st_size > 100_000
     assert mobile_demo.read_bytes()[:6] in {b"GIF87a", b"GIF89a"}
-    assert (ROOT / "docs" / "images" / "rook-tui-welcome.png").is_file()
+    workbench = ROOT / "docs" / "images" / "rook-tui-workbench.png"
+    assert workbench.is_file()
+    assert workbench.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_demo_site_uses_current_rook_tui_assets() -> None:
