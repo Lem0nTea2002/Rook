@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title description">
+  <title id="title">Rook evidence-gated coding agent</title>
+  <desc id="description">A local coding runtime connected to Rook Forge, with sealed holdout results and an auditable Skill release path.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08131f"/>
+      <stop offset="0.58" stop-color="#0b1927"/>
+      <stop offset="1" stop-color="#0d211f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38cfe0"/>
+      <stop offset="1" stop-color="#61d095"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#9cc9d0" stroke-opacity="0.055"/>
+    </pattern>
+  </defs>
+
+  <rect x="1" y="1" width="1198" height="558" rx="28" fill="url(#background)" stroke="#25465a" stroke-width="2"/>
+  <rect x="1" y="1" width="1198" height="558" rx="28" fill="url(#grid)"/>
+  <rect x="40" y="35" width="6" height="76" rx="3" fill="url(#accent)"/>
+
+  <g font-family="Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="66" y="75" fill="#f5fbff" font-size="42" font-weight="750" letter-spacing="1">ROOK</text>
+    <text x="66" y="104" fill="#a9c0cc" font-size="17">Local coding runtime · Evidence-gated Skill delivery</text>
+
+    <rect x="967" y="43" width="181" height="34" rx="17" fill="#102c2b" stroke="#61d095" stroke-opacity="0.65"/>
+    <circle cx="991" cy="60" r="5" fill="#61d095"/>
+    <text x="1006" y="66" fill="#c8f4df" font-size="14" font-weight="650">RELEASE v0.5.0</text>
+
+    <rect x="40" y="139" width="515" height="127" rx="18" fill="#0c1c2b" stroke="#25465a"/>
+    <text x="62" y="169" fill="#38cfe0" font-size="13" font-weight="700" letter-spacing="1.5">LOCAL CODING RUNTIME</text>
+
+    <rect x="62" y="187" width="112" height="34" rx="8" fill="#132b3b" stroke="#2f637b"/>
+    <text x="118" y="209" fill="#edf8fc" font-size="14" font-weight="650" text-anchor="middle">MODEL</text>
+    <text x="190" y="210" fill="#5faec2" font-size="21">→</text>
+    <rect x="216" y="187" width="112" height="34" rx="8" fill="#132b3b" stroke="#2f637b"/>
+    <text x="272" y="209" fill="#edf8fc" font-size="14" font-weight="650" text-anchor="middle">TOOLS</text>
+    <text x="344" y="210" fill="#5faec2" font-size="21">→</text>
+    <rect x="370" y="187" width="158" height="34" rx="8" fill="#122f2b" stroke="#438f6c"/>
+    <text x="449" y="209" fill="#d4f6e5" font-size="14" font-weight="650" text-anchor="middle">VERIFY + SAVE</text>
+    <text x="62" y="244" fill="#8eabba" font-size="13">Permission gates · recoverable sessions · tests · context compaction</text>
+
+    <rect x="40" y="282" width="515" height="181" rx="18" fill="#0c1c2b" stroke="#25465a"/>
+    <text x="62" y="313" fill="#61d095" font-size="13" font-weight="700" letter-spacing="1.5">ROOK FORGE · RELEASE CONTROL PLANE</text>
+
+    <g font-size="12" font-weight="650" text-anchor="middle">
+      <rect x="62" y="333" width="82" height="35" rx="7" fill="#132b3b" stroke="#2f637b"/>
+      <text x="103" y="355" fill="#eaf7fb">CANDIDATE</text>
+      <text x="153" y="356" fill="#5faec2" font-size="18">→</text>
+      <rect x="169" y="333" width="82" height="35" rx="7" fill="#132b3b" stroke="#2f637b"/>
+      <text x="210" y="355" fill="#eaf7fb">EXAMS</text>
+      <text x="260" y="356" fill="#5faec2" font-size="18">→</text>
+      <rect x="276" y="333" width="72" height="35" rx="7" fill="#132b3b" stroke="#2f637b"/>
+      <text x="312" y="355" fill="#eaf7fb">GATE</text>
+      <text x="357" y="356" fill="#5faec2" font-size="18">→</text>
+      <rect x="373" y="333" width="78" height="35" rx="7" fill="#122f2b" stroke="#438f6c"/>
+      <text x="412" y="355" fill="#d4f6e5">APPROVE</text>
+      <text x="460" y="356" fill="#5faec2" font-size="18">→</text>
+      <rect x="476" y="333" width="57" height="35" rx="7" fill="#12342d" stroke="#61d095"/>
+      <text x="504" y="355" fill="#d4f6e5">SHIP</text>
+    </g>
+    <path d="M505 381C505 424 115 424 115 381" fill="none" stroke="#3e7182" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <path d="M115 381l-5 8h10z" fill="#3e7182"/>
+    <text x="310" y="408" fill="#8eabba" font-size="13" text-anchor="middle">drift detected · content hash mismatch · atomic rollback</text>
+    <text x="62" y="442" fill="#b4c8d1" font-size="13">Baseline / Forced / Routed · ScoreCard · human approval · dual target</text>
+
+    <rect x="578" y="139" width="570" height="324" rx="18" fill="#0c1c2b" stroke="#2e5c5c"/>
+    <text x="602" y="164" fill="#61d095" font-size="13" font-weight="700" letter-spacing="1.5">SEALED HOLDOUT · CANDIDATE V5</text>
+    <text x="602" y="183" fill="#8eabba" font-size="11">release-manifest-v2-normalizer</text>
+    <text x="1124" y="183" fill="#7898a7" font-size="11" text-anchor="end">gpt-5.4-mini</text>
+
+    <rect x="602" y="188" width="158" height="92" rx="12" fill="#102534" stroke="#2b5369"/>
+    <text x="620" y="217" fill="#8fabb8" font-size="12">CALLS COMPLETED</text>
+    <text x="620" y="255" fill="#f4fbff" font-size="31" font-weight="750">72 / 72</text>
+
+    <rect x="773" y="188" width="158" height="92" rx="12" fill="#102534" stroke="#2b5369"/>
+    <text x="791" y="217" fill="#8fabb8" font-size="12">PAIRED EXAMS</text>
+    <text x="791" y="255" fill="#f4fbff" font-size="31" font-weight="750">36</text>
+
+    <rect x="944" y="188" width="180" height="92" rx="12" fill="#12342d" stroke="#4ba57a"/>
+    <text x="962" y="217" fill="#9ec8b4" font-size="11">CANDIDATE V5 SKILL TASKS</text>
+    <text x="962" y="251" fill="#d6f8e7" font-size="27" font-weight="750">25.0 → 94.4%</text>
+    <text x="962" y="270" fill="#7edaa7" font-size="11">BASELINE → FORCED</text>
+
+    <rect x="602" y="294" width="158" height="72" rx="12" fill="#102534" stroke="#2b5369"/>
+    <text x="620" y="320" fill="#8fabb8" font-size="12">MEDIAN LATENCY</text>
+    <text x="620" y="349" fill="#8ce5b6" font-size="24" font-weight="750">−5.8%</text>
+
+    <rect x="773" y="294" width="158" height="72" rx="12" fill="#102534" stroke="#2b5369"/>
+    <text x="791" y="320" fill="#8fabb8" font-size="12">MEDIAN TOKENS</text>
+    <text x="791" y="349" fill="#8ce5b6" font-size="24" font-weight="750">−15.2%</text>
+
+    <rect x="944" y="294" width="180" height="72" rx="12" fill="#102534" stroke="#2b5369"/>
+    <text x="962" y="320" fill="#8fabb8" font-size="12">NEW REGRESSIONS</text>
+    <text x="962" y="349" fill="#8ce5b6" font-size="24" font-weight="750">0</text>
+
+    <rect x="602" y="380" width="522" height="57" rx="12" fill="#0f2b29" stroke="#3b8265"/>
+    <text x="622" y="405" fill="#9ec8b4" font-size="12">TRACE COMPLETENESS</text>
+    <text x="1103" y="416" fill="#d6f8e7" font-size="28" font-weight="750" text-anchor="end">100%</text>
+
+    <line x1="40" y1="495" x2="1160" y2="495" stroke="#244454"/>
+    <circle cx="54" cy="523" r="5" fill="#38cfe0"/>
+    <text x="69" y="528" fill="#9fbbc7" font-size="13">Observed: Candidate v5 task success · latency · tokens · regressions · trace</text>
+    <circle cx="713" cy="523" r="5" fill="#627c89"/>
+    <text x="728" y="528" fill="#7894a1" font-size="13">Unobserved: dollar cost · Codex routing</text>
+  </g>
+</svg>

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" role="img" aria-labelledby="title description">
+  <title id="title">Rook Candidate v5 Skill evidence</title>
+  <desc id="description">Mobile hero for Rook showing the release-manifest-v2-normalizer sealed holdout: 72 calls, 36 pairs, task success from 25 to 94.4 percent, zero regressions, and complete traces.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08131f"/>
+      <stop offset="0.58" stop-color="#0b1927"/>
+      <stop offset="1" stop-color="#0d211f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38cfe0"/>
+      <stop offset="1" stop-color="#61d095"/>
+    </linearGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" fill="none" stroke="#9cc9d0" stroke-opacity="0.055"/>
+    </pattern>
+  </defs>
+
+  <rect x="1" y="1" width="718" height="358" rx="24" fill="url(#background)" stroke="#25465a" stroke-width="2"/>
+  <rect x="1" y="1" width="718" height="358" rx="24" fill="url(#grid)"/>
+  <rect x="28" y="25" width="5" height="64" rx="3" fill="url(#accent)"/>
+
+  <g font-family="Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="48" y="56" fill="#f5fbff" font-size="34" font-weight="750" letter-spacing="1">ROOK</text>
+    <text x="48" y="83" fill="#a9c0cc" font-size="15">Local coding runtime · evidence-gated Skill delivery</text>
+
+    <rect x="565" y="28" width="126" height="30" rx="15" fill="#102c2b" stroke="#61d095" stroke-opacity="0.65"/>
+    <circle cx="582" cy="43" r="4" fill="#61d095"/>
+    <text x="594" y="48" fill="#c8f4df" font-size="11" font-weight="650">v0.5.0</text>
+
+    <text x="28" y="123" fill="#61d095" font-size="12" font-weight="700" letter-spacing="1.4">SEALED HOLDOUT · CANDIDATE V5</text>
+    <text x="692" y="123" fill="#8eabba" font-size="11" text-anchor="end">gpt-5.4-mini</text>
+    <text x="28" y="143" fill="#8eabba" font-size="12">release-manifest-v2-normalizer</text>
+
+    <rect x="28" y="162" width="206" height="119" rx="14" fill="#102534" stroke="#2b5369"/>
+    <text x="45" y="190" fill="#8fabb8" font-size="11">CALLS · PAIRED EXAMS</text>
+    <text x="45" y="230" fill="#f4fbff" font-size="31" font-weight="750">72 / 72</text>
+    <text x="45" y="260" fill="#8ce5b6" font-size="16" font-weight="650">36 comparable pairs</text>
+
+    <rect x="257" y="162" width="226" height="119" rx="14" fill="#12342d" stroke="#4ba57a"/>
+    <text x="274" y="190" fill="#9ec8b4" font-size="11">CANDIDATE V5 SKILL TASKS</text>
+    <text x="274" y="230" fill="#d6f8e7" font-size="29" font-weight="750">25.0 → 94.4%</text>
+    <text x="274" y="260" fill="#7edaa7" font-size="13" font-weight="650">BASELINE → FORCED</text>
+
+    <rect x="506" y="162" width="186" height="119" rx="14" fill="#102534" stroke="#2b5369"/>
+    <text x="523" y="190" fill="#8fabb8" font-size="11">SAFETY · AUDIT</text>
+    <text x="523" y="225" fill="#8ce5b6" font-size="23" font-weight="750">0 regressions</text>
+    <text x="523" y="259" fill="#d6f8e7" font-size="19" font-weight="700">100% trace</text>
+
+    <line x1="28" y1="306" x2="692" y2="306" stroke="#244454"/>
+    <circle cx="39" cy="330" r="4" fill="#38cfe0"/>
+    <text x="52" y="335" fill="#9fbbc7" font-size="12">Observed efficiency: median latency −5.8% · tokens −15.2%</text>
+  </g>
+</svg>
