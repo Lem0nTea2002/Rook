@@ -27,7 +27,7 @@ Issues = "https://github.com/Lem0nTea2002/Rook/issues"
 [project.optional-dependencies]
 dev = [
     "build>=1.2,<2",
-    "mypy>=1.16,<2",
+    "mypy>=1.16,<3",
     "pip-audit>=2.9,<3",
     "pytest>=9.0.3,<10",
     "pytest-cov>=6,<8",
